@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { after } from "next/server";
 import Link from "next/link";
 import { ArrowRight, PackageSearch, PackagePlus, Repeat, Truck } from "lucide-react";
 import { requireSession } from "@/server/auth/session";
@@ -28,17 +29,25 @@ export default async function Dashboard() {
     recommendations(s.orgId, 6),
     fleetBackhaul(s.orgId),
   ]);
-  // Alerts check is cheap (few saved searches); runs on dashboard visit until a scheduler is added.
-  await checkSavedSearches(s.userId, s.orgId);
-
-  // Log recommendations shown today (for the acceptance-rate KPI), at most once per pair per day.
-  if (recs.length) {
-    const since = new Date(Date.now() - 86_400_000);
-    const existing = await db.recommendation.findMany({ where: { orgId: s.orgId, createdAt: { gte: since } }, select: { truckId: true, offerId: true } });
-    const seen = new Set(existing.map((e) => `${e.truckId}:${e.offerId}`));
-    const fresh = recs.filter((r) => !seen.has(`${r.truck.id}:${r.offer.id}`));
-    if (fresh.length) await db.recommendation.createMany({ data: fresh.map((r) => ({ orgId: s.orgId, truckId: r.truck.id, offerId: r.offer.id, score: r.match.score, action: "SHOWN" })) });
-  }
+  // Both deferred via `after()`, not awaited: neither affects what's rendered (alerts land as
+  // notifications, "SHOWN" rows are write-only analytics for the acceptance-rate KPI), and the
+  // saved-search check in particular re-runs the full load-board query per saved search (joins
+  // + in-memory ranking) — too heavy for the critical path of every dashboard render. `after()`
+  // (not a bare fire-and-forget) keeps the serverless function alive until these finish even
+  // though the response has already been sent — a plain un-awaited promise can get cut off
+  // mid-flight on Vercel once the response completes. (The saved-search check running on every
+  // dashboard visit is still a stopgap per the original comment; a real scheduler is the proper
+  // fix, tracked in the README.)
+  after(async () => {
+    await checkSavedSearches(s.userId, s.orgId).catch((e) => console.error("[alerts]", e));
+    if (recs.length) {
+      const since = new Date(Date.now() - 86_400_000);
+      const existing = await db.recommendation.findMany({ where: { orgId: s.orgId, createdAt: { gte: since } }, select: { truckId: true, offerId: true } });
+      const seen = new Set(existing.map((e) => `${e.truckId}:${e.offerId}`));
+      const fresh = recs.filter((r) => !seen.has(`${r.truck.id}:${r.offer.id}`));
+      if (fresh.length) await db.recommendation.createMany({ data: fresh.map((r) => ({ orgId: s.orgId, truckId: r.truck.id, offerId: r.offer.id, score: r.match.score, action: "SHOWN" })) });
+    }
+  });
 
   const hour = Number(new Date().toLocaleString("en-GB", { hour: "2-digit", hour12: false, timeZone: "Asia/Tashkent" }));
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";

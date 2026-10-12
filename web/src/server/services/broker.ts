@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { db } from "../db";
 
 /**
@@ -77,8 +78,21 @@ export async function brokerReliability(brokerId: string): Promise<BrokerReliabi
   return computeReliability(b.verified, b.reviews, trips);
 }
 
-/** Batch version for ranking many offers at once. */
+/**
+ * Batch version for ranking many offers at once — called once per `getMatchContext()`, which
+ * itself runs several times per dashboard/load-board request. Cached so those calls share one
+ * table scan instead of repeating it. (unstable_cache round-trips through JSON, so this returns
+ * entries, not a Map — a Map doesn't survive that serialization.)
+ */
+const brokerScoreEntriesCached = unstable_cache(
+  async (): Promise<[string, BrokerReliability][]> => {
+    const brokers = await db.broker.findMany({ include: { reviews: true } });
+    return brokers.map((b) => [b.id, computeReliability(b.verified, b.reviews, 0)]);
+  },
+  ["broker-scores"],
+  { revalidate: 120 },
+);
+
 export async function brokerScores(): Promise<Map<string, BrokerReliability>> {
-  const brokers = await db.broker.findMany({ include: { reviews: true } });
-  return new Map(brokers.map((b) => [b.id, computeReliability(b.verified, b.reviews, 0)]));
+  return new Map(await brokerScoreEntriesCached());
 }

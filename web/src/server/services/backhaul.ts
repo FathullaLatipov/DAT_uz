@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { demoOfferFilter } from "../domain/demo";
 import { CITIES, estimateTransitDays, getCity, haversineKm } from "../domain/geo";
-import { getMatchContext, getMatchTrucks, toMatchOffer, type OfferWithRels } from "./freight";
+import { getMatchContext, getMatchTrucks, offerInclude, toMatchOffer, type OfferWithRels } from "./freight";
 import { scoreMatch, type MatchResult, type MatchTruck } from "./matching";
 
 const DAY = 86_400_000;
@@ -19,13 +19,6 @@ export interface BackhaulPlan {
   totalFound: number;
 }
 
-const include = {
-  originCity: true,
-  destCity: true,
-  broker: true,
-  listings: { select: { sourceId: true, lastSeenAt: true, source: { select: { name: true, isDemo: true } } } },
-} as const;
-
 /**
  * Return / onward loads near the city where a truck will become free.
  * Searches within `radiusKm` of the arrival city, loading from arrival−12h to arrival+4 days.
@@ -41,7 +34,7 @@ export async function findBackhaul(orgId: string, truck: MatchTruck, arrivalCity
         originCityId: { in: nearby },
         loadingDate: { gte: new Date(arrivalAt.getTime() - DAY / 2), lte: new Date(arrivalAt.getTime() + 4 * DAY) },
       },
-      include,
+      include: offerInclude,
     }),
     getMatchContext(orgId),
   ]);
@@ -61,14 +54,10 @@ export async function fleetBackhaul(orgId: string) {
     where: { orgId, status: { in: ["LOADING", "IN_TRANSIT", "UNLOADING"] } },
     include: { trips: { where: { status: { in: ["PLANNED", "IN_TRANSIT"] } }, orderBy: { startedAt: "desc" }, take: 1 } },
   });
-  const plans: BackhaulPlan[] = [];
-  for (const b of busy) {
-    const trip = b.trips[0];
-    const t = trucks.find((x) => x.id === b.id);
-    if (!trip || !t) continue;
-    plans.push(await findBackhaul(orgId, t, trip.destCityId, trip.etaAt ?? new Date(Date.now() + DAY)));
-  }
-  return plans;
+  const jobs = busy
+    .map((b) => ({ trip: b.trips[0], t: trucks.find((x) => x.id === b.id) }))
+    .filter((j): j is { trip: NonNullable<typeof j.trip>; t: NonNullable<typeof j.t> } => !!j.trip && !!j.t);
+  return Promise.all(jobs.map((j) => findBackhaul(orgId, j.t, j.trip.destCityId, j.trip.etaAt ?? new Date(Date.now() + DAY))));
 }
 
 export interface ChainLeg {

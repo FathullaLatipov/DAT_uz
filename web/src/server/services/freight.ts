@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { cache } from "react";
 import { db, parseJson } from "../db";
 import { CITIES, getCity, haversineKm } from "../domain/geo";
 import { brokerScores } from "./broker";
@@ -59,10 +60,13 @@ export const toMatchOffer = (o: {
   paymentTerms: string | null; brokerId: string | null;
 }): MatchOffer => o;
 
+// originCity/destCity/broker are deliberately NOT joined here: every list/card component
+// resolves city names from the static `getCity()` table (src/server/domain/geo.ts), not from
+// the DB relation, and `.broker` is only read on the single-offer detail pages, which run their
+// own separate `include` (`getOfferDetail` below, and `load/[id]/page.tsx`). Those 3 joins on
+// every row of a list query (up to ~2000 for the load board, ~11k pre-fix for the dashboard)
+// were pure waste — confirmed by grepping every consumer of `OfferWithRels` before removing them.
 export const offerInclude = {
-  originCity: true,
-  destCity: true,
-  broker: true,
   listings: { select: { sourceId: true, lastSeenAt: true, source: { select: { name: true, isDemo: true } } } },
 } satisfies Prisma.FreightOfferInclude;
 
@@ -197,15 +201,42 @@ export interface Recommendation {
   truck: MatchTruck;
 }
 
+const matchingOfferSelect = {
+  id: true, originCityId: true, destCityId: true, originCountry: true, destCountry: true, loadingDate: true,
+  weightKg: true, volumeM3: true, bodyType: true, cargoType: true, distanceKm: true, rateUsd: true,
+  paymentTerms: true, brokerId: true, qualityFlags: true, sourceCreatedAt: true, createdAt: true,
+} satisfies Prisma.FreightOfferSelect;
+type MatchingOffer = Prisma.FreightOfferGetPayload<{ select: typeof matchingOfferSelect }>;
+
+/**
+ * The active-offer set that `recommendations()` and `opportunityCounts()` both scan — same
+ * ~11k-row query, fetched twice per dashboard render before this. A `select` of just the ~14
+ * scalar fields `scoreMatch` actually needs (instead of `include: offerInclude`, which joins
+ * originCity/destCity/broker/listings+source onto every one of those ~11k rows) measured at
+ * 6-17s against hosted Postgres, vs. ~3s for the same rows as plain scalars. The full relations
+ * are only needed for the handful of offers actually shown, fetched separately below.
+ *
+ * This does NOT get an `unstable_cache` wrapper: the scalar rows alone still serialize to
+ * ~5MB, over Next's hard 2MB-per-entry Data Cache limit — it would silently never hit (spent a
+ * round of profiling confirming exactly that, via the "items over 2MB can not be cached" log
+ * line). `cache()` (React's per-request memoization — no serialization) at least dedupes the
+ * one DB round trip across recommendations+opportunityCounts within a single render; getting
+ * this below the 2MB ceiling for real cross-request caching needs filtering the row count down
+ * (e.g. by the org's truck locations, the way findBackhaul already scopes by city), which is a
+ * further follow-up, not a safe one to rush.
+ */
+const activeOffersForMatching = cache((): Promise<MatchingOffer[]> =>
+  db.freightOffer.findMany({ where: { status: "ACTIVE", ...demoOfferFilter() }, select: matchingOfferSelect }),
+);
+
 /** Top recommendations across the fleet: best eligible (truck, load) pairs, one load per truck slot. */
 export async function recommendations(orgId: string, limit = 6, opts?: { truckId?: string; fromCityId?: string }): Promise<Recommendation[]> {
-  const [offers, ctx, trucksAll] = await Promise.all([
-    db.freightOffer.findMany({ where: { status: "ACTIVE", ...demoOfferFilter(), rateUsd: { gt: 0 }, NOT: { qualityFlags: { contains: "SUSPICIOUS_RATE" } }, ...(opts?.fromCityId ? { originCityId: opts.fromCityId } : {}) }, include: offerInclude }),
-    getMatchContext(orgId),
-    getMatchTrucks(orgId),
-  ]);
+  const [allOffers, ctx, trucksAll] = await Promise.all([activeOffersForMatching(), getMatchContext(orgId), getMatchTrucks(orgId)]);
+  const offers = allOffers.filter(
+    (o) => o.rateUsd > 0 && !o.qualityFlags.includes("SUSPICIOUS_RATE") && (!opts?.fromCityId || o.originCityId === opts.fromCityId),
+  );
   const trucks = opts?.truckId ? trucksAll.filter((t) => t.id === opts.truckId) : trucksAll;
-  const pairs: Recommendation[] = [];
+  const pairs: { offer: MatchingOffer; match: MatchResult; truck: MatchTruck }[] = [];
   for (const t of trucks)
     for (const o of offers) {
       const m = scoreMatch(t, toMatchOffer(o), ctx);
@@ -215,7 +246,7 @@ export async function recommendations(orgId: string, limit = 6, opts?: { truckId
   // Diversify: avoid one truck or one load dominating the list.
   const usedOffers = new Set<string>();
   const perTruck = new Map<string, number>();
-  const out: Recommendation[] = [];
+  const out: typeof pairs = [];
   const cap = opts?.truckId ? limit : 2;
   for (const p of pairs) {
     if (usedOffers.has(p.offer.id) || (perTruck.get(p.truck.id) ?? 0) >= cap) continue;
@@ -224,16 +255,19 @@ export async function recommendations(orgId: string, limit = 6, opts?: { truckId
     perTruck.set(p.truck.id, (perTruck.get(p.truck.id) ?? 0) + 1);
     if (out.length >= limit) break;
   }
-  return out;
+  if (!out.length) return [];
+  // Only the ≤`limit` winners need their full relations (origin/dest city, broker, sources).
+  const full = await db.freightOffer.findMany({ where: { id: { in: out.map((p) => p.offer.id) } }, include: offerInclude });
+  const byId = new Map(full.map((o) => [o.id, o]));
+  return out.flatMap((p) => {
+    const offer = byId.get(p.offer.id);
+    return offer ? [{ offer, match: p.match, truck: p.truck }] : [];
+  });
 }
 
 /** Count of active loads with at least one eligible truck, and of strong matches. */
 export async function opportunityCounts(orgId: string) {
-  const [offers, ctx, trucks] = await Promise.all([
-    db.freightOffer.findMany({ where: { status: "ACTIVE", ...demoOfferFilter() } }),
-    getMatchContext(orgId),
-    getMatchTrucks(orgId),
-  ]);
+  const [offers, ctx, trucks] = await Promise.all([activeOffersForMatching(), getMatchContext(orgId), getMatchTrucks(orgId)]);
   let matching = 0;
   let strong = 0;
   const dayAgo = Date.now() - 86_400_000;

@@ -1,3 +1,4 @@
+import { unstable_cache, revalidateTag } from "next/cache";
 import { db } from "../db";
 import { demoOfferFilter } from "../domain/demo";
 import { CITIES, getCity } from "../domain/geo";
@@ -45,39 +46,51 @@ export interface LaneStats {
   isDemo: boolean;
 }
 
-let cache: { at: number; obs: Obs[]; trucksByCity: Map<string, number> } | null = null;
+// `obs`/`trucksByCity` are rebuilt from a near-full scan of FreightOffer (45-day window) plus
+// a truck groupBy — cheap against a local SQLite file, but a real network round trip against a
+// hosted Postgres, and this is on the critical path of the dashboard, load board and market
+// pages alike. Cached via Next's Data Cache (durable across serverless instances, unlike a
+// plain in-memory variable) and explicitly invalidated wherever a mutation can change it.
+const MARKET_TAG = "market";
+
+const loadCached = unstable_cache(
+  async (): Promise<{ obs: Obs[]; trucksByCityEntries: [string, number][] }> => {
+    const since = new Date(Date.now() - WINDOW_DAYS * DAY);
+    const [offers, trucks] = await Promise.all([
+      db.freightOffer.findMany({
+        where: { OR: [{ sourceCreatedAt: { gte: since } }, { createdAt: { gte: since } }], rateUsd: { gt: 0 }, distanceKm: { gt: 0 }, ...demoOfferFilter() },
+        select: { id: true, originCityId: true, destCityId: true, originCountry: true, destCountry: true, rateUsd: true, distanceKm: true, sourceCreatedAt: true, createdAt: true, status: true, qualityFlags: true, isDemo: true },
+      }),
+      db.truck.groupBy({ by: ["currentCityId"], where: { status: "AVAILABLE" }, _count: true }),
+    ]);
+    const obs: Obs[] = offers
+      // Suspicious rates never feed market statistics.
+      .filter((o) => !o.qualityFlags.includes("SUSPICIOUS_RATE"))
+      .map((o) => ({
+        id: o.id,
+        o: o.originCityId,
+        d: o.destCityId,
+        oc: o.originCountry,
+        dc: o.destCountry,
+        perKm: o.rateUsd / o.distanceKm,
+        rateUsd: o.rateUsd,
+        at: (o.sourceCreatedAt ?? o.createdAt).getTime(),
+        active: o.status === "ACTIVE",
+        isDemo: o.isDemo,
+      }));
+    return { obs, trucksByCityEntries: trucks.map((t) => [t.currentCityId, t._count]) };
+  },
+  ["market-load"],
+  { revalidate: 60, tags: [MARKET_TAG] },
+);
 
 async function load() {
-  if (cache && Date.now() - cache.at < 60_000) return cache;
-  const since = new Date(Date.now() - WINDOW_DAYS * DAY);
-  const [offers, trucks] = await Promise.all([
-    db.freightOffer.findMany({
-      where: { OR: [{ sourceCreatedAt: { gte: since } }, { createdAt: { gte: since } }], rateUsd: { gt: 0 }, distanceKm: { gt: 0 }, ...demoOfferFilter() },
-      select: { id: true, originCityId: true, destCityId: true, originCountry: true, destCountry: true, rateUsd: true, distanceKm: true, sourceCreatedAt: true, createdAt: true, status: true, qualityFlags: true, isDemo: true },
-    }),
-    db.truck.groupBy({ by: ["currentCityId"], where: { status: "AVAILABLE" }, _count: true }),
-  ]);
-  const obs: Obs[] = offers
-    // Suspicious rates never feed market statistics.
-    .filter((o) => !o.qualityFlags.includes("SUSPICIOUS_RATE"))
-    .map((o) => ({
-      id: o.id,
-      o: o.originCityId,
-      d: o.destCityId,
-      oc: o.originCountry,
-      dc: o.destCountry,
-      perKm: o.rateUsd / o.distanceKm,
-      rateUsd: o.rateUsd,
-      at: (o.sourceCreatedAt ?? o.createdAt).getTime(),
-      active: o.status === "ACTIVE",
-      isDemo: o.isDemo,
-    }));
-  cache = { at: Date.now(), obs, trucksByCity: new Map(trucks.map((t) => [t.currentCityId, t._count])) };
-  return cache;
+  const { obs, trucksByCityEntries } = await loadCached();
+  return { obs, trucksByCity: new Map(trucksByCityEntries) };
 }
 
 export function invalidateMarketCache() {
-  cache = null;
+  revalidateTag(MARKET_TAG);
 }
 
 const mean = (xs: number[]) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : null);
