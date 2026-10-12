@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { unstable_cache } from "next/cache";
 import { db } from "../db";
 import { demoOfferFilter } from "../domain/demo";
 import { countryName, getCity } from "../domain/geo";
@@ -74,7 +75,15 @@ function summarize(list: { originCityId: string; destCityId: string; rateUsd: nu
     .sort((a, b) => b.loads - a.loads);
 }
 
-export async function catalogOverview() {
+/**
+ * Scans every active offer to build the homepage/catalog aggregates — cheap against a local
+ * SQLite file, but a full-table network round trip against a hosted Postgres (Neon). Cached
+ * for a few minutes: this data only needs to be "roughly live", not request-fresh, and a stale
+ * window this short is invisible next to how often new listings actually arrive.
+ */
+export const catalogOverview = unstable_cache(async () => computeCatalogOverview(), ["catalog-overview"], { revalidate: 180 });
+
+async function computeCatalogOverview() {
   const offers = await db.freightOffer.findMany({
     where: publicWhere(),
     select: { originCityId: true, destCityId: true, originCountry: true, destCountry: true, rateUsd: true, qualityFlags: true, distanceKm: true, loadingDate: true, isDemo: true },
@@ -153,6 +162,8 @@ export async function publicSearch(f: LoadFilters, sort: PublicSort, page: numbe
   return { items, total, page, pages: Math.max(1, Math.ceil(total / pageSize)) };
 }
 
-export async function latestLoads(n = 8) {
-  return db.freightOffer.findMany({ where: publicWhere(), include: offerInclude, orderBy: { createdAt: "desc" }, take: n });
-}
+export const latestLoads = unstable_cache(
+  async (n = 8) => db.freightOffer.findMany({ where: publicWhere(), include: offerInclude, orderBy: { createdAt: "desc" }, take: n }),
+  ["latest-loads"],
+  { revalidate: 60 },
+);
