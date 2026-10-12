@@ -6,13 +6,13 @@ Karvon ranks freight loads for a specific truck. For each load it scores fit, es
 
 ## Quick start
 
-Requirements: Node.js 20+ (the project was built with Node 22).
+Requirements: Node.js 20+ (the project was built with Node 22) and a PostgreSQL database — a free [Neon](https://neon.tech) project works well and is what production (Vercel) uses too.
 
 ```bash
 cd web
 npm install
-cp .env.example .env          # then set AUTH_SECRET to 32+ random characters
-npx prisma migrate dev        # creates SQLite dev.db and runs the seed
+cp .env.example .env          # set DATABASE_URL to your Postgres connection string, AUTH_SECRET to 32+ random characters
+npx prisma migrate dev        # creates the schema and runs the seed
 npm run dev                   # http://localhost:3000
 ```
 
@@ -30,8 +30,9 @@ Other scripts: `npm run build`, `npm start`, `npm test` (unit tests for the dete
 
 | Variable | Purpose |
 |---|---|
-| `DATABASE_URL` | `file:./dev.db` for SQLite. For Postgres, set `provider = "postgresql"` in `prisma/schema.prisma` and run `prisma migrate dev`. |
+| `DATABASE_URL` | PostgreSQL connection string (e.g. a Neon project). Required — SQLite is not supported (Vercel's serverless functions have a read-only filesystem). |
 | `AUTH_SECRET` | HS256 session signing key. Required in production. |
+| `COOKIE_SECURE` | Set to `1` in production (Vercel) so the session cookie is marked Secure. Leave unset for local HTTP. |
 | `ANTHROPIC_API_KEY` | Optional. Enables the LLM query parser and summaries. Without it, a rule-based parser is used (EN/RU/UZ). |
 | `ANTHROPIC_MODEL` | Optional. Defaults to `claude-opus-5-5`. |
 | `NEXT_PUBLIC_MAP_TILES` | Raster tile URL. Defaults to OSM standard tiles, which are fine for development only; use a commercial or self-hosted provider in production. |
@@ -108,6 +109,21 @@ Scraping either site is therefore off the table.
 Data-quality rules for real feeds: listings from the same source are never merged with each other, real and demo data never merge, and rates flagged `SUSPICIOUS_RATE` (implausible $/km) are hidden from public pages and excluded from recommendations and market statistics.
 
 Every external board is registered as an adapter in the "Integration not configured" state, with access notes; see `src/server/ingestion/adapters/external.ts`. To enable one, implement its `fetch()` against the provider's documented API after confirming its licence terms, then set its credentials env var.
+
+## Deploying to Vercel
+
+1. **Database**: create a Postgres project (e.g. [Neon](https://neon.tech), free tier) and copy its connection string.
+2. **Push to GitHub**, then import the repo in Vercel, with `web/` as the project root.
+3. **Environment variables** (Vercel project settings → Environment Variables):
+   - `DATABASE_URL` — the Postgres connection string.
+   - `AUTH_SECRET` — 32+ random chars (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
+   - `COOKIE_SECURE=1` — Vercel serves over HTTPS, so the session cookie must be marked Secure.
+   - `PUBLIC_HIDE_DEMO=1` — once real data is flowing, hides the generated demo freight.
+   - Any of the optional ones from the table above you want (`ANTHROPIC_API_KEY`, `TELEGRAM_INGEST_SECRET`, …).
+4. **Deploy.** The build runs `prisma migrate deploy` automatically (see `package.json`'s `build` script) before `next build`, so the schema is created/updated on every deploy — no manual migration step.
+5. **Seed data (optional, once)**: run `npx prisma db seed` (or `npm run db:seed`) locally with `DATABASE_URL` pointed at the same Postgres project, to get the demo accounts and demo market data on the live site too.
+
+The local Telegram listener (`scripts/telegram-listener/`) keeps running on your machine and posts to whatever `KARVON_URL` its `.env*` files point at — change that to your `https://<project>.vercel.app` URL (and `KARVON_INGEST_SECRET` to match the deployed `TELEGRAM_INGEST_SECRET`) if you want it to feed the live site directly instead of (or in addition to) local dev.
 
 ## What's verified
 

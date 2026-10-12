@@ -1,15 +1,20 @@
 // Karvon — Freight Intelligence Platform
-// SQLite for local development. To move to PostgreSQL change `provider` to "postgresql",
-// set DATABASE_URL and run `prisma migrate dev`. String-typed enums are validated in
-// src/server/domain/enums.ts so the schema stays portable across both engines.
+// PostgreSQL (required for Vercel — its serverless functions have a read-only filesystem,
+// so a SQLite file can't live there). String-typed enums are validated in
+// src/server/domain/enums.ts so the schema stays portable across engines.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // Pooled connection (pgbouncer) — what the app uses at runtime; serverless functions open
+  // many short-lived connections, and pooling keeps that under Postgres' connection limit.
+  url       = env("DATABASE_URL")
+  // Direct (non-pooled) connection — pgbouncer's transaction-mode pooling doesn't support the
+  // session-level features (advisory locks, prepared statements) `prisma migrate` needs.
+  directUrl = env("DIRECT_URL")
 }
 
 // ───────────────────────────── Identity & tenancy ─────────────────────────────
