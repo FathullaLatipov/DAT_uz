@@ -90,7 +90,7 @@ Enums are stored as strings and validated with zod, which keeps the schema porta
 | `/app/post` | Shippers and brokers post loads. Posted loads go through the same normalize → quality → dedupe pipeline under the first-party source `karvon` |
 | `/about` | Product landing page |
 
-When real data is flowing, set `PUBLIC_HIDE_DEMO=1` to keep demo listings off the public pages.
+When real data is flowing, set `HIDE_DEMO=1` to keep demo listings off the public pages.
 
 ### Data sources: policy
 
@@ -118,7 +118,7 @@ Every external board is registered as an adapter in the "Integration not configu
    - `DATABASE_URL` — the Postgres connection string.
    - `AUTH_SECRET` — 32+ random chars (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
    - `COOKIE_SECURE=1` — Vercel serves over HTTPS, so the session cookie must be marked Secure.
-   - `PUBLIC_HIDE_DEMO=1` — once real data is flowing, hides the generated demo freight.
+   - `HIDE_DEMO=1` — once real data is flowing, hides the generated demo freight.
    - Any of the optional ones from the table above you want (`ANTHROPIC_API_KEY`, `TELEGRAM_INGEST_SECRET`, …).
 4. **Deploy.** The build runs `prisma migrate deploy` automatically (see `package.json`'s `build` script) before `next build`, so the schema is created/updated on every deploy — no manual migration step.
 5. **Seed data (optional, once)**: run `npx prisma db seed` (or `npm run db:seed`) locally with `DATABASE_URL` pointed at the same Postgres project, to get the demo accounts and demo market data on the live site too.

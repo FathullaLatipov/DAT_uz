@@ -10,7 +10,7 @@ import type { LoadFilters } from "./filters";
  * loads as listings. Everything is computed from active offers in the database.
  */
 
-/** Set PUBLIC_HIDE_DEMO=1 once real sources are live to keep demo listings off public pages. */
+/** Set HIDE_DEMO=1 once real sources are live to keep demo listings off public pages. */
 export const publicWhere = (): Prisma.FreightOfferWhereInput => ({ status: "ACTIVE", ...demoOfferFilter() });
 
 export const routeSlug = (o: string, d: string) => `${o}--${d}`;
