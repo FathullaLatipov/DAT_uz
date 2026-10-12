@@ -1,0 +1,247 @@
+import type { Prisma } from "@prisma/client";
+import { db, parseJson } from "../db";
+import { CITIES, getCity, haversineKm } from "../domain/geo";
+import { brokerScores } from "./broker";
+import { laneBenchmarks, outboundCounts } from "./market";
+import { bestTruckFor, scoreMatch, type MatchContext, type MatchOffer, type MatchResult, type MatchTruck } from "./matching";
+import type { LoadFilters } from "./filters";
+import { demoOfferFilter } from "../domain/demo";
+
+export async function getMatchContext(orgId: string): Promise<MatchContext> {
+  const [pref, routes, benchmarks, brokers, outbound] = await Promise.all([
+    db.orgPreference.findUnique({ where: { orgId } }),
+    db.preferredRoute.findMany({ where: { orgId } }),
+    laneBenchmarks(),
+    brokerScores(),
+    outboundCounts(),
+  ]);
+  return {
+    prefs: {
+      minRatePerKmUsd: pref?.minRatePerKmUsd ?? null,
+      maxDeadheadKm: pref?.maxDeadheadKm ?? 150,
+      preferredCargo: parseJson(pref?.preferredCargo, []),
+      preferredCountries: parseJson(pref?.preferredCountries, []),
+      paymentTerms: parseJson(pref?.paymentTerms, []),
+      routes: routes.map((r) => ({ originCityId: r.originCityId, destCityId: r.destCityId, destCountry: r.destCountry })),
+    },
+    benchmarks,
+    brokerScore: (id) => (id ? (brokers.get(id)?.score ?? null) : null),
+    outbound,
+  };
+}
+
+/**
+ * Trucks as the matcher sees them: a truck that is in transit is "available" at its
+ * destination from its ETA — that's what lets backhaul loads be found before arrival.
+ */
+export async function getMatchTrucks(orgId: string, opts?: { includeBusy?: boolean }): Promise<MatchTruck[]> {
+  const trucks = await db.truck.findMany({
+    where: { orgId },
+    include: { trips: { where: { status: { in: ["PLANNED", "IN_TRANSIT"] } }, orderBy: { startedAt: "desc" }, take: 1 } },
+    orderBy: { code: "asc" },
+  });
+  return trucks
+    .filter((t) => opts?.includeBusy || !["MAINTENANCE", "OFFLINE"].includes(t.status))
+    .map((t) => {
+      const trip = t.trips[0];
+      const busy = trip && ["LOADING", "IN_TRANSIT", "UNLOADING"].includes(t.status);
+      return {
+        ...t,
+        currentCityId: busy ? trip.destCityId : t.currentCityId,
+        availableFrom: busy && trip.etaAt ? trip.etaAt : t.availableFrom,
+      };
+    });
+}
+
+export const toMatchOffer = (o: {
+  id: string; originCityId: string; destCityId: string; originCountry: string; destCountry: string; loadingDate: Date;
+  weightKg: number; volumeM3: number | null; bodyType: string; cargoType: string; distanceKm: number; rateUsd: number;
+  paymentTerms: string | null; brokerId: string | null;
+}): MatchOffer => o;
+
+export const offerInclude = {
+  originCity: true,
+  destCity: true,
+  broker: true,
+  listings: { select: { sourceId: true, lastSeenAt: true, source: { select: { name: true, isDemo: true } } } },
+} satisfies Prisma.FreightOfferInclude;
+
+export type OfferWithRels = Prisma.FreightOfferGetPayload<{ include: typeof offerInclude }>;
+
+export interface LoadRow {
+  offer: OfferWithRels;
+  match: MatchResult | null;
+  truckCode: string | null;
+  sources: { id: string; name: string }[];
+  flags: string[];
+  favorite: boolean;
+}
+
+function citiesWithin(cityId: string, radiusKm: number) {
+  const c = getCity(cityId);
+  if (!c) return [cityId];
+  return CITIES.filter((x) => haversineKm(c, x) <= radiusKm).map((x) => x.id);
+}
+
+export function buildWhere(f: LoadFilters): Prisma.FreightOfferWhereInput {
+  const and: Prisma.FreightOfferWhereInput[] = [{ status: "ACTIVE" }, demoOfferFilter()];
+  if (f.origin) and.push({ originCityId: { in: f.radiusKm ? citiesWithin(f.origin, f.radiusKm) : [f.origin] } });
+  if (f.originCountry) and.push({ originCountry: f.originCountry });
+  if (f.dest) and.push({ destCityId: f.dest });
+  if (f.destCountry) and.push({ destCountry: f.destCountry });
+  if (f.loadingFrom) and.push({ loadingDate: { gte: new Date(`${f.loadingFrom}T00:00:00Z`) } });
+  if (f.loadingTo) and.push({ loadingDate: { lte: new Date(`${f.loadingTo}T23:59:59Z`) } });
+  if (f.unloadingTo) and.push({ OR: [{ unloadingDate: null }, { unloadingDate: { lte: new Date(`${f.unloadingTo}T23:59:59Z`) } }] });
+  if (f.cargo?.length) and.push({ cargoType: { in: f.cargo } });
+  if (f.body?.length) and.push({ bodyType: { in: f.body } });
+  if (f.weightMin != null) and.push({ weightKg: { gte: f.weightMin } });
+  if (f.weightMax != null) and.push({ weightKg: { lte: f.weightMax } });
+  if (f.volumeMin != null) and.push({ volumeM3: { gte: f.volumeMin } });
+  if (f.rateMin != null) and.push({ rateUsd: { gte: f.rateMin } });
+  if (f.currency) and.push({ currency: f.currency });
+  if (f.payment?.length) and.push({ paymentTerms: { in: f.payment } });
+  if (f.brokerId) and.push({ brokerId: f.brokerId });
+  if (f.source) and.push({ listings: { some: { sourceId: f.source } } });
+  if (f.verifiedOnly) and.push({ quality: "VERIFIED" });
+  if (f.distanceMin != null) and.push({ distanceKm: { gte: f.distanceMin } });
+  if (f.distanceMax != null) and.push({ distanceKm: { lte: f.distanceMax } });
+  return { AND: and };
+}
+
+export interface SearchResult {
+  rows: LoadRow[];
+  all: { id: string; o: string; d: string; rateUsd: number; score: number | null }[];
+  total: number;
+  page: number;
+  pageSize: number;
+  truckCount: number;
+}
+
+export async function searchLoads(orgId: string, userId: string, f: LoadFilters, page = 1, pageSize = 25): Promise<SearchResult> {
+  const [offers, ctx, allTrucks, favs] = await Promise.all([
+    db.freightOffer.findMany({ where: buildWhere(f), include: offerInclude, take: 2000 }),
+    getMatchContext(orgId),
+    getMatchTrucks(orgId),
+    db.favorite.findMany({ where: { userId }, select: { offerId: true } }),
+  ]);
+  const trucks = f.truckId ? allTrucks.filter((t) => t.id === f.truckId) : allTrucks;
+  const favSet = new Set(favs.map((x) => x.offerId));
+  const codeById = new Map(trucks.map((t) => [t.id, t.code]));
+
+  let rows: LoadRow[] = offers.map((o) => {
+    const match = trucks.length ? bestTruckFor(trucks, toMatchOffer(o), ctx) : null;
+    const srcMap = new Map(o.listings.map((l) => [l.sourceId, l.source.name]));
+    return {
+      offer: o,
+      match,
+      truckCode: match ? (codeById.get(match.truckId) ?? null) : null,
+      sources: [...srcMap].map(([id, name]) => ({ id, name })),
+      flags: parseJson<string[]>(o.qualityFlags, []),
+      favorite: favSet.has(o.id),
+    };
+  });
+
+  if (f.ratePerKmMin != null) rows = rows.filter((r) => r.offer.rateUsd / r.offer.distanceKm >= f.ratePerKmMin!);
+  if (f.minScore != null) rows = rows.filter((r) => r.match && r.match.eligible && r.match.score >= f.minScore!);
+  if (f.maxDeadhead != null) rows = rows.filter((r) => r.match && r.match.deadheadKm <= f.maxDeadhead!);
+
+  const sort = f.sort ?? (trucks.length ? "score" : "newest");
+  const key: Record<string, (r: LoadRow) => number> = {
+    score: (r) => (r.match ? (r.match.eligible ? 1000 : 0) + r.match.score : -1),
+    rate: (r) => r.offer.rateUsd,
+    ratePerKm: (r) => r.offer.rateUsd / r.offer.distanceKm,
+    profit: (r) => r.match?.profit.profit ?? -1e9,
+    loading: (r) => -r.offer.loadingDate.getTime(),
+    newest: (r) => (r.offer.sourceCreatedAt ?? r.offer.createdAt).getTime(),
+    distance: (r) => -r.offer.distanceKm,
+    deadhead: (r) => -(r.match?.deadheadKm ?? 1e9),
+  };
+  rows.sort((a, b) => key[sort](b) - key[sort](a));
+
+  const total = rows.length;
+  const all = rows.map((r) => ({
+    id: r.offer.id,
+    o: r.offer.originCityId,
+    d: r.offer.destCityId,
+    rateUsd: r.offer.rateUsd,
+    score: r.match?.eligible ? r.match.score : null,
+  }));
+  return { rows: rows.slice((page - 1) * pageSize, page * pageSize), all, total, page, pageSize, truckCount: trucks.length };
+}
+
+export async function getOfferDetail(orgId: string, userId: string, id: string) {
+  const offer = await db.freightOffer.findUnique({
+    where: { id },
+    include: {
+      originCity: true,
+      destCity: true,
+      broker: true,
+      listings: { include: { source: true }, orderBy: { rateUsd: "desc" } },
+    },
+  });
+  if (!offer) return null;
+  const [ctx, trucks, fav] = await Promise.all([
+    getMatchContext(orgId),
+    getMatchTrucks(orgId),
+    db.favorite.findUnique({ where: { userId_offerId: { userId, offerId: id } } }),
+  ]);
+  const matches = trucks
+    .map((t) => ({ truck: t, match: scoreMatch(t, toMatchOffer(offer), ctx) }))
+    .sort((a, b) => Number(b.match.eligible) - Number(a.match.eligible) || b.match.score - a.match.score);
+  return { offer, matches, favorite: !!fav, flags: parseJson<string[]>(offer.qualityFlags, []) };
+}
+
+export interface Recommendation {
+  offer: OfferWithRels;
+  match: MatchResult;
+  truck: MatchTruck;
+}
+
+/** Top recommendations across the fleet: best eligible (truck, load) pairs, one load per truck slot. */
+export async function recommendations(orgId: string, limit = 6, opts?: { truckId?: string; fromCityId?: string }): Promise<Recommendation[]> {
+  const [offers, ctx, trucksAll] = await Promise.all([
+    db.freightOffer.findMany({ where: { status: "ACTIVE", ...demoOfferFilter(), rateUsd: { gt: 0 }, NOT: { qualityFlags: { contains: "SUSPICIOUS_RATE" } }, ...(opts?.fromCityId ? { originCityId: opts.fromCityId } : {}) }, include: offerInclude }),
+    getMatchContext(orgId),
+    getMatchTrucks(orgId),
+  ]);
+  const trucks = opts?.truckId ? trucksAll.filter((t) => t.id === opts.truckId) : trucksAll;
+  const pairs: Recommendation[] = [];
+  for (const t of trucks)
+    for (const o of offers) {
+      const m = scoreMatch(t, toMatchOffer(o), ctx);
+      if (m.eligible && m.score >= 55) pairs.push({ offer: o, match: m, truck: t });
+    }
+  pairs.sort((a, b) => b.match.score - a.match.score || b.match.profit.profit - a.match.profit.profit);
+  // Diversify: avoid one truck or one load dominating the list.
+  const usedOffers = new Set<string>();
+  const perTruck = new Map<string, number>();
+  const out: Recommendation[] = [];
+  const cap = opts?.truckId ? limit : 2;
+  for (const p of pairs) {
+    if (usedOffers.has(p.offer.id) || (perTruck.get(p.truck.id) ?? 0) >= cap) continue;
+    out.push(p);
+    usedOffers.add(p.offer.id);
+    perTruck.set(p.truck.id, (perTruck.get(p.truck.id) ?? 0) + 1);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/** Count of active loads with at least one eligible truck, and of strong matches. */
+export async function opportunityCounts(orgId: string) {
+  const [offers, ctx, trucks] = await Promise.all([
+    db.freightOffer.findMany({ where: { status: "ACTIVE", ...demoOfferFilter() } }),
+    getMatchContext(orgId),
+    getMatchTrucks(orgId),
+  ]);
+  let matching = 0;
+  let strong = 0;
+  const dayAgo = Date.now() - 86_400_000;
+  const fresh = offers.filter((o) => (o.sourceCreatedAt ?? o.createdAt).getTime() >= dayAgo).length;
+  for (const o of offers) {
+    const m = trucks.length ? bestTruckFor(trucks, toMatchOffer(o), ctx) : null;
+    if (m?.eligible && m.score >= 55) matching++;
+    if (m?.eligible && m.score >= 80) strong++;
+  }
+  return { active: offers.length, fresh, matching, strong };
+}

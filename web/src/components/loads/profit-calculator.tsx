@@ -1,0 +1,111 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { RotateCcw } from "lucide-react";
+import { computeProfit } from "@/server/services/profitability";
+import { cn, pct, usd } from "@/lib/format";
+import { Input } from "../ui/primitives";
+
+export interface CalcInput {
+  revenueUsd: number;
+  loadedKm: number;
+  deadheadKm: number;
+  fuelLPer100km: number;
+  fuelPriceUsd: number;
+  driverCostPerKm: number;
+  maintenancePerKm: number;
+  tollsUsd: number;
+  otherPerTripUsd: number;
+}
+
+const FIELDS: { k: keyof CalcInput; label: string; step: number; unit: string }[] = [
+  { k: "revenueUsd", label: "Load price", step: 10, unit: "$" },
+  { k: "loadedKm", label: "Distance (loaded)", step: 10, unit: "km" },
+  { k: "deadheadKm", label: "Deadhead (empty)", step: 5, unit: "km" },
+  { k: "fuelLPer100km", label: "Fuel consumption", step: 0.5, unit: "L/100km" },
+  { k: "fuelPriceUsd", label: "Fuel price", step: 0.01, unit: "$/L" },
+  { k: "driverCostPerKm", label: "Driver cost", step: 0.01, unit: "$/km" },
+  { k: "maintenancePerKm", label: "Maintenance", step: 0.01, unit: "$/km" },
+  { k: "tollsUsd", label: "Tolls & border", step: 5, unit: "$" },
+  { k: "otherPerTripUsd", label: "Other expenses", step: 5, unit: "$" },
+];
+
+/** Deterministic profitability calculator — same function the matching engine uses. */
+export function ProfitCalculator({ initial, compact }: { initial: CalcInput; compact?: boolean }) {
+  const [v, setV] = useState<CalcInput>(initial);
+  const p = useMemo(() => computeProfit({ ...v, tollsUsd: v.tollsUsd }), [v]);
+  const changed = FIELDS.some((f) => v[f.k] !== initial[f.k]);
+
+  const rows: [string, number, boolean?][] = [
+    ["Revenue", p.revenue, true],
+    ["Fuel", -p.fuel],
+    ["Driver", -p.driver],
+    ["Maintenance", -p.maintenance],
+    ["Tolls & border", -p.tolls],
+    ["Other", -p.other],
+  ];
+
+  return (
+    <div className={cn("grid gap-5", !compact && "lg:grid-cols-2")}>
+      <div>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-3">
+          {FIELDS.map((f) => (
+            <label key={f.k} className="block">
+              <span className="mb-1 block text-xs text-muted">{f.label}</span>
+              <span className="relative block">
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  step={f.step}
+                  min={0}
+                  value={Number.isFinite(v[f.k]) ? v[f.k] : ""}
+                  onChange={(e) => setV({ ...v, [f.k]: e.target.value === "" ? 0 : Number(e.target.value) })}
+                  className="num pr-16"
+                />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-subtle">{f.unit}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+        {changed && (
+          <button onClick={() => setV(initial)} className="mt-3 inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
+            <RotateCcw className="h-3 w-3" /> Reset to truck profile
+          </button>
+        )}
+      </div>
+      <div className="rounded-lg bg-surface-2 p-4">
+        <table className="num w-full text-sm">
+          <tbody>
+            {rows.map(([l, n, bold]) => (
+              <tr key={l}>
+                <td className={cn("py-1", bold ? "font-medium" : "text-muted")}>{l}</td>
+                <td className={cn("py-1 text-right", bold && "font-medium")}>{n < 0 ? `−${usd(-n)}` : usd(n)}</td>
+              </tr>
+            ))}
+            <tr className="border-t border-border-strong">
+              <td className="pt-2.5 font-semibold">Estimated profit</td>
+              <td className={cn("pt-2.5 text-right text-lg font-semibold", p.profit >= 0 ? "text-pos" : "text-neg")}>{usd(p.profit)}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-border pt-3 text-center">
+          <div>
+            <div className="text-xs text-muted">Profit / km</div>
+            <div className="num text-sm font-semibold">${p.profitPerKm.toFixed(2)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted">Margin</div>
+            <div className="num text-sm font-semibold">{pct(p.margin, 1)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted">Empty km</div>
+            <div className="num text-sm font-semibold">{pct(p.emptyPct, 1)}</div>
+          </div>
+        </div>
+        <p className="mt-3 text-xs leading-snug text-subtle">
+          Calculated, not guaranteed. Distances are estimates (great-circle × road factor); tolls use per-country planning rates.
+        </p>
+      </div>
+    </div>
+  );
+}

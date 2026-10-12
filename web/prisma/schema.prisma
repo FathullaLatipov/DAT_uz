@@ -1,0 +1,435 @@
+// Karvon — Freight Intelligence Platform
+// SQLite for local development. To move to PostgreSQL change `provider` to "postgresql",
+// set DATABASE_URL and run `prisma migrate dev`. String-typed enums are validated in
+// src/server/domain/enums.ts so the schema stays portable across both engines.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Identity & tenancy ─────────────────────────────
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  plan      String   @default("FREE") // FREE | PRO | FLEET | ENTERPRISE
+  isDemo    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  memberships     Membership[]
+  trucks          Truck[]
+  drivers         Driver[]
+  preference      OrgPreference?
+  preferredRoutes PreferredRoute[]
+  favorites       Favorite[]
+  savedSearches   SavedSearch[]
+  trips           Trip[]
+  reviews         BrokerReview[]
+  recommendations Recommendation[]
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  platformRole String    @default("USER") // USER | ADMIN
+  createdAt    DateTime  @default(now())
+  lastLoginAt  DateTime?
+
+  memberships   Membership[]
+  favorites     Favorite[]
+  savedSearches SavedSearch[]
+  notifications Notification[]
+  conversations AIConversation[]
+}
+
+model Membership {
+  id          String   @id @default(cuid())
+  userId      String
+  orgId       String
+  role        String // OWNER_OPERATOR | FLEET_MANAGER | DISPATCHER | COMPANY_ADMIN | BROKER
+  accountType String // TRUCK_OWNER | OWNER_OPERATOR | FLEET_MANAGER | DISPATCHER | LOGISTICS_COMPANY | BROKER
+  createdAt   DateTime @default(now())
+
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, orgId])
+}
+
+model OrgPreference {
+  orgId              String   @id
+  minRatePerKmUsd    Float?
+  maxDeadheadKm      Int      @default(150)
+  preferredCargo     String   @default("[]") // JSON string[]
+  preferredCountries String   @default("[]") // JSON ISO2[]
+  paymentTerms       String   @default("[]") // JSON string[]
+  updatedAt          DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+model PreferredRoute {
+  id            String  @id @default(cuid())
+  orgId         String
+  originCityId  String
+  destCityId    String?
+  destCountry   String?
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  originCity City         @relation("PrefOrigin", fields: [originCityId], references: [id])
+  destCity   City?        @relation("PrefDest", fields: [destCityId], references: [id])
+}
+
+// ───────────────────────────── Geography ─────────────────────────────
+
+model Country {
+  code   String @id // ISO 3166-1 alpha-2
+  name   String
+  cities City[]
+}
+
+model City {
+  id          String  @id // slug, e.g. "tashkent"
+  name        String
+  countryCode String
+  lat         Float
+  lng         Float
+  aliases     String  @default("[]") // JSON string[] — used by normalization
+  isHub       Boolean @default(false)
+
+  country Country @relation(fields: [countryCode], references: [code])
+
+  trucksHere      Truck[]          @relation("TruckCity")
+  originOffers    FreightOffer[]   @relation("OfferOrigin")
+  destOffers      FreightOffer[]   @relation("OfferDest")
+  prefOrigins     PreferredRoute[] @relation("PrefOrigin")
+  prefDests       PreferredRoute[] @relation("PrefDest")
+  tripOrigins     Trip[]           @relation("TripOrigin")
+  tripDests       Trip[]           @relation("TripDest")
+  truckLocations  TruckLocation[]
+}
+
+// ───────────────────────────── Fleet ─────────────────────────────
+
+model Driver {
+  id           String   @id @default(cuid())
+  orgId        String
+  name         String
+  phone        String?
+  licenseClass String   @default("CE")
+  createdAt    DateTime @default(now())
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  trucks Truck[]
+}
+
+model Truck {
+  id               String    @id @default(cuid())
+  orgId            String
+  code             String // human label, e.g. "T-1024"
+  plate            String?
+  truckType        String // SEMI | RIGID | VAN | ...
+  bodyType         String // CURTAINSIDER | REFRIGERATED | ...
+  capacityKg       Int
+  volumeM3         Float
+  currentCityId    String
+  status           String    @default("AVAILABLE") // AVAILABLE | LOADING | IN_TRANSIT | UNLOADING | MAINTENANCE | OFFLINE
+  availableFrom    DateTime  @default(now())
+  driverId         String?
+  // Cost profile — powers the deterministic profitability calculator.
+  fuelLPer100km    Float     @default(32)
+  fuelPriceUsd     Float     @default(0.95)
+  driverCostPerKm  Float     @default(0.22)
+  maintenancePerKm Float     @default(0.08)
+  otherPerTripUsd  Float     @default(20)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  org         Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  currentCity City             @relation("TruckCity", fields: [currentCityId], references: [id])
+  driver      Driver?          @relation(fields: [driverId], references: [id])
+  trips       Trip[]
+  locations   TruckLocation[]
+  recommendations Recommendation[]
+
+  @@unique([orgId, code])
+}
+
+model TruckLocation {
+  id         String   @id @default(cuid())
+  truckId    String
+  cityId     String
+  recordedAt DateTime @default(now())
+
+  truck Truck @relation(fields: [truckId], references: [id], onDelete: Cascade)
+  city  City  @relation(fields: [cityId], references: [id])
+}
+
+model Trip {
+  id           String    @id @default(cuid())
+  orgId        String
+  truckId      String
+  offerId      String?
+  originCityId String
+  destCityId   String
+  status       String // PLANNED | IN_TRANSIT | COMPLETED | CANCELLED
+  startedAt    DateTime
+  etaAt        DateTime?
+  completedAt  DateTime?
+  revenueUsd   Float
+  costUsd      Float
+  loadedKm     Float
+  emptyKm      Float
+  isDemo       Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+
+  org        Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  truck      Truck         @relation(fields: [truckId], references: [id], onDelete: Cascade)
+  offer      FreightOffer? @relation(fields: [offerId], references: [id])
+  originCity City          @relation("TripOrigin", fields: [originCityId], references: [id])
+  destCity   City          @relation("TripDest", fields: [destCityId], references: [id])
+}
+
+// ───────────────────────────── Freight ─────────────────────────────
+
+model FreightSource {
+  id            String    @id // slug: "demo-exchange-a", "manual-import", "ati-su" …
+  name          String
+  kind          String // API | FEED | MANUAL | DEMO | PARTNER
+  status        String // ACTIVE | NOT_CONFIGURED | DISABLED | ERROR
+  isDemo        Boolean   @default(false)
+  homepage      String?
+  accessNotes   String? // legal / technical integration notes
+  lastSyncAt    DateTime?
+  lastSuccessAt DateTime?
+  createdAt     DateTime  @default(now())
+
+  listings FreightListing[]
+  runs     IngestionRun[]
+}
+
+model IngestionRun {
+  id          String    @id @default(cuid())
+  sourceId    String
+  status      String // RUNNING | SUCCESS | PARTIAL | FAILED
+  startedAt   DateTime  @default(now())
+  finishedAt  DateTime?
+  durationMs  Int?
+  fetched     Int       @default(0)
+  created     Int       @default(0)
+  updated     Int       @default(0)
+  duplicates  Int       @default(0)
+  rejected    Int       @default(0)
+  errors      Int       @default(0)
+  errorLog    String    @default("[]") // JSON {externalId, message}[]
+
+  source FreightSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+}
+
+model Broker {
+  id                 String   @id @default(cuid())
+  name               String
+  normalizedName     String   @unique
+  countryCode        String?
+  taxId              String?
+  verified           Boolean  @default(false)
+  verificationMethod String? // e.g. "Tax registry check (demo)"
+  isDemo             Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  offers  FreightOffer[]
+  reviews BrokerReview[]
+}
+
+model BrokerReview {
+  id         String   @id @default(cuid())
+  brokerId   String
+  orgId      String
+  rating     Int // 1..5
+  paidOnTime Boolean?
+  disputed   Boolean  @default(false)
+  cancelled  Boolean  @default(false)
+  comment    String?
+  isDemo     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  broker Broker       @relation(fields: [brokerId], references: [id], onDelete: Cascade)
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+/// One deduplicated freight opportunity. Several source listings may point at it.
+model FreightOffer {
+  id              String    @id @default(cuid())
+  fingerprint     String    @unique
+  originCityId    String
+  destCityId      String
+  originCountry   String
+  destCountry     String
+  loadingDate     DateTime
+  unloadingDate   DateTime?
+  cargoType       String
+  weightKg        Int
+  volumeM3        Float?
+  bodyType        String
+  truckType       String?
+  packaging       String?
+  requirements    String    @default("[]") // JSON string[]
+  distanceKm      Float
+  rate            Float // best listing, original currency
+  currency        String
+  rateUsd         Float // normalized reference value
+  paymentTerms    String? // PREPAID | ON_LOADING | ON_UNLOADING | NET_7 | NET_14 | NET_30
+  brokerId        String?
+  status          String    @default("ACTIVE") // ACTIVE | EXPIRED | BOOKED
+  quality         String    @default("UNVERIFIED") // VERIFIED | PARTIAL | UNVERIFIED
+  qualityFlags    String    @default("[]") // JSON flag codes
+  isDemo          Boolean   @default(false)
+  sourceCreatedAt DateTime?
+  lastSeenAt      DateTime  @default(now())
+  expiresAt       DateTime
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  originCity      City             @relation("OfferOrigin", fields: [originCityId], references: [id])
+  destCity        City             @relation("OfferDest", fields: [destCityId], references: [id])
+  broker          Broker?          @relation(fields: [brokerId], references: [id])
+  listings        FreightListing[]
+  favorites       Favorite[]
+  trips           Trip[]
+  recommendations Recommendation[]
+
+  @@index([status, loadingDate])
+  @@index([originCityId, destCityId])
+}
+
+/// A raw sighting of an offer on one source (a FreightSnapshot).
+model FreightListing {
+  id              String    @id @default(cuid())
+  offerId         String
+  sourceId        String
+  externalId      String
+  sourceUrl       String?
+  rate            Float
+  currency        String
+  rateUsd         Float
+  brokerNameRaw   String?
+  contactName     String?
+  contactPhone    String?
+  rawPayload      String // JSON as received
+  sourceCreatedAt DateTime?
+  firstSeenAt     DateTime  @default(now())
+  lastSeenAt      DateTime  @default(now())
+
+  offer  FreightOffer  @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  source FreightSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, externalId])
+}
+
+model ExchangeRate {
+  currency String   @id
+  perUsd   Float // units of currency per 1 USD
+  asOf     DateTime
+  source   String
+}
+
+// ───────────────────────────── User activity ─────────────────────────────
+
+model Favorite {
+  id        String   @id @default(cuid())
+  orgId     String
+  userId    String
+  offerId   String
+  createdAt DateTime @default(now())
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  offer FreightOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, offerId])
+}
+
+model SavedSearch {
+  id             String    @id @default(cuid())
+  orgId          String
+  userId         String
+  name           String
+  filters        String // JSON LoadFilters
+  channels       String    @default("[\"WEB\"]") // JSON: WEB | EMAIL | TELEGRAM
+  lastCheckedAt  DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String // NEW_MATCH | SAVED_SEARCH | BACKHAUL | SYSTEM
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Tracks shown/accepted recommendations — feeds the "match quality" KPI.
+model Recommendation {
+  id        String   @id @default(cuid())
+  orgId     String
+  truckId   String
+  offerId   String
+  score     Int
+  action    String // SHOWN | ACCEPTED | DISMISSED
+  createdAt DateTime @default(now())
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  truck Truck        @relation(fields: [truckId], references: [id], onDelete: Cascade)
+  offer FreightOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+}
+
+model AIConversation {
+  id        String      @id @default(cuid())
+  userId    String
+  orgId     String
+  title     String      @default("New conversation")
+  createdAt DateTime    @default(now())
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages AIMessage[]
+}
+
+model AIMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String // user | assistant
+  content        String
+  data           String? // JSON structured payload (ranked loads, filters)
+  createdAt      DateTime @default(now())
+
+  conversation AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  orgId     String?
+  action    String
+  entity    String?
+  entityId  String?
+  meta      String   @default("{}")
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

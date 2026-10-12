@@ -1,0 +1,139 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ───────── Design tokens ───────── */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f1f3f6;
+  --surface-3: #e9edf2;
+  --border: #e3e7ed;
+  --border-strong: #cfd5de;
+  --fg: #0b1220;
+  --muted: #5a6475;
+  --subtle: #687183;
+  --brand: #0a7065;
+  --brand-fg: #ffffff;
+  --brand-soft: #e3f4f1;
+  --accent: #b45309;
+  --pos: #0b7541;
+  --pos-soft: #e5f5ec;
+  --neg: #c2362f;
+  --neg-soft: #fbe9e8;
+  --warn: #b45309;
+  --warn-soft: #fdf3e2;
+  --info: #1d4ed8;
+  --info-soft: #e8effd;
+  --ring: #0d7d6f55;
+  --shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
+  --shadow-lg: 0 12px 32px -12px rgb(16 24 40 / 0.18);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #090c11;
+  --surface: #0f131a;
+  --surface-2: #151a23;
+  --surface-3: #1c222d;
+  --border: #212835;
+  --border-strong: #2e3746;
+  --fg: #e7ebf1;
+  --muted: #95a0b2;
+  --subtle: #6b7587;
+  --brand: #2dd4bf;
+  --brand-fg: #04201c;
+  --brand-soft: #0f2a27;
+  --accent: #f59e0b;
+  --pos: #34d399;
+  --pos-soft: #0f2a1f;
+  --neg: #f87171;
+  --neg-soft: #2c1414;
+  --warn: #fbbf24;
+  --warn-soft: #2a2110;
+  --info: #60a5fa;
+  --info-soft: #111f36;
+  --ring: #2dd4bf55;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 16px 40px -12px rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-brand: var(--brand);
+  --color-brand-fg: var(--brand-fg);
+  --color-brand-soft: var(--brand-soft);
+  --color-accent: var(--accent);
+  --color-pos: var(--pos);
+  --color-pos-soft: var(--pos-soft);
+  --color-neg: var(--neg);
+  --color-neg-soft: var(--neg-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --shadow-card: var(--shadow);
+  --shadow-pop: var(--shadow-lg);
+  --animate-fade-up: fade-up 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-shimmer: shimmer 1.4s linear infinite;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+@keyframes dash {
+  to { stroke-dashoffset: 0; }
+}
+
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+}
+
+.num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 6px; }
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 37%, var(--surface-2) 63%);
+  background-size: 400% 100%;
+  animation: var(--animate-shimmer);
+}
+
+.route-line { stroke-dasharray: 6 6; }
+.route-draw { stroke-dasharray: 600; stroke-dashoffset: 600; animation: dash 1.6s ease forwards; }
+
+/* Scrollbars */
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+
+/* MapLibre controls follow the theme */
+.maplibregl-ctrl-group { background: var(--surface) !important; border: 1px solid var(--border); box-shadow: none !important; }
+.maplibregl-ctrl-group button + button { border-top-color: var(--border) !important; }
+:root[data-theme="dark"] .maplibregl-ctrl-icon { filter: invert(1); }
+.maplibregl-ctrl-attrib { background: color-mix(in srgb, var(--surface) 80%, transparent) !important; color: var(--muted); font-size: 10px; }
+.maplibregl-ctrl-attrib a { color: var(--muted) !important; }
+.maplibregl-popup-content { background: var(--surface) !important; color: var(--fg); border: 1px solid var(--border); border-radius: 10px !important; box-shadow: var(--shadow-lg) !important; padding: 10px 12px !important; }
+.maplibregl-popup-tip { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
