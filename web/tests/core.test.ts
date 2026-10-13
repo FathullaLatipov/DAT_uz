@@ -109,6 +109,70 @@ test("broker reliability is withheld below minimum history", () => {
   assert.equal(r.score, 100);
 });
 
+test("matching: an ineligible truck is never ranked as a strong match, regardless of its other components", () => {
+  // Audit question: can a hard blocker still surface a high score? The scorer caps anything
+  // ineligible at 35 even if every other weighted component (price, route, broker, prefs)
+  // would otherwise push the raw weighted sum well above that.
+  const greatCtx: MatchContext = { ...ctx, benchmarks: new Map([["tashkent>almaty", 0.5]]) }; // offer rate way above benchmark
+  const incompatibleBody = scoreMatch(truck, { ...offer, bodyType: "REFRIGERATED" }, greatCtx);
+  assert.equal(incompatibleBody.eligible, false);
+  assert.ok(incompatibleBody.score <= 35, `expected capped score, got ${incompatibleBody.score}`);
+
+  const overweight = scoreMatch(truck, { ...offer, weightKg: 24000 }, greatCtx);
+  assert.equal(overweight.eligible, false);
+  assert.ok(overweight.score <= 35, `expected capped score, got ${overweight.score}`);
+
+  const offlineTruck = scoreMatch({ ...truck, status: "OFFLINE" }, offer, greatCtx);
+  assert.equal(offlineTruck.eligible, false);
+  assert.ok(offlineTruck.score <= 35, `expected capped score, got ${offlineTruck.score}`);
+});
+
+test("matching: a truck that can't physically reach pickup before loading is blocked, not just penalized", () => {
+  // Truck is ~2,800 road km away (Moscow) and the load is ready for pickup right now — at
+  // 550 km/day (AVG_KM_PER_DAY) that's ~5 days of driving, far past the 24h "tight but
+  // possible" threshold the scorer uses, so this must be a hard blocker, not a warning.
+  const strandedTruck: MatchTruck = { ...truck, currentCityId: "moscow", availableFrom: new Date() };
+  const urgentOffer: MatchOffer = { ...offer, originCityId: "tashkent", loadingDate: new Date() };
+  const m = scoreMatch(strandedTruck, urgentOffer, ctx);
+  assert.equal(m.eligible, false);
+  assert.ok(m.blockers.some((b) => /reach the pickup/i.test(b)), `expected a pickup-timing blocker, got: ${JSON.stringify(m.blockers)}`);
+  assert.ok(m.score <= 35);
+});
+
+test("matching: missing market benchmark falls back to a margin-based price score instead of crashing or guessing a benchmark", () => {
+  const noBenchmarkCtx: MatchContext = { ...ctx, benchmarks: new Map() };
+  const m = scoreMatch(truck, offer, noBenchmarkCtx);
+  assert.equal(m.benchmarkPerKm, null);
+  const priceComponent = m.components.find((c) => c.key === "price")!;
+  assert.ok(priceComponent.detail.includes("no lane benchmark yet"));
+  // Must still be a finite, sane 0-100 score — not NaN/Infinity from dividing by a missing benchmark.
+  assert.ok(Number.isFinite(priceComponent.score) && priceComponent.score >= 0 && priceComponent.score <= 100);
+});
+
+test("matching: an unpriced (negotiable) load scores neutrally and warns, without a divide-by-zero in profit math", () => {
+  const unpriced: MatchOffer = { ...offer, rateUsd: 0 };
+  const m = scoreMatch(truck, unpriced, ctx);
+  assert.ok(m.warnings.some((w) => /cannot be estimated/i.test(w)));
+  assert.equal(m.profit.margin, 0); // guarded, not -Infinity/NaN
+  assert.ok(Number.isFinite(m.profit.profit));
+});
+
+test("profitability: zero-distance, zero-revenue edge case stays finite and non-misleading", () => {
+  const p = computeProfit({ revenueUsd: 0, loadedKm: 0, deadheadKm: 0, fuelLPer100km: 32, fuelPriceUsd: 0.95, driverCostPerKm: 0.22, maintenancePerKm: 0.08, tollsUsd: 0, otherPerTripUsd: 20 });
+  assert.equal(p.totalKm, 0);
+  assert.equal(p.ratePerLoadedKm, 0); // guarded (would otherwise be 0/0 = NaN)
+  assert.equal(p.profitPerKm, 0); // guarded (would otherwise be x/0 = Infinity)
+  assert.equal(p.margin, 0);
+  assert.equal(p.profit, -20); // still pays the fixed otherPerTripUsd even with no distance/revenue
+});
+
+test("broker reliability: insufficient history returns null score with an explanation, not a fabricated number", () => {
+  const r = computeReliability(false, [{ rating: 4, paidOnTime: true, disputed: false, cancelled: false, isDemo: false }], 0); // only 1 review, below MIN_REVIEWS
+  assert.equal(r.sufficient, false);
+  assert.equal(r.score, null);
+  assert.ok(r.explanation.includes("Insufficient history"));
+});
+
 test("natural language → filters (EN / RU / UZ)", () => {
   const now = new Date("2026-10-08T10:00:00Z");
   const en = parseQueryRules("Find a 20 ton refrigerated load from Tashkent to Kazakhstan next week", now).filters;
