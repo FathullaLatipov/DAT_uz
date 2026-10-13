@@ -83,6 +83,42 @@ test("ambiguous day.month dates resolve against the message's own time, not an u
   assert.equal(new Date(b.listing!.loadingDate).toISOString().slice(0, 10), "2027-07-21");
 });
 
+test("a message received today but actually posted months ago is dated from its own post time", () => {
+  // Same bug class as above, phrased as the literal scenario: the listener backfills a group it
+  // just joined, reading a message that sat there since the spring — "receiving" it today must
+  // not mean "today" is the reference point for anything the ad text says.
+  const postedInApril = new Date("2026-04-15T09:00:00Z");
+  const [relative] = parseAds("Ташкент - Бухара 18 т тент завтра 800$", "t", postedInApril);
+  // "завтра" (tomorrow) must mean the day after the message was posted (16 April), never
+  // "tomorrow from whenever the backfill happens to run".
+  assert.equal(new Date(relative.listing!.loadingDate).toISOString().slice(0, 10), "2026-04-16");
+});
+
+test("explicit years in the ad text are never overridden by the reference time", () => {
+  const [a] = parseAds("Ташкент - Алматы 20 т тент 21.07.2027 1400$", "t", NOW); // NOW is Oct 2026
+  assert.equal(new Date(a.listing!.loadingDate).toISOString().slice(0, 10), "2027-07-21");
+  const [b] = parseAds("Ташкент - Алматы 20 т тент 05.03.26 1400$", "t", NOW); // 2-digit year
+  assert.equal(new Date(b.listing!.loadingDate).toISOString().slice(0, 10), "2026-03-05");
+});
+
+test("a bare day.month posted right at the New Year boundary rolls forward correctly in the posting's own timezone-equivalent instant", () => {
+  // "02.01" (2 January) posted in late December must mean "next January", a few days away —
+  // not be misread using a UTC-vs-local-midnight slip. The heuristic only depends on the
+  // reference time's UTC *year*, so a post time that is already on the other side of midnight
+  // UTC (but still December in Tashkent, UTC+5) is the realistic edge case to pin.
+  const postedLateDecemberUtc = new Date("2026-12-31T20:30:00Z"); // 2027-01-01 01:30 in Tashkent (UTC+5)
+  const [a] = parseAds("Ташкент - Фергана 10 т тент 02.01 500$", "t", postedLateDecemberUtc);
+  assert.equal(new Date(a.listing!.loadingDate).toISOString().slice(0, 10), "2027-01-02");
+});
+
+test("re-ingesting the identical message is idempotent: the parsed date for the same (text, postedAt) never drifts", () => {
+  const postedAt = new Date("2026-07-21T09:00:00Z");
+  const text = "Москва - Андижан 21 т тент 21.07 1000$";
+  const first = parseAds(text, "t", postedAt)[0].listing!.loadingDate;
+  const second = parseAds(text, "t", postedAt)[0].listing!.loadingDate;
+  assert.equal(new Date(first).toISOString(), new Date(second).toISOString());
+});
+
 test("hostile input is parsed in linear time", () => {
   const t = Date.now();
   parseAds(`${"1 ".repeat(6000)}т`, "x", NOW);
