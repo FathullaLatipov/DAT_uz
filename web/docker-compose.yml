@@ -19,6 +19,14 @@ services:
     depends_on:
       karvon-db:
         condition: service_healthy
+    # This box runs a dozen other people's production projects. A memory leak or a runaway
+    # request loop in Karvon shouldn't be able to starve any of them — cap it generously above
+    # observed usage (~105MiB idle) rather than leaving it unbounded.
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
 
   # Postgres co-located with the app, same pattern every other project on this box uses (its own
   # container, its own volume, no host port — reachable only from karvon-web on `default`). The
@@ -40,6 +48,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
 
 networks:
   analyzer_analyzer:
