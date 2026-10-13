@@ -1,0 +1,22 @@
+services:
+  karvon-web:
+    build: .
+    container_name: karvon-web
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - COOKIE_SECURE=1
+    # 127.0.0.1:3100 stays for local debugging on the server itself. Public access goes through
+    # the shared `finexa-caddy` reverse proxy instead, which reaches this container by name over
+    # the `analyzer_analyzer` network (the same pattern every other project on this box uses —
+    # see kinetix-api/kinetix-admin's blocks in /opt/finexa/docker/Caddyfile) rather than via the
+    # host-published port.
+    ports:
+      - "127.0.0.1:3100:3000"
+    networks:
+      - default
+      - analyzer_analyzer
+
+networks:
+  analyzer_analyzer:
+    external: true

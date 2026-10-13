@@ -1,0 +1,8 @@
+# SSH private/public keys for server access — never commit these.
+id_ed25519*
+id_rsa*
+id_ecdsa*
+*.pem
+
+# Local Claude Code session/task bookkeeping, not part of the project.
+.claude/scheduled_tasks.lock

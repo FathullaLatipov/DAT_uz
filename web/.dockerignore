@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+prisma/dev.db*
+scripts/telegram-listener/.venv
+scripts/telegram-listener/__pycache__
+scripts/telegram-listener/*.session*
+scripts/telegram-listener/state*.json
+scripts/telegram-listener/*.log
+tsconfig.tsbuildinfo
