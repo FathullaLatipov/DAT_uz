@@ -105,9 +105,19 @@ export async function dispatch(orgId: string, userId: string, message: string): 
   steps.push(`Searched ${res.total} active loads matching filters → ${eligible.length} your truck${truck ? "" : "s"} can take`);
   steps.push("Calculated deadhead, costs and profit for each (deterministic)");
 
-  const ranked = eligible
-    .sort((a, b) => (filters.sort === "profit" ? b.match!.profit.profit - a.match!.profit.profit : b.match!.score - a.match!.score))
-    .slice(0, 3);
+  // Diversify by route: several near-identical postings of the same lane (common when a load
+  // is relisted across brokers/sources) shouldn't fill all 3 recommendation slots — show the
+  // best option per distinct origin→destination instead of the same lane three times.
+  const sorted = eligible.sort((a, b) => (filters.sort === "profit" ? b.match!.profit.profit - a.match!.profit.profit : b.match!.score - a.match!.score));
+  const seenRoutes = new Set<string>();
+  const ranked: typeof eligible = [];
+  for (const r of sorted) {
+    const routeKey = `${r.offer.originCityId}>${r.offer.destCityId}`;
+    if (seenRoutes.has(routeKey)) continue;
+    seenRoutes.add(routeKey);
+    ranked.push(r);
+    if (ranked.length >= 3) break;
+  }
   const cards = ranked.map((r) => card({ offer: r.offer, match: r.match! }, r.truckCode));
 
   const params = new URLSearchParams();
