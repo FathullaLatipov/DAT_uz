@@ -16,7 +16,34 @@ services:
     networks:
       - default
       - analyzer_analyzer
+    depends_on:
+      karvon-db:
+        condition: service_healthy
+
+  # Postgres co-located with the app, same pattern every other project on this box uses (its own
+  # container, its own volume, no host port — reachable only from karvon-web on `default`). The
+  # app was pointed at Neon (US East, Ohio); this server is in Tashkent, so every query paid
+  # real cross-continent network latency on top of its own work. Running the DB right next to
+  # the app removes that entirely.
+  karvon-db:
+    image: postgres:16-alpine
+    container_name: karvon-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=karvon
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=karvon
+    volumes:
+      - karvon_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U karvon"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 networks:
   analyzer_analyzer:
     external: true
+
+volumes:
+  karvon_db_data:
