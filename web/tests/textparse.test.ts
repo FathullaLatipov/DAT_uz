@@ -61,6 +61,28 @@ test("recognizes Uzbek Cyrillic date words (бугун/эртага)", () => {
   assert.equal(tomorrow.listing?.loadingDate && new Date(tomorrow.listing.loadingDate).toISOString().slice(0, 10), "2026-10-09");
 });
 
+test("ambiguous day.month dates resolve against the message's own time, not an unrelated later 'now'", () => {
+  // Regression for a confirmed production bug: the Telegram ingest route used to parse ad text
+  // with the real wall-clock ingestion time as "now", even for backfilled (days/weeks-old)
+  // messages. A bare "21.07" (no year) found 30+ days after the fact triggers parseLoadingDate's
+  // "already passed this year → must mean next year" heuristic — so a message actually posted
+  // around 21 July, read during an October backfill, silently became a load for *next* July.
+  // The fix: the ingest route now reconstructs "now" from the message's real postedAt. This
+  // test pins the parser's side of that contract — given the CORRECT reference time (close to
+  // the date actually written in the ad), the heuristic must NOT roll the year forward.
+  const postedAroundTheDate = new Date("2026-08-01T10:00:00Z"); // ~10 days after 21.07 — same year
+  const [a] = parseAds("Москва - Андижан 21 т тент 21.07 1000$", "t", postedAroundTheDate);
+  assert.equal(new Date(a.listing!.loadingDate).toISOString().slice(0, 10), "2026-07-21");
+
+  // Same ad text, but resolved with a "now" far removed from the actual post date (what the
+  // old, buggy code path did by always using real-time ingestion "now") reproduces the bug —
+  // documenting it rather than endorsing it: this is exactly the wrong input the route no
+  // longer passes in.
+  const unrelatedLaterNow = new Date("2026-10-12T13:31:00Z"); // the actual ingestion-time bug trigger
+  const [b] = parseAds("Москва - Андижан 21 т тент 21.07 1000$", "t", unrelatedLaterNow);
+  assert.equal(new Date(b.listing!.loadingDate).toISOString().slice(0, 10), "2027-07-21");
+});
+
 test("hostile input is parsed in linear time", () => {
   const t = Date.now();
   parseAds(`${"1 ".repeat(6000)}т`, "x", NOW);

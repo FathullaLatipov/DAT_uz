@@ -54,7 +54,16 @@ export const POST = serviceApi(
     const now = new Date();
     const source = sourceFor(b.groupUsername, b.groupName, b.groupMembers);
 
-    const ad = parseAd(b.text, 0, String(b.messageId), now);
+    // A group's first-ever poll backfills its recent history (see the listener's
+    // BACKFILL_MESSAGES) — those messages can be days or weeks old by the time we read them.
+    // Ad text routinely says things like "завтра" or a bare "21.07" with no year, and both must
+    // be resolved against *when the message was actually posted*, not *when our server happened
+    // to read it* — otherwise a backfilled message that said "tomorrow" on the day it was
+    // posted gets parsed as "tomorrow from today", and a bare day.month that's already passed
+    // this year gets its ambiguous-year heuristic bumped a full year into the future (confirmed
+    // in production: dozens of backfilled July posts were parsed as loading in July *2027*).
+    const referenceTime = b.postedAt ? new Date(b.postedAt) : now;
+    const ad = parseAd(b.text, 0, String(b.messageId), referenceTime);
     if (!ad.listing) {
       // Still register/refresh the source so "0 matched, N skipped" shows up as real activity,
       // not silence, in the admin panel — but there is nothing to ingest.
