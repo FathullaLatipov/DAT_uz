@@ -37,6 +37,11 @@ export default async function LoadsPage({ searchParams }: { searchParams: Promis
     if (p > 1) q.set("page", String(p));
     return `/app/loads?${q.toString()}`;
   };
+  const sortHref = (key: "rate" | "ratePerKm" | "profit" | "deadhead" | "loading") => {
+    const q = filtersToParams({ ...filters, sort: key });
+    if (view !== "list") q.set("view", view);
+    return `/app/loads?${q.toString()}`;
+  };
 
   const results =
     res.rows.length === 0 ? (
@@ -58,7 +63,7 @@ export default async function LoadsPage({ searchParams }: { searchParams: Promis
     ) : (
       <>
         <div className="hidden md:block">
-          <LoadTable rows={res.rows} />
+          <LoadTable rows={res.rows} sort={filters.sort} sortHref={sortHref} />
         </div>
         <div className="grid grid-cols-1 gap-3 md:hidden [&>*]:min-w-0">
           {res.rows.map((r) => <LoadCard key={r.offer.id} row={r} />)}

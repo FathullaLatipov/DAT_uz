@@ -87,6 +87,16 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
         </div>
       </div>
 
+      {/* At-a-glance trip strip — the facts a dispatcher scans first, before scrolling into cards */}
+      <div className="mb-5 grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-3 lg:grid-cols-6">
+        <Mini label="Equipment" value={label(o.bodyType)} />
+        <Mini label="Weight" value={tonnes(o.weightKg)} />
+        <Mini label="Volume" value={o.volumeM3 ? `${o.volumeM3} m³` : "—"} />
+        <Mini label="Distance" value={km(o.distanceKm)} />
+        <Mini label="Loading" value={shortDate(o.loadingDate)} />
+        <Mini label="Payment" value={label(o.paymentTerms)} />
+      </div>
+
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-5">
           {/* Route */}
