@@ -5,7 +5,7 @@ import { requireSession } from "@/server/auth/session";
 import { db } from "@/server/db";
 import { filtersFromParams, filtersToParams } from "@/server/services/filters";
 import { searchLoads } from "@/server/services/freight";
-import { FiltersPanel } from "@/components/loads/filters-panel";
+import { SearchToolbar } from "@/components/loads/search-toolbar";
 import { BoardToolbar } from "@/components/loads/board-toolbar";
 import { LoadTable } from "@/components/loads/load-table";
 import { LoadCard } from "@/components/loads/parts";
@@ -88,8 +88,10 @@ export default async function LoadsPage({ searchParams }: { searchParams: Promis
           <Link href="/app/loads" className="ml-auto shrink-0 text-xs text-brand hover:underline">Clear</Link>
         </div>
       )}
+      <div className="mb-3">
+        <SearchToolbar key={filtersToParams(filters).toString()} trucks={trucks.map((t) => ({ id: t.id, name: `${t.code} · ${(t.capacityKg / 1000).toFixed(0)} t ${t.bodyType.toLowerCase()}` }))} sources={sources} />
+      </div>
       <div className="flex flex-col items-start gap-3 lg:flex-row lg:gap-5">
-        <FiltersPanel key={filtersToParams(filters).toString()} trucks={trucks.map((t) => ({ id: t.id, name: `${t.code} · ${(t.capacityKg / 1000).toFixed(0)} t ${t.bodyType.toLowerCase()}` }))} sources={sources} />
         <div className="w-full min-w-0 flex-1">
           <div className="mb-3">
             <BoardToolbar total={res.total} view={view} />
