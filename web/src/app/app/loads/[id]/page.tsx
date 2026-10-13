@@ -9,7 +9,7 @@ import { brokerReliability } from "@/server/services/broker";
 import { laneStats } from "@/server/services/market";
 import { findBackhaul } from "@/server/services/backhaul";
 import { estimateTollsUsd } from "@/server/services/profitability";
-import { estimateTransitDays } from "@/server/domain/geo";
+import { countryName, estimateTransitDays } from "@/server/domain/geo";
 import { label } from "@/server/domain/enums";
 import { parseJson } from "@/server/db";
 import { Badge, Bar, Card, CardHeader, DemoBadge, ScoreBadge, Trend } from "@/components/ui/primitives";
@@ -281,20 +281,34 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
           )}
 
           <Card>
-            <CardHeader title="Broker" />
+            <CardHeader title="Company" action={o.broker && <Link href={`/app/brokers/${o.broker.id}`} className="text-xs text-brand hover:underline">View profile →</Link>} />
             <div className="px-4 pb-5 sm:px-5">
               {o.broker ? (
                 <>
-                  <Link href={`/app/brokers/${o.broker.id}`} className="font-medium hover:underline">{o.broker.name}</Link>
-                  <div className="mt-1 flex flex-wrap gap-1.5">
-                    {o.broker.verified ? <Badge tone="pos"><BadgeCheck className="h-3 w-3" /> Verified</Badge> : <Badge>Not verified</Badge>}
-                    {o.broker.isDemo && <DemoBadge />}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate font-semibold">{o.broker.name}</div>
+                      <div className="mt-0.5 truncate text-xs text-muted">
+                        {o.broker.countryCode ? countryName(o.broker.countryCode) : "Location unknown"}
+                        {o.broker.taxId && ` · Tax ID ${o.broker.taxId}`}
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {o.broker.verified ? <Badge tone="pos"><BadgeCheck className="h-3 w-3" /> Verified</Badge> : <Badge>Not verified</Badge>}
+                        {o.broker.isDemo && <DemoBadge />}
+                      </div>
+                    </div>
+                    {broker?.sufficient && <ReliabilityTier score={broker.score!} />}
                   </div>
                   {broker?.sufficient ? (
-                    <div className="mt-3">
-                      <div className="flex items-baseline justify-between text-sm"><span className="text-muted">Reliability</span><span className="num text-lg font-semibold">{broker.score}<span className="text-sm text-muted">/100</span></span></div>
-                      <Bar value={broker.score!} tone={broker.score! >= 75 ? "pos" : broker.score! >= 55 ? "warn" : "neg"} className="mt-1" />
-                      <p className="mt-2 text-xs text-muted">{broker.avgRating?.toFixed(1)} ★ from {broker.reviews} reviews · {broker.paidOnTimePct ?? "—"}% paid on time</p>
+                    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <Mini label="Rating" value={`${broker.avgRating?.toFixed(1)} ★`} />
+                      <Mini label="Reviews" value={broker.reviews} />
+                      <Mini label="Paid on time" value={broker.paidOnTimePct != null ? `${broker.paidOnTimePct}%` : "—"} />
+                      <Mini
+                        label="Disputes"
+                        value={broker.disputePct != null ? `${broker.disputePct}%` : "—"}
+                        tone={broker.disputePct != null && broker.disputePct > 10 ? "warn" : undefined}
+                      />
                     </div>
                   ) : (
                     <p className="mt-3 text-sm text-muted">{broker?.explanation ?? "No history on the platform yet."}</p>
@@ -347,6 +361,23 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** A letter-grade reliability chip, computed from our own platform score (reviews, on-time
+ * payment, disputes, cancellations — see brokerReliability()). Own wording/tiers, not a
+ * reproduction of any third-party rating system. */
+function ReliabilityTier({ score }: { score: number }) {
+  const tier = score >= 85 ? { letter: "A", label: "Excellent", tone: "pos" as const }
+    : score >= 70 ? { letter: "B", label: "Good", tone: "brand" as const }
+    : score >= 55 ? { letter: "C", label: "Fair", tone: "warn" as const }
+    : { letter: "D", label: "Caution", tone: "neg" as const };
+  const toneClass = { pos: "bg-pos-soft text-pos", brand: "bg-brand-soft text-brand", warn: "bg-warn-soft text-warn", neg: "bg-neg-soft text-neg" }[tier.tone];
+  return (
+    <div className={cn("shrink-0 rounded-lg px-2.5 py-1.5 text-center", toneClass)} title={`Platform reliability score: ${score}/100`}>
+      <div className="text-lg font-bold leading-none">{tier.letter}</div>
+      <div className="text-[10px] font-medium uppercase tracking-wide">{tier.label}</div>
     </div>
   );
 }
