@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BadgeCheck, Lock } from "lucide-react";
+import { BadgeCheck, Info, Lock } from "lucide-react";
 import { getSession } from "@/server/auth/session";
 import { db, parseJson } from "@/server/db";
 import { label } from "@/server/domain/enums";
 import { estimateTransitDays, getCity } from "@/server/domain/geo";
 import { routeSlug } from "@/server/services/catalog";
+import { laneStats, MIN_SAMPLES } from "@/server/services/market";
 import { PublicFooter, PublicHeader } from "@/components/public/public-header";
 import { Freshness, QualityBadge, RouteLabel } from "@/components/loads/parts";
 import { RouteMap } from "@/components/loads/route-map";
-import { Badge, DemoBadge, LinkButton } from "@/components/ui/primitives";
+import { Badge, DemoBadge, LinkButton, Trend } from "@/components/ui/primitives";
 import { ago, dateTime, km, money, perKm, shortDate, tonnes, usd } from "@/lib/format";
 
 type Params = { params: Promise<{ id: string }> };
@@ -31,7 +32,9 @@ export default async function PublicLoad({ params, searchParams }: Params & { se
   const { posted } = await searchParams;
   const [session, o] = await Promise.all([getSession(), load(id)]);
   if (!o) notFound();
+  const lane = await laneStats(o.originCityId, o.destCityId);
   const trusted = o.rateUsd > 0 && !o.qualityFlags.includes("SUSPICIOUS_RATE");
+  const perKmRate = o.rateUsd / o.distanceKm;
   const lastSeen = o.listings.reduce((a, l) => (l.lastSeenAt > a ? l.lastSeenAt : a), o.lastSeenAt);
   const reqs = parseJson<string[]>(o.requirements, []);
   const rows: [string, React.ReactNode][] = [
@@ -77,13 +80,39 @@ export default async function PublicLoad({ params, searchParams }: Params & { se
         <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="space-y-5">
             <div className="h-60 overflow-hidden rounded-xl border border-border sm:h-80">
-              <RouteMap origin={o.originCityId} dest={o.destCityId} className="h-full w-full" onDemand />
+              <RouteMap origin={o.originCityId} dest={o.destCityId} className="h-full w-full" />
             </div>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border border-border bg-surface p-5 text-sm sm:grid-cols-3">
               {rows.map(([k, v]) => (
                 <div key={k}><dt className="text-xs text-muted">{k}</dt><dd className="mt-0.5">{v}</dd></div>
               ))}
             </dl>
+            <div className="rounded-xl border border-border bg-surface p-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">Market rate · {getCity(o.originCityId)?.name} → {getCity(o.destCityId)?.name}</h2>
+                {lane.isDemo && <DemoBadge />}
+              </div>
+              {lane.sufficient ? (
+                <>
+                  <dl className="num mt-3 grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+                    <div><dt className="text-xs text-muted">Median (30 d)</dt><dd className="text-lg font-semibold">{perKm(lane.median)}</dd></div>
+                    <div><dt className="text-xs text-muted">Range</dt><dd className="text-lg">{perKm(lane.min)} – {lane.max?.toFixed(2)}</dd></div>
+                    <div><dt className="text-xs text-muted">7-day trend</dt><dd className="text-lg"><Trend value={lane.trendPct} /></dd></div>
+                    {trusted && (
+                      <div><dt className="text-xs text-muted">This load</dt><dd className="text-lg">{perKm(perKmRate)}</dd></div>
+                    )}
+                  </dl>
+                  {!trusted && lane.median && (
+                    <p className="mt-3 text-sm text-muted">No rate published for this load. Based on the lane median, a typical rate here is around <strong className="num text-fg">{usd(Math.round(lane.median * o.distanceKm))}</strong> ({perKm(lane.median)} × {km(o.distanceKm)}) — an estimate from recent market activity, not this load&apos;s own price.</p>
+                  )}
+                  {trusted && lane.median && (
+                    <p className="mt-3 text-sm text-muted">This load is {perKmRate >= lane.median ? `${Math.round((perKmRate / lane.median - 1) * 100)}% above` : `${Math.round((1 - perKmRate / lane.median) * 100)}% below`} the lane median, based on {lane.samples} loads in the last 30 days.</p>
+                  )}
+                </>
+              ) : (
+                <p className="mt-3 flex items-center gap-2 text-sm text-muted"><Info className="h-4 w-4 shrink-0" /> Insufficient market data for this lane ({lane.samples} loads in 30 days; need {MIN_SAMPLES}).</p>
+              )}
+            </div>
           </div>
           <aside className="space-y-4">
             <div className="rounded-xl border border-border bg-surface p-5">
