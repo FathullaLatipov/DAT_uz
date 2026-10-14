@@ -10,6 +10,7 @@ import { parseRouteSlug, publicWhere, rateIsTrusted, routeSlug } from "@/server/
 import { laneStats } from "@/server/services/market";
 import { PublicFooter, PublicHeader } from "@/components/public/public-header";
 import { LoadTile } from "@/components/public/load-tile";
+import { CatalogTable } from "@/components/public/catalog-table";
 import { RouteLabel } from "@/components/loads/parts";
 import { RouteMap } from "@/components/loads/route-map";
 import { DemoBadge, EmptyState, LinkButton, Trend } from "@/components/ui/primitives";
@@ -55,7 +56,7 @@ export default async function RoutePage({ params }: Params) {
 
         <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="h-56 overflow-hidden rounded-xl border border-border sm:h-72">
-            <RouteMap origin={r.o} dest={r.d} className="h-full w-full" onDemand />
+            <RouteMap origin={r.o} dest={r.d} className="h-full w-full" />
           </div>
           <div className="rounded-xl border border-border bg-surface p-5">
             <div className="flex items-center justify-between">
@@ -83,7 +84,10 @@ export default async function RoutePage({ params }: Params) {
             <EmptyState title="No active loads on this route right now" body="Check the return direction or nearby routes." actions={<LinkButton href={`/catalog?origin=${r.o}`} variant="outline">Loads from {getCity(r.o)?.name}</LinkButton>} />
           </div>
         ) : (
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{loads.map((o) => <LoadTile key={o.id} o={o} />)}</div>
+          <div className="mt-3">
+            <CatalogTable items={loads} />
+            <div className="grid gap-3 sm:grid-cols-2 md:hidden">{loads.map((o) => <LoadTile key={o.id} o={o} />)}</div>
+          </div>
         )}
       </main>
       <PublicFooter />
