@@ -9,6 +9,7 @@ import { BODY_TYPES, CARGO_TYPES, label } from "@/server/domain/enums";
 import { PublicFooter, PublicHeader } from "@/components/public/public-header";
 import { SearchBar } from "@/components/public/search-bar";
 import { LoadTile } from "@/components/public/load-tile";
+import { CatalogTable } from "@/components/public/catalog-table";
 import { EmptyState, LinkButton } from "@/components/ui/primitives";
 import { cn } from "@/lib/format";
 
@@ -96,7 +97,10 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                 <EmptyState icon={<PackageSearch className="h-5 w-5" />} title="No loads match" body="Try another direction, remove a filter, or widen the dates." actions={<LinkButton href="/catalog" variant="outline">Show all loads</LinkButton>} />
               </div>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{res.items.map((o) => <LoadTile key={o.id} o={o} />)}</div>
+              <>
+                <CatalogTable items={res.items} />
+                <div className="grid gap-3 sm:grid-cols-2 md:hidden">{res.items.map((o) => <LoadTile key={o.id} o={o} />)}</div>
+              </>
             )}
             {res.pages > 1 && (
               <nav className="mt-6 flex items-center justify-between text-sm" aria-label="Pagination">
