@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Calendar, ChevronDown, RotateCcw, Search, SlidersHorizontal, Truck, X } from "lucide-react";
+import { ArrowLeftRight, Calendar, ChevronDown, RotateCcw, Search, SlidersHorizontal, Truck, X } from "lucide-react";
 import { CITIES, COUNTRIES } from "@/server/domain/geo";
 import { BODY_TYPES, CARGO_TYPES, CURRENCIES, PAYMENT_TERMS, label } from "@/server/domain/enums";
 import { Button, Field, Input, Select } from "../ui/primitives";
@@ -11,9 +11,17 @@ import { cn } from "@/lib/format";
 type Opt = { id: string; name: string };
 
 const KEYS = [
-  "origin", "radiusKm", "dest", "destCountry", "originCountry", "loadingFrom", "loadingTo", "cargo", "body", "weightMin", "weightMax", "volumeMin",
-  "rateMin", "ratePerKmMin", "currency", "payment", "source", "verifiedOnly", "minScore", "maxDeadhead", "truckId", "brokerId", "distanceMin", "distanceMax",
+  "origin", "radiusKm", "dest", "destRadiusKm", "destCountry", "originCountry", "scope", "loadingFrom", "loadingTo", "cargo", "body", "weightMin", "weightMax", "volumeMin",
+  "rateMin", "ratePerKmMin", "currency", "payment", "source", "verifiedOnly", "hasRate", "minScore", "maxDeadhead", "truckId", "brokerId", "distanceMin", "distanceMax",
 ];
+
+const SCOPES = [
+  ["", "Any"],
+  ["domestic", "Domestic (within Uzbekistan)"],
+  ["export", "Export (from Uzbekistan)"],
+  ["import", "Import (into Uzbekistan)"],
+  ["transit", "Other international"],
+] as const;
 
 /**
  * A DAT-style compact search bar: a handful of always-visible fields in one row (origin,
@@ -52,7 +60,7 @@ export function SearchToolbar({ trucks, sources }: { trucks: Opt[]; sources: Opt
   }
 
   const dateSummary = v.loadingFrom || v.loadingTo ? `${v.loadingFrom || "Any"} – ${v.loadingTo || "Any"}` : "Any date";
-  const requirementsCount = ["cargo", "payment", "verifiedOnly"].filter((k) => v[k]).length;
+  const requirementsCount = ["cargo", "payment", "verifiedOnly", "hasRate"].filter((k) => v[k]).length;
   const moreCount = ["weightMin", "weightMax", "volumeMin", "rateMin", "ratePerKmMin", "minScore", "maxDeadhead", "distanceMin", "distanceMax", "currency", "source", "brokerId"].filter((k) => v[k]).length;
 
   const allFields = (
@@ -101,22 +109,42 @@ export function SearchToolbar({ trucks, sources }: { trucks: Opt[]; sources: Opt
               {CITIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
           </Field>
-          <Field label="DH-O" className="w-24">
+          <Field label="DH-O" hint={v.radiusKm ? `Within ${v.radiusKm} km of origin` : undefined} className="w-24">
             <Select value={v.radiusKm} onChange={(e) => set("radiusKm", e.target.value)} disabled={!v.origin}>
               <option value="">Exact</option>
               {[50, 100, 200, 300].map((r) => <option key={r} value={r}>{r} km</option>)}
             </Select>
           </Field>
+          <button
+            type="button"
+            title="Swap origin and destination"
+            aria-label="Swap origin and destination"
+            onClick={() => setV((s) => ({ ...s, origin: s.dest, dest: s.origin, radiusKm: s.destRadiusKm, destRadiusKm: s.radiusKm }))}
+            className="mb-[9px] flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted transition hover:border-brand hover:text-brand"
+          >
+            <ArrowLeftRight className="h-4 w-4" />
+          </button>
           <Field label="Destination" className="w-44">
             <Select value={v.dest} onChange={(e) => set("dest", e.target.value)}>
               <option value="">Any</option>
               {CITIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
           </Field>
+          <Field label="DH-D" hint={v.destRadiusKm ? `Within ${v.destRadiusKm} km of destination` : undefined} className="w-24">
+            <Select value={v.destRadiusKm} onChange={(e) => set("destRadiusKm", e.target.value)} disabled={!v.dest}>
+              <option value="">Exact</option>
+              {[50, 100, 200, 300].map((r) => <option key={r} value={r}>{r} km</option>)}
+            </Select>
+          </Field>
           <Field label="Dest. country" className="w-32">
             <Select value={v.destCountry} onChange={(e) => set("destCountry", e.target.value)}>
               <option value="">Any</option>
               {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+            </Select>
+          </Field>
+          <Field label="Route type" className="w-40">
+            <Select value={v.scope} onChange={(e) => set("scope", e.target.value)}>
+              {SCOPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
             </Select>
           </Field>
           <Dropdown label="Equipment" count={multi("body").length} icon={<ChevronDown className="h-3.5 w-3.5" />}>
@@ -145,6 +173,10 @@ export function SearchToolbar({ trucks, sources }: { trucks: Opt[]; sources: Opt
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={v.verifiedOnly === "1"} onChange={(e) => set("verifiedOnly", e.target.checked ? "1" : "")} className="h-4 w-4 accent-[var(--brand)]" />
                 Verified loads only
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={v.hasRate === "1"} onChange={(e) => set("hasRate", e.target.checked ? "1" : "")} className="h-4 w-4 accent-[var(--brand)]" />
+                Published rate only <span className="text-xs text-subtle">(excludes negotiable)</span>
               </label>
             </div>
           </Dropdown>
@@ -213,17 +245,30 @@ function FieldGroup({ trucks, sources, v, set, multi, toggleMulti }: {
           </Select>
         </Field>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-[1fr_96px] gap-2">
         <Field label="Destination">
           <Select value={v.dest} onChange={(e) => set("dest", e.target.value)}>
             <option value="">Any</option>
             {CITIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </Select>
         </Field>
+        <Field label="DH-D">
+          <Select value={v.destRadiusKm} onChange={(e) => set("destRadiusKm", e.target.value)} disabled={!v.dest}>
+            <option value="">Exact</option>
+            {[50, 100, 200, 300].map((r) => <option key={r} value={r}>{r} km</option>)}
+          </Select>
+        </Field>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
         <Field label="Dest. country">
           <Select value={v.destCountry} onChange={(e) => set("destCountry", e.target.value)}>
             <option value="">Any</option>
             {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+          </Select>
+        </Field>
+        <Field label="Route type">
+          <Select value={v.scope} onChange={(e) => set("scope", e.target.value)}>
+            {SCOPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </Select>
         </Field>
       </div>
@@ -261,6 +306,10 @@ function FieldGroup({ trucks, sources, v, set, multi, toggleMulti }: {
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={v.verifiedOnly === "1"} onChange={(e) => set("verifiedOnly", e.target.checked ? "1" : "")} className="h-4 w-4 accent-[var(--brand)]" />
         Verified loads only
+      </label>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={v.hasRate === "1"} onChange={(e) => set("hasRate", e.target.checked ? "1" : "")} className="h-4 w-4 accent-[var(--brand)]" />
+        Published rate only <span className="text-xs text-subtle">(excludes negotiable)</span>
       </label>
     </div>
   );

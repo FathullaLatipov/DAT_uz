@@ -64,8 +64,16 @@ function parseDates(text: string, now: Date): { from?: string; to?: string; note
     const dow = today.getUTCDay() || 7;
     return { from: iso(today), to: iso(new Date(today.getTime() + (7 - dow) * DAY)), note: "this week" };
   }
-  const inDays = t.match(/(?:in|within|через)\s+(\d+)\s*(?:days?|дн)/);
-  if (inDays) return { from: iso(today), to: iso(new Date(today.getTime() + Number(inDays[1]) * DAY)), note: `within ${inDays[1]} days` };
+  // "через 3 дня" / "in 3 days" / "в ближайшие 3 дня" / "в ближайшие три дня" — the Russian
+  // phrasing commonly drops "через" for "в (ближайшие|следующие) N дней", and N is spelled out
+  // as a word at least as often as digits for small counts.
+  const RU_NUM: Record<string, number> = { один: 1, одна: 1, два: 2, две: 2, три: 3, четыре: 4, пять: 5, шесть: 6, семь: 7, восемь: 8, девять: 9, десять: 10 };
+  const numWord = `\\d+|${Object.keys(RU_NUM).join("|")}`;
+  const inDays = t.match(new RegExp(`(?:in|within|через|в\\s+(?:ближайши|следующи)\\p{L}*)\\s+(${numWord})\\s*(?:days?|дн\\p{L}*)`, "u"));
+  if (inDays) {
+    const n = /^\d+$/.test(inDays[1]) ? Number(inDays[1]) : RU_NUM[inDays[1]];
+    return { from: iso(today), to: iso(new Date(today.getTime() + n * DAY)), note: `within ${n} days` };
+  }
   for (let i = 0; i < 7; i++) {
     if (new RegExp(`\\b(on )?${WEEKDAYS[i]}\\b`).test(t)) {
       const diff = (i - today.getUTCDay() + 7) % 7 || 7;
@@ -175,6 +183,12 @@ export function parseQueryRules(text: string, now = new Date()): ParsedQuery {
   if (minRate) {
     f.rateMin = Number(minRate[1]);
     understood.push(`≥ $${f.rateMin}`);
+  }
+  // "with a published rate" / "с опубликованной ставкой" / "с ценой" — excludes negotiable
+  // (unpriced) loads, distinct from the rate-threshold matches above.
+  if (/(published rate|with a rate|с\s+(?:опубликованн\p{L}+|указанн\p{L}+)\s+ставк\p{L}*|с\s+цен\p{L}*)/u.test(t)) {
+    f.hasRate = true;
+    understood.push("published rate only");
   }
 
   // Dates

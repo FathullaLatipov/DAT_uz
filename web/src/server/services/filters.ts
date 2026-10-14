@@ -7,7 +7,12 @@ export const loadFiltersSchema = z.object({
   originCountry: z.string().length(2).optional(),
   radiusKm: z.coerce.number().int().min(0).max(1000).optional(),
   dest: z.string().optional(),
+  destRadiusKm: z.coerce.number().int().min(0).max(1000).optional(),
   destCountry: z.string().length(2).optional(),
+  // Domestic/export/import within Uzbekistan's borders, or neither side in UZ ("transit") —
+  // same classification already used by the public catalog's Direction cards, now also
+  // selectable as a board filter.
+  scope: z.enum(["domestic", "export", "import", "transit"]).optional(),
   loadingFrom: z.string().optional(), // YYYY-MM-DD
   loadingTo: z.string().optional(),
   unloadingTo: z.string().optional(),
@@ -19,6 +24,9 @@ export const loadFiltersSchema = z.object({
   rateMin: z.coerce.number().min(0).optional(),
   ratePerKmMin: z.coerce.number().min(0).optional(),
   currency: z.enum(CURRENCIES).optional(),
+  // Excludes "negotiable" loads (rateUsd <= 0) — distinct from `verifiedOnly`, which is about
+  // data-quality verification, not whether a rate was published at all.
+  hasRate: z.coerce.boolean().optional(),
   payment: z.array(z.enum(PAYMENT_TERMS)).optional(),
   brokerId: z.string().optional(),
   source: z.string().optional(),
@@ -44,6 +52,7 @@ export function filtersFromParams(sp: Record<string, string | string[] | undefin
     obj[k] = (ARRAY_KEYS as readonly string[]).includes(k) ? val.split(",").filter(Boolean) : val;
   }
   if (obj.verifiedOnly) obj.verifiedOnly = obj.verifiedOnly === "1" || obj.verifiedOnly === "true";
+  if (obj.hasRate) obj.hasRate = obj.hasRate === "1" || obj.hasRate === "true";
   const parsed = loadFiltersSchema.safeParse(obj);
   if (parsed.success) return parsed.data;
   // Drop the offending keys instead of failing the whole page.

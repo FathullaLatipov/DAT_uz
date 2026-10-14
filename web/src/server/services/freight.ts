@@ -91,8 +91,12 @@ export function buildWhere(f: LoadFilters): Prisma.FreightOfferWhereInput {
   const and: Prisma.FreightOfferWhereInput[] = [{ status: "ACTIVE" }, demoOfferFilter()];
   if (f.origin) and.push({ originCityId: { in: f.radiusKm ? citiesWithin(f.origin, f.radiusKm) : [f.origin] } });
   if (f.originCountry) and.push({ originCountry: f.originCountry });
-  if (f.dest) and.push({ destCityId: f.dest });
+  if (f.dest) and.push({ destCityId: { in: f.destRadiusKm ? citiesWithin(f.dest, f.destRadiusKm) : [f.dest] } });
   if (f.destCountry) and.push({ destCountry: f.destCountry });
+  if (f.scope === "domestic") and.push({ originCountry: "UZ", destCountry: "UZ" });
+  else if (f.scope === "export") and.push({ originCountry: "UZ", NOT: { destCountry: "UZ" } });
+  else if (f.scope === "import") and.push({ NOT: { originCountry: "UZ" }, destCountry: "UZ" });
+  else if (f.scope === "transit") and.push({ NOT: { originCountry: "UZ" } }, { NOT: { destCountry: "UZ" } });
   if (f.loadingFrom) and.push({ loadingDate: { gte: new Date(`${f.loadingFrom}T00:00:00Z`) } });
   if (f.loadingTo) and.push({ loadingDate: { lte: new Date(`${f.loadingTo}T23:59:59Z`) } });
   if (f.unloadingTo) and.push({ OR: [{ unloadingDate: null }, { unloadingDate: { lte: new Date(`${f.unloadingTo}T23:59:59Z`) } }] });
@@ -107,6 +111,7 @@ export function buildWhere(f: LoadFilters): Prisma.FreightOfferWhereInput {
   if (f.brokerId) and.push({ brokerId: f.brokerId });
   if (f.source) and.push({ listings: { some: { sourceId: f.source } } });
   if (f.verifiedOnly) and.push({ quality: "VERIFIED" });
+  if (f.hasRate) and.push({ rateUsd: { gt: 0 } });
   if (f.distanceMin != null) and.push({ distanceKm: { gte: f.distanceMin } });
   if (f.distanceMax != null) and.push({ distanceKm: { lte: f.distanceMax } });
   return { AND: and };

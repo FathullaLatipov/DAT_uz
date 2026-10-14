@@ -7,6 +7,7 @@ import { computeProfit } from "../src/server/services/profitability";
 import { scoreMatch, type MatchContext, type MatchOffer, type MatchTruck } from "../src/server/services/matching";
 import { computeReliability } from "../src/server/services/broker";
 import { parseQueryRules } from "../src/server/ai/nlsearch";
+import { buildWhere } from "../src/server/services/freight";
 
 test("normalizes cities, countries, bodies, currencies and weights", () => {
   for (const s of ["Tashkent", "Ташкент", "Toshkent", "Tashkent, UZ", "г. Ташкент"]) assert.equal(normalizeCity(s), "tashkent");
@@ -173,6 +174,28 @@ test("broker reliability: insufficient history returns null score with an explan
   assert.ok(r.explanation.includes("Insufficient history"));
 });
 
+test("buildWhere: destination radius, published-rate-only, and domestic/export/import/transit scope", () => {
+  const destRadius = buildWhere({ dest: "tashkent", destRadiusKm: 100 });
+  const destExact = buildWhere({ dest: "tashkent" });
+  // A radius widens the exact-city match into an "in" list of nearby cities (at minimum the
+  // city itself); confirm it's structurally different from (and a superset of) the exact match.
+  assert.ok(Array.isArray((destRadius.AND as { destCityId?: { in: string[] } }[]).find((c) => c.destCityId)?.destCityId?.in));
+  assert.ok((destRadius.AND as { destCityId?: { in: string[] } }[]).find((c) => c.destCityId)!.destCityId!.in.includes("tashkent"));
+  assert.deepEqual((destExact.AND as { destCityId?: { in: string[] } }[]).find((c) => c.destCityId)?.destCityId?.in, ["tashkent"]);
+
+  const hasRate = buildWhere({ hasRate: true });
+  assert.ok((hasRate.AND as { rateUsd?: { gt: number } }[]).some((c) => c.rateUsd?.gt === 0));
+  const noHasRate = buildWhere({});
+  assert.ok(!(noHasRate.AND as { rateUsd?: unknown }[]).some((c) => "rateUsd" in c));
+
+  const domestic = buildWhere({ scope: "domestic" });
+  assert.ok((domestic.AND as { originCountry?: string; destCountry?: string }[]).some((c) => c.originCountry === "UZ" && c.destCountry === "UZ"));
+  const exportScope = buildWhere({ scope: "export" });
+  assert.ok((exportScope.AND as { originCountry?: string }[]).some((c) => c.originCountry === "UZ"));
+  const transit = buildWhere({ scope: "transit" });
+  assert.equal((transit.AND as unknown[]).length, 4); // status + demo + 2 NOT clauses, no plain originCountry/destCountry equality
+});
+
 test("natural language → filters (EN / RU / UZ)", () => {
   const now = new Date("2026-10-08T10:00:00Z");
   const en = parseQueryRules("Find a 20 ton refrigerated load from Tashkent to Kazakhstan next week", now).filters;
@@ -190,4 +213,28 @@ test("natural language → filters (EN / RU / UZ)", () => {
   const t = parseQueryRules("Find me a profitable load from Tashkent tomorrow for truck T-1024", now);
   assert.equal(t.truckCode, "T-1024");
   assert.equal(t.filters.sort, "profit");
+});
+
+test("natural language → filters: regression for the specific example queries from the advanced-search brief", () => {
+  const now = new Date("2026-10-14T10:00:00Z"); // a Wednesday
+  // "в ближайшие N дней" with a spelled-out Russian number — \w in JS regex is ASCII-only, so
+  // a naive `\w*` after a Cyrillic stem silently fails to consume the rest of the word and
+  // breaks the match chain; this must use \p{L} (confirmed broken, then fixed, during this
+  // audit — pinning it here).
+  const a = parseQueryRules("Рефрижератор из Самарканда в Алматы, загрузка в ближайшие три дня.", now);
+  assert.equal(a.filters.origin, "samarkand");
+  assert.equal(a.filters.dest, "almaty");
+  assert.deepEqual(a.filters.body, ["REFRIGERATED"]);
+  assert.equal(a.filters.loadingFrom, "2026-10-14");
+  assert.equal(a.filters.loadingTo, "2026-10-17");
+
+  // "желательно с опубликованной ставкой" — excludes negotiable/unpriced loads.
+  const b = parseQueryRules("Найди тент из Ташкента в Москву на следующей неделе, от 20 тонн, желательно с опубликованной ставкой.", now);
+  assert.equal(b.filters.hasRate, true);
+  assert.equal(b.filters.origin, "tashkent");
+  assert.equal(b.filters.dest, "moscow");
+
+  // Backhaul intent is recognized regardless of these additions.
+  const c = parseQueryRules("Найди обратные грузы для моего грузовика после доставки в Москву.", now);
+  assert.equal(c.intent, "backhaul");
 });
