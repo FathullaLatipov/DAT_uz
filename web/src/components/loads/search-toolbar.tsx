@@ -30,7 +30,7 @@ const SCOPES = [
  * a long scrolling sidebar form. Same URL-param-driven filter state as before — just a denser,
  * single-row layout for desktop. Mobile keeps a full-screen sheet with everything in one list.
  */
-export function SearchToolbar({ trucks, sources }: { trucks: Opt[]; sources: Opt[] }) {
+export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sources: Opt[]; brokers: Opt[] }) {
   const router = useRouter();
   const path = usePathname();
   const sp = useSearchParams();
@@ -59,7 +59,10 @@ export function SearchToolbar({ trucks, sources }: { trucks: Opt[]; sources: Opt
     setMobileOpen(false);
   }
 
-  const dateSummary = v.loadingFrom || v.loadingTo ? `${v.loadingFrom || "Any"} – ${v.loadingTo || "Any"}` : "Any date";
+  const dateSummary =
+    v.loadingFrom || v.loadingTo || v.unloadingTo
+      ? `${v.loadingFrom || "Any"} – ${v.loadingTo || "Any"}${v.unloadingTo ? `, unload by ${v.unloadingTo}` : ""}`
+      : "Any date";
   const requirementsCount = ["cargo", "payment", "verifiedOnly", "hasRate"].filter((k) => v[k]).length;
   const moreCount = ["weightMin", "weightMax", "volumeMin", "rateMin", "ratePerKmMin", "minScore", "maxDeadhead", "distanceMin", "distanceMax", "currency", "source", "brokerId"].filter((k) => v[k]).length;
 
@@ -67,6 +70,7 @@ export function SearchToolbar({ trucks, sources }: { trucks: Opt[]; sources: Opt
     <FieldGroup
       trucks={trucks}
       sources={sources}
+      brokers={brokers}
       v={v}
       set={set}
       multi={multi}
@@ -119,7 +123,7 @@ export function SearchToolbar({ trucks, sources }: { trucks: Opt[]; sources: Opt
             type="button"
             title="Swap origin and destination"
             aria-label="Swap origin and destination"
-            onClick={() => setV((s) => ({ ...s, origin: s.dest, dest: s.origin, radiusKm: s.destRadiusKm, destRadiusKm: s.radiusKm }))}
+            onClick={() => setV((s) => ({ ...s, origin: s.dest, dest: s.origin, radiusKm: s.destRadiusKm, destRadiusKm: s.radiusKm, originCountry: s.destCountry, destCountry: s.originCountry }))}
             className="mb-[9px] flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted transition hover:border-brand hover:text-brand"
           >
             <ArrowLeftRight className="h-4 w-4" />
@@ -134,6 +138,12 @@ export function SearchToolbar({ trucks, sources }: { trucks: Opt[]; sources: Opt
             <Select value={v.destRadiusKm} onChange={(e) => set("destRadiusKm", e.target.value)} disabled={!v.dest}>
               <option value="">Exact</option>
               {[50, 100, 200, 300].map((r) => <option key={r} value={r}>{r} km</option>)}
+            </Select>
+          </Field>
+          <Field label="Origin country" className="w-32">
+            <Select value={v.originCountry} onChange={(e) => set("originCountry", e.target.value)}>
+              <option value="">Any</option>
+              {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
             </Select>
           </Field>
           <Field label="Dest. country" className="w-32">
@@ -154,6 +164,7 @@ export function SearchToolbar({ trucks, sources }: { trucks: Opt[]; sources: Opt
             <div className="grid grid-cols-2 gap-2 p-1">
               <Field label="Loading from"><Input type="date" value={v.loadingFrom} onChange={(e) => set("loadingFrom", e.target.value)} /></Field>
               <Field label="Loading to"><Input type="date" value={v.loadingTo} onChange={(e) => set("loadingTo", e.target.value)} /></Field>
+              <Field label="Unload by" className="col-span-2"><Input type="date" value={v.unloadingTo} onChange={(e) => set("unloadingTo", e.target.value)} /></Field>
             </div>
           </Dropdown>
           <Field label="Score for truck" className="w-48">
@@ -185,6 +196,7 @@ export function SearchToolbar({ trucks, sources }: { trucks: Opt[]; sources: Opt
               <Field label="Weight min (kg)"><Input type="number" inputMode="numeric" value={v.weightMin} onChange={(e) => set("weightMin", e.target.value)} /></Field>
               <Field label="Weight max (kg)"><Input type="number" inputMode="numeric" value={v.weightMax} onChange={(e) => set("weightMax", e.target.value)} /></Field>
               <Field label="Volume min (m³)"><Input type="number" inputMode="numeric" value={v.volumeMin} onChange={(e) => set("volumeMin", e.target.value)} /></Field>
+              <Field label="Distance min (km)"><Input type="number" inputMode="numeric" value={v.distanceMin} onChange={(e) => set("distanceMin", e.target.value)} /></Field>
               <Field label="Distance max (km)"><Input type="number" inputMode="numeric" value={v.distanceMax} onChange={(e) => set("distanceMax", e.target.value)} /></Field>
               <Field label="Rate min ($)"><Input type="number" inputMode="numeric" value={v.rateMin} onChange={(e) => set("rateMin", e.target.value)} /></Field>
               <Field label="Rate/km min ($)"><Input type="number" inputMode="decimal" step="0.05" value={v.ratePerKmMin} onChange={(e) => set("ratePerKmMin", e.target.value)} /></Field>
@@ -200,6 +212,12 @@ export function SearchToolbar({ trucks, sources }: { trucks: Opt[]; sources: Opt
                 <Select value={v.source} onChange={(e) => set("source", e.target.value)}>
                   <option value="">Any</option>
                   {sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </Select>
+              </Field>
+              <Field label="Broker">
+                <Select value={v.brokerId} onChange={(e) => set("brokerId", e.target.value)}>
+                  <option value="">Any</option>
+                  {brokers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </Select>
               </Field>
             </div>
@@ -218,8 +236,8 @@ export function SearchToolbar({ trucks, sources }: { trucks: Opt[]; sources: Opt
   );
 }
 
-function FieldGroup({ trucks, sources, v, set, multi, toggleMulti }: {
-  trucks: Opt[]; sources: Opt[];
+function FieldGroup({ trucks, sources, brokers, v, set, multi, toggleMulti }: {
+  trucks: Opt[]; sources: Opt[]; brokers: Opt[];
   v: Record<string, string>; set: (k: string, val: string) => void; multi: (k: string) => string[]; toggleMulti: (k: string, item: string) => void;
   layout: "stacked";
 }) {
@@ -260,28 +278,36 @@ function FieldGroup({ trucks, sources, v, set, multi, toggleMulti }: {
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-2">
+        <Field label="Origin country">
+          <Select value={v.originCountry} onChange={(e) => set("originCountry", e.target.value)}>
+            <option value="">Any</option>
+            {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+          </Select>
+        </Field>
         <Field label="Dest. country">
           <Select value={v.destCountry} onChange={(e) => set("destCountry", e.target.value)}>
             <option value="">Any</option>
             {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
           </Select>
         </Field>
-        <Field label="Route type">
-          <Select value={v.scope} onChange={(e) => set("scope", e.target.value)}>
-            {SCOPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-          </Select>
-        </Field>
       </div>
+      <Field label="Route type">
+        <Select value={v.scope} onChange={(e) => set("scope", e.target.value)}>
+          {SCOPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        </Select>
+      </Field>
       <div className="grid grid-cols-2 gap-2">
         <Field label="Loading from"><Input type="date" value={v.loadingFrom} onChange={(e) => set("loadingFrom", e.target.value)} /></Field>
         <Field label="Loading to"><Input type="date" value={v.loadingTo} onChange={(e) => set("loadingTo", e.target.value)} /></Field>
       </div>
+      <Field label="Unload by"><Input type="date" value={v.unloadingTo} onChange={(e) => set("unloadingTo", e.target.value)} /></Field>
       <ChipGroup title="Equipment" options={BODY_TYPES.map((b) => [b, label(b)])} value={multi("body")} onToggle={(x) => toggleMulti("body", x)} />
       <ChipGroup title="Cargo" options={CARGO_TYPES.map((b) => [b, label(b)])} value={multi("cargo")} onToggle={(x) => toggleMulti("cargo", x)} />
       <div className="grid grid-cols-2 gap-2">
         <Field label="Weight min (kg)"><Input type="number" inputMode="numeric" value={v.weightMin} onChange={(e) => set("weightMin", e.target.value)} /></Field>
         <Field label="Weight max (kg)"><Input type="number" inputMode="numeric" value={v.weightMax} onChange={(e) => set("weightMax", e.target.value)} /></Field>
         <Field label="Volume min (m³)"><Input type="number" inputMode="numeric" value={v.volumeMin} onChange={(e) => set("volumeMin", e.target.value)} /></Field>
+        <Field label="Distance min (km)"><Input type="number" inputMode="numeric" value={v.distanceMin} onChange={(e) => set("distanceMin", e.target.value)} /></Field>
         <Field label="Distance max (km)"><Input type="number" inputMode="numeric" value={v.distanceMax} onChange={(e) => set("distanceMax", e.target.value)} /></Field>
         <Field label="Rate min ($)"><Input type="number" inputMode="numeric" value={v.rateMin} onChange={(e) => set("rateMin", e.target.value)} /></Field>
         <Field label="Rate/km min ($)"><Input type="number" inputMode="decimal" step="0.05" value={v.ratePerKmMin} onChange={(e) => set("ratePerKmMin", e.target.value)} /></Field>
@@ -302,6 +328,12 @@ function FieldGroup({ trucks, sources, v, set, multi, toggleMulti }: {
           </Select>
         </Field>
       </div>
+      <Field label="Broker">
+        <Select value={v.brokerId} onChange={(e) => set("brokerId", e.target.value)}>
+          <option value="">Any</option>
+          {brokers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+        </Select>
+      </Field>
       <ChipGroup title="Payment terms" options={PAYMENT_TERMS.map((b) => [b, label(b)])} value={multi("payment")} onToggle={(x) => toggleMulti("payment", x)} />
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={v.verifiedOnly === "1"} onChange={(e) => set("verifiedOnly", e.target.checked ? "1" : "")} className="h-4 w-4 accent-[var(--brand)]" />

@@ -25,10 +25,11 @@ export default async function LoadsPage({ searchParams }: { searchParams: Promis
   const view = (typeof sp.view === "string" && ["list", "map", "split"].includes(sp.view) ? sp.view : "list") as "list" | "map" | "split";
   const nl = typeof sp.nl === "string" ? sp.nl : null;
 
-  const [res, trucks, sources] = await Promise.all([
+  const [res, trucks, sources, brokers] = await Promise.all([
     searchLoads(s.orgId, s.userId, filters, page, PAGE_SIZE),
     db.truck.findMany({ where: { orgId: s.orgId }, select: { id: true, code: true, bodyType: true, capacityKg: true }, orderBy: { code: "asc" } }),
     db.freightSource.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true } }),
+    db.broker.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
   const pages = Math.max(1, Math.ceil(res.total / PAGE_SIZE));
   const pageHref = (p: number) => {
@@ -94,7 +95,7 @@ export default async function LoadsPage({ searchParams }: { searchParams: Promis
         </div>
       )}
       <div className="mb-3">
-        <SearchToolbar key={filtersToParams(filters).toString()} trucks={trucks.map((t) => ({ id: t.id, name: `${t.code} · ${(t.capacityKg / 1000).toFixed(0)} t ${t.bodyType.toLowerCase()}` }))} sources={sources} />
+        <SearchToolbar key={filtersToParams(filters).toString()} trucks={trucks.map((t) => ({ id: t.id, name: `${t.code} · ${(t.capacityKg / 1000).toFixed(0)} t ${t.bodyType.toLowerCase()}` }))} sources={sources} brokers={brokers} />
       </div>
       <div className="flex flex-col items-start gap-3 lg:flex-row lg:gap-5">
         <div className="w-full min-w-0 flex-1">

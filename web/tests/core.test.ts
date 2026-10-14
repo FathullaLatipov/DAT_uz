@@ -8,6 +8,7 @@ import { scoreMatch, type MatchContext, type MatchOffer, type MatchTruck } from 
 import { computeReliability } from "../src/server/services/broker";
 import { parseQueryRules } from "../src/server/ai/nlsearch";
 import { buildWhere } from "../src/server/services/freight";
+import { filtersFromParams } from "../src/server/services/filters";
 
 test("normalizes cities, countries, bodies, currencies and weights", () => {
   for (const s of ["Tashkent", "Ташкент", "Toshkent", "Tashkent, UZ", "г. Ташкент"]) assert.equal(normalizeCity(s), "tashkent");
@@ -175,25 +176,77 @@ test("broker reliability: insufficient history returns null score with an explan
 });
 
 test("buildWhere: destination radius, published-rate-only, and domestic/export/import/transit scope", () => {
-  const destRadius = buildWhere({ dest: "tashkent", destRadiusKm: 100 });
-  const destExact = buildWhere({ dest: "tashkent" });
-  // A radius widens the exact-city match into an "in" list of nearby cities (at minimum the
-  // city itself); confirm it's structurally different from (and a superset of) the exact match.
-  assert.ok(Array.isArray((destRadius.AND as { destCityId?: { in: string[] } }[]).find((c) => c.destCityId)?.destCityId?.in));
-  assert.ok((destRadius.AND as { destCityId?: { in: string[] } }[]).find((c) => c.destCityId)!.destCityId!.in.includes("tashkent"));
-  assert.deepEqual((destExact.AND as { destCityId?: { in: string[] } }[]).find((c) => c.destCityId)?.destCityId?.in, ["tashkent"]);
+  const destRadiusList = (w: ReturnType<typeof buildWhere>) => (w.AND as { destCityId?: { in: string[] } }[]).find((c) => c.destCityId)?.destCityId?.in;
+  const destExactList = destRadiusList(buildWhere({ dest: "tashkent" }));
+  const destRadiusWide = destRadiusList(buildWhere({ dest: "tashkent", destRadiusKm: 300 }));
+  assert.deepEqual(destExactList, ["tashkent"]);
+  // A radius must actually widen the match — not just restate the exact city. (This was the
+  // one gap an independent review caught: the original test only checked the shape of the
+  // query, never that a radius produces a strictly larger candidate set than an exact match.)
+  assert.ok(destRadiusWide!.includes("tashkent"));
+  assert.ok(destRadiusWide!.length > 1, `expected more than just the exact city, got ${JSON.stringify(destRadiusWide)}`);
 
   const hasRate = buildWhere({ hasRate: true });
   assert.ok((hasRate.AND as { rateUsd?: { gt: number } }[]).some((c) => c.rateUsd?.gt === 0));
+  const hasRateFalse = buildWhere({ hasRate: false });
   const noHasRate = buildWhere({});
-  assert.ok(!(noHasRate.AND as { rateUsd?: unknown }[]).some((c) => "rateUsd" in c));
+  // hasRate: false must behave identically to "unset", not add an inverted/negative clause.
+  for (const w of [hasRateFalse, noHasRate]) assert.ok(!(w.AND as { rateUsd?: unknown }[]).some((c) => "rateUsd" in c));
 
   const domestic = buildWhere({ scope: "domestic" });
   assert.ok((domestic.AND as { originCountry?: string; destCountry?: string }[]).some((c) => c.originCountry === "UZ" && c.destCountry === "UZ"));
   const exportScope = buildWhere({ scope: "export" });
   assert.ok((exportScope.AND as { originCountry?: string }[]).some((c) => c.originCountry === "UZ"));
+  const importScope = buildWhere({ scope: "import" });
+  assert.ok((importScope.AND as { destCountry?: string }[]).some((c) => c.destCountry === "UZ"));
   const transit = buildWhere({ scope: "transit" });
   assert.equal((transit.AND as unknown[]).length, 4); // status + demo + 2 NOT clauses, no plain originCountry/destCountry equality
+
+  // Combined filters compose via AND rather than one silently overriding another.
+  const combined = buildWhere({ scope: "export", hasRate: true, dest: "almaty", destRadiusKm: 200 });
+  const combinedAnd = combined.AND as Record<string, unknown>[];
+  assert.ok(combinedAnd.some((c) => c.originCountry === "UZ"));
+  assert.ok(combinedAnd.some((c) => (c.rateUsd as { gt?: number } | undefined)?.gt === 0));
+  assert.ok(combinedAnd.some((c) => Array.isArray((c.destCityId as { in?: string[] } | undefined)?.in)));
+
+  // Invalid enum/range values for the new fields are dropped (existing "bad key" behavior),
+  // not silently coerced into something wrong — a legacy/malformed bookmarked URL keeps working
+  // instead of 500ing or applying a nonsensical filter.
+  const bogus = filtersFromParams({ scope: "not-a-real-scope", destRadiusKm: "99999", origin: "tashkent" });
+  assert.equal(bogus.scope, undefined);
+  assert.equal(bogus.destRadiusKm, undefined);
+  assert.equal(bogus.origin, "tashkent"); // sibling valid params are preserved
+
+  // A legacy/bookmarked URL with none of the new params produces exactly the same query shape
+  // as before this change — no new AND clauses sneak in when the fields are simply absent.
+  const legacy = buildWhere({ origin: "tashkent", body: ["CURTAINSIDER"] });
+  const legacyAnd = legacy.AND as Record<string, unknown>[];
+  assert.ok(!legacyAnd.some((c) => "destCityId" in c || "rateUsd" in c || "originCountry" in c || "destCountry" in c));
+});
+
+test("trade-direction scope: a route between two third countries (neither leg in Uzbekistan) classifies as transit, not domestic/export/import", () => {
+  // Documents the classification rule explicitly, per an independent review's request: transit
+  // requires BOTH legs to be outside UZ. A Moscow (RU) -> Almaty (KZ) route is the concrete
+  // example — neither country is Uzbekistan, so it must fall only into the transit bucket.
+  const transit = buildWhere({ scope: "transit" });
+  const domestic = buildWhere({ scope: "domestic" });
+  const exportScope = buildWhere({ scope: "export" });
+  const importScope = buildWhere({ scope: "import" });
+  const matchesRuToKz = (w: ReturnType<typeof buildWhere>) =>
+    (w.AND as Record<string, unknown>[]).every((c) => {
+      if ("originCountry" in c && typeof c.originCountry === "string") return c.originCountry === "RU";
+      if ("destCountry" in c && typeof c.destCountry === "string") return c.destCountry === "KZ";
+      if ("NOT" in c) {
+        const not = c.NOT as Record<string, unknown>;
+        if ("originCountry" in not) return not.originCountry !== "RU";
+        if ("destCountry" in not) return not.destCountry !== "KZ";
+      }
+      return true;
+    });
+  assert.equal(matchesRuToKz(transit), true);
+  assert.equal(matchesRuToKz(domestic), false);
+  assert.equal(matchesRuToKz(exportScope), false);
+  assert.equal(matchesRuToKz(importScope), false);
 });
 
 test("natural language → filters (EN / RU / UZ)", () => {
@@ -237,4 +290,17 @@ test("natural language → filters: regression for the specific example queries 
   // Backhaul intent is recognized regardless of these additions.
   const c = parseQueryRules("Найди обратные грузы для моего грузовика после доставки в Москву.", now);
   assert.equal(c.intent, "backhaul");
+
+  // English equivalent of the "within N days" fix — digits, not a spelled-out word, so this
+  // path was never at risk of the \w-vs-\p{L} bug, but it shares the same regex branch.
+  const en = parseQueryRules("Load from Tashkent to Almaty within 3 days", now);
+  assert.equal(en.filters.loadingFrom, "2026-10-14");
+  assert.equal(en.filters.loadingTo, "2026-10-17");
+
+  // English and Russian-digit equivalents of "published rate only".
+  const enRate = parseQueryRules("Show loads from Tashkent with a published rate", now);
+  assert.equal(enRate.filters.hasRate, true);
+  const ruDigit = parseQueryRules("груз из Ташкента в Алматы через 3 дня, с указанной ставкой", now);
+  assert.equal(ruDigit.filters.hasRate, true);
+  assert.equal(ruDigit.filters.loadingTo, "2026-10-17");
 });
