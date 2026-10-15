@@ -1,0 +1,34 @@
+name: Deploy Karvon
+
+# Manual only — no push/PR trigger. Deployment stays a deliberate, separate step from merging,
+# triggered from the Actions tab ("Run workflow"), never automatically.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up deploy key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.KARVON_DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.KARVON_DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Pull, sync, build and restart karvon-web only
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "${{ secrets.KARVON_DEPLOY_USER }}@${{ secrets.KARVON_DEPLOY_HOST }}" '
+            set -euo pipefail
+            cd /var/www/karvon-src
+            git fetch origin master
+            git reset --hard origin/master
+            rsync -a --delete \
+              --exclude=".env" --exclude=".env*" \
+              --exclude="data/" --exclude="backups/" \
+              --exclude="node_modules/" --exclude=".next/" \
+              /var/www/karvon-src/web/ /var/www/karvon/
+            cd /var/www/karvon
+            docker compose build karvon-web
+            docker compose up -d karvon-web
+          '
