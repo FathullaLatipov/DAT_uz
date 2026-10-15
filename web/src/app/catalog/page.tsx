@@ -8,8 +8,8 @@ import { CITIES, COUNTRIES, countryName, getCity } from "@/server/domain/geo";
 import { BODY_TYPES, CARGO_TYPES, label } from "@/server/domain/enums";
 import { PublicFooter, PublicHeader } from "@/components/public/public-header";
 import { SearchBar } from "@/components/public/search-bar";
-import { LoadTile } from "@/components/public/load-tile";
 import { CatalogTable } from "@/components/public/catalog-table";
+import { CatalogTileList } from "@/components/public/catalog-tile-list";
 import { EmptyState, LinkButton } from "@/components/ui/primitives";
 import { cn } from "@/lib/format";
 
@@ -32,6 +32,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   const page = Math.max(1, Number(one(sp.page)) || 1);
   const scope = one(sp.scope);
   const [session, res] = await Promise.all([getSession(), publicSearch(f, sort, page, 24, scope)]);
+  const navKey = `${filtersToParams(f).toString()}-${sort}-${page}-${scope ?? ""}`;
 
   const title =
     f.origin || f.dest || f.originCountry || f.destCountry
@@ -98,8 +99,8 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
               </div>
             ) : (
               <>
-                <CatalogTable items={res.items} />
-                <div className="grid gap-3 sm:grid-cols-2 md:hidden">{res.items.map((o) => <LoadTile key={o.id} o={o} />)}</div>
+                <CatalogTable key={`t-${navKey}`} items={res.items} />
+                <CatalogTileList key={`m-${navKey}`} items={res.items} className="grid gap-3 sm:grid-cols-2 md:hidden" />
               </>
             )}
             {res.pages > 1 && (

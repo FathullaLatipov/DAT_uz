@@ -73,13 +73,22 @@ export function Sources({ sources, demo }: { sources: { id: string; name: string
   );
 }
 
-/** Mobile-first card. Designed so the key facts read in one glance. */
-export function LoadCard({ row, compact }: { row: LoadRow; compact?: boolean }) {
+/**
+ * Mobile-first card. Designed so the key facts read in one glance. Plain link by default
+ * (used for the compact map-view preview grid); pass `expanded`/`onToggle` to make it behave
+ * like a table row instead — tapping expands an inline detail panel rendered by the caller,
+ * same pattern as the desktop table's expandable rows.
+ */
+export function LoadCard({ row, compact, expanded, onToggle }: { row: LoadRow; compact?: boolean; expanded?: boolean; onToggle?: () => void }) {
   const o = row.offer;
   const m = row.match;
   const lastSeen = o.listings.reduce((a, l) => (l.lastSeenAt > a ? l.lastSeenAt : a), o.lastSeenAt);
-  return (
-    <Link href={`/app/loads/${o.id}`} className="group block min-w-0 rounded-xl border border-border bg-surface p-4 shadow-card transition hover:border-border-strong hover:shadow-pop">
+  const className = cn(
+    "group block min-w-0 border border-border bg-surface p-4 shadow-card transition hover:border-border-strong hover:shadow-pop",
+    onToggle ? (expanded ? "rounded-t-xl border-brand/40 bg-brand-soft/10" : "cursor-pointer rounded-xl") : "rounded-xl",
+  );
+  const content = (
+    <>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <RouteLabel origin={o.originCityId} dest={o.destCityId} />
@@ -119,6 +128,30 @@ export function LoadCard({ row, compact }: { row: LoadRow; compact?: boolean }) 
           <Freshness lastSeen={lastSeen} />
         </div>
       )}
+    </>
+  );
+  if (onToggle) {
+    return (
+      <div
+        className={className}
+        onClick={onToggle}
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+      >
+        {content}
+      </div>
+    );
+  }
+  return (
+    <Link href={`/app/loads/${o.id}`} className={className}>
+      {content}
     </Link>
   );
 }

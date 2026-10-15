@@ -9,6 +9,7 @@ import { SearchToolbar } from "@/components/loads/search-toolbar";
 import { BoardToolbar } from "@/components/loads/board-toolbar";
 import { LoadTable } from "@/components/loads/load-table";
 import { LoadCard } from "@/components/loads/parts";
+import { LoadCardList } from "@/components/loads/load-card-list";
 import { BoardMap } from "@/components/loads/board-map";
 import { Card, EmptyState, LinkButton, PageHeader } from "@/components/ui/primitives";
 import { cn } from "@/lib/format";
@@ -38,11 +39,6 @@ export default async function LoadsPage({ searchParams }: { searchParams: Promis
     if (p > 1) q.set("page", String(p));
     return `/app/loads?${q.toString()}`;
   };
-  const sortHref = (key: "rate" | "ratePerKm" | "profit" | "deadhead" | "loading") => {
-    const q = filtersToParams({ ...filters, sort: key });
-    if (view !== "list") q.set("view", view);
-    return `/app/loads?${q.toString()}`;
-  };
 
   const results =
     res.rows.length === 0 ? (
@@ -64,11 +60,9 @@ export default async function LoadsPage({ searchParams }: { searchParams: Promis
     ) : (
       <>
         <div className="hidden md:block">
-          <LoadTable rows={res.rows} sort={filters.sort} sortHref={sortHref} />
+          <LoadTable key={`${filtersToParams(filters).toString()}-${page}-${filters.sort ?? ""}`} rows={res.rows} filters={filters} view={view} />
         </div>
-        <div className="grid grid-cols-1 gap-3 md:hidden [&>*]:min-w-0">
-          {res.rows.map((r) => <LoadCard key={r.offer.id} row={r} />)}
-        </div>
+        <LoadCardList key={`m-${filtersToParams(filters).toString()}-${page}-${filters.sort ?? ""}`} rows={res.rows} className="grid grid-cols-1 gap-3 md:hidden [&>*]:min-w-0" />
         {pages > 1 && (
           <nav className="mt-4 flex items-center justify-between text-sm" aria-label="Pagination">
             <span className="text-muted">Page {page} of {pages}</span>
@@ -111,7 +105,11 @@ export default async function LoadsPage({ searchParams }: { searchParams: Promis
             </div>
           ) : view === "split" ? (
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <div className="grid content-start gap-3">{res.rows.length ? res.rows.map((r) => <LoadCard key={r.offer.id} row={r} />) : results}</div>
+              {res.rows.length ? (
+                <LoadCardList key={`s-${filtersToParams(filters).toString()}-${page}-${filters.sort ?? ""}`} rows={res.rows} className="grid content-start gap-3" />
+              ) : (
+                <div className="grid content-start gap-3">{results}</div>
+              )}
               <div className={cn("sticky top-20 hidden h-[calc(100dvh-7rem)] overflow-hidden rounded-xl border border-border xl:block")}>
                 <BoardMap items={res.all} className="h-full w-full" />
               </div>

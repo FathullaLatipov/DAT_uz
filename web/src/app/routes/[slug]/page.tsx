@@ -9,8 +9,8 @@ import { offerInclude } from "@/server/services/freight";
 import { parseRouteSlug, publicWhere, rateIsTrusted, routeSlug } from "@/server/services/catalog";
 import { laneStats } from "@/server/services/market";
 import { PublicFooter, PublicHeader } from "@/components/public/public-header";
-import { LoadTile } from "@/components/public/load-tile";
 import { CatalogTable } from "@/components/public/catalog-table";
+import { CatalogTileList } from "@/components/public/catalog-tile-list";
 import { RouteLabel } from "@/components/loads/parts";
 import { RouteMap } from "@/components/loads/route-map";
 import { DemoBadge, EmptyState, LinkButton, Trend } from "@/components/ui/primitives";
@@ -86,7 +86,7 @@ export default async function RoutePage({ params }: Params) {
         ) : (
           <div className="mt-3">
             <CatalogTable items={loads} />
-            <div className="grid gap-3 sm:grid-cols-2 md:hidden">{loads.map((o) => <LoadTile key={o.id} o={o} />)}</div>
+            <CatalogTileList items={loads} className="grid gap-3 sm:grid-cols-2 md:hidden" />
           </div>
         )}
       </main>
