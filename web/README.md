@@ -38,6 +38,9 @@ Other scripts: `npm run build`, `npm start`, `npm test` (unit tests for the dete
 | `NEXT_PUBLIC_MAP_TILES` | Raster tile URL. Defaults to OSM standard tiles, which are fine for development only; use a commercial or self-hosted provider in production. |
 | `TELEGRAM_BOT_TOKEN`, `SMTP_URL` | Turn on the Telegram and email alert channels once they are implemented (see below). |
 | `DEMO_SOURCES=off` | Disables the demo adapters in scheduled syncs. |
+| `JOBS_ENABLED`, `JOBS_SECRET` | `JOBS_ENABLED=1` starts the background scheduler; `JOBS_SECRET` authenticates `POST /api/jobs/run` (required when enabled). |
+| `ALERT_TELEGRAM_CHAT_ID` | Optional. With `TELEGRAM_BOT_TOKEN`, sends operator alerts (source down, listener silent…) to this chat. |
+| `CBU_RATES_URL`, `OSRM_URL` | Optional overrides for the FX feed and the OSRM server used by the distance-table script. |
 
 ## Architecture
 
@@ -134,9 +137,9 @@ The local Telegram listener (`scripts/telegram-listener/`) keeps running on your
 
 ## Known limitations / next steps
 
-- **Distances are estimates** (great-circle × road factor). Plug in OSRM or Valhalla for road routing.
-- **FX rates are manual reference values** in the `ExchangeRate` table. Connect the CBU.uz daily rates.
-- **No job scheduler yet.** Source sync runs from the admin panel or the seed, and saved-search alerts are checked when the dashboard loads. Add a cron or queue worker (e.g. BullMQ on Redis).
+- **Distances come from a pre-computed OSRM table** (`src/server/domain/road-distances.generated.ts`, 39 cities). Rebuild it with `npx tsx scripts/build-road-distances.ts` after adding a city; a pair missing from the table falls back to a great-circle estimate. The public OSRM demo server has wrong data around the Azerbaijan–Georgia border (Baku–Tbilisi is overridden by hand in `geo.ts`; other Baku→west pairs are inflated). Point `OSRM_URL` at a self-hosted OSRM with fresh data for a precise table. Distances between arbitrary points (not city centres) are still not routed.
+- **Background jobs** run inside the server when `JOBS_ENABLED=1` (set in `docker-compose.yml`; needs `JOBS_SECRET` in `.env`): source sync every 15 min, offer expiry and saved-search alerts every 10 min, CBU.uz exchange rates every 6 h, and a health check every 10 min that alerts admins (in-app, plus Telegram if `TELEGRAM_BOT_TOKEN` and `ALERT_TELEGRAM_CHAT_ID` are set) when a source fails or goes stale, the Telegram listener goes silent, no new loads arrive, FX rates are old, or a job keeps failing. Alerts fire on change only. Runs are recorded in `JobRun` and shown in Admin → Background jobs. Point an uptime monitor at `GET /api/health` (503 when the scheduler stops) — it is the only thing that can notice the scheduler itself dying. Without `JOBS_ENABLED` (Vercel) call `POST /api/jobs/run` from an external cron: `curl -X POST $URL/api/jobs/run -H "x-ingest-secret: $JOBS_SECRET" -H "content-type: application/json" -d '{"job":"sync-sources"}'`. One server instance is assumed; the run lock lives in the database, but a second instance would double the timers.
+- **FX rates** are fetched from CBU.uz into the `ExchangeRate` table and loaded into memory before every ingestion. A rate that jumps more than 25% in one refresh is rejected as a bad feed. Offers already stored keep the USD value computed when they arrived.
 - **The rate limiter is in-memory**, which only works on a single instance. Move it to Redis for horizontal scaling.
 - **Telegram and email delivery** are interfaces only. The account-linking flow (`/start <code>`) still needs implementing.
 - **Ranking is computed in memory** over active offers, which is fine for thousands of rows. Move it to SQL pre-filtering plus materialized lane stats (`RouteAnalytics`) as volume grows.

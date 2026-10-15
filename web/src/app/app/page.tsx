@@ -10,6 +10,7 @@ import { opportunityCounts, recommendations } from "@/server/services/freight";
 import { marketSummary } from "@/server/services/market";
 import { fleetBackhaul } from "@/server/services/backhaul";
 import { checkSavedSearches } from "@/server/services/alerts";
+import { jobsEnabled } from "@/server/jobs/config";
 import { Card, CardHeader, DemoBadge, EmptyState, LinkButton, Stat, Trend } from "@/components/ui/primitives";
 import { RecRow, TopMatch } from "@/components/loads/recommendation";
 import { cityLabel, RouteLabel } from "@/components/loads/parts";
@@ -39,7 +40,8 @@ export default async function Dashboard() {
   // dashboard visit is still a stopgap per the original comment; a real scheduler is the proper
   // fix, tracked in the README.)
   after(async () => {
-    await checkSavedSearches(s.userId, s.orgId).catch((e) => console.error("[alerts]", e));
+    // With the scheduler on, the `saved-search-alerts` job checks everyone's searches on a timer.
+    if (!jobsEnabled()) await checkSavedSearches(s.userId, s.orgId).catch((e) => console.error("[alerts]", e));
     if (recs.length) {
       const since = new Date(Date.now() - 86_400_000);
       const existing = await db.recommendation.findMany({ where: { orgId: s.orgId, createdAt: { gte: since } }, select: { truckId: true, offerId: true } });

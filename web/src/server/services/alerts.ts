@@ -53,6 +53,37 @@ const emailNotifier: Notifier = {
 const NOTIFIERS = [webNotifier, telegramNotifier, emailNotifier];
 export const notifierStatus = () => NOTIFIERS.map((n) => ({ channel: n.channel, configured: n.configured() }));
 
+/**
+ * Scheduler entry point: checks every user's saved searches, not just the one who happens to open
+ * the dashboard. Bails out in one cheap count when nothing new has arrived since the oldest check,
+ * so a quiet period costs a single query instead of a full ranking pass per saved search.
+ */
+export async function checkAllSavedSearches(maxUsers = 200) {
+  const searches = await db.savedSearch.findMany({ select: { userId: true, orgId: true, lastCheckedAt: true } });
+  if (!searches.length) return { users: 0, alerts: 0, skipped: "no saved searches" };
+  const oldest = new Date(Math.min(...searches.map((s) => s.lastCheckedAt.getTime())));
+  const anyNew = await db.freightOffer.count({
+    where: { status: "ACTIVE", OR: [{ sourceCreatedAt: { gt: oldest } }, { createdAt: { gt: oldest } }] },
+  });
+  if (!anyNew) return { users: 0, alerts: 0, skipped: "nothing new since the oldest check" };
+
+  const pairs = [...new Map(searches.map((s) => [`${s.userId}:${s.orgId}`, s])).values()].slice(0, maxUsers);
+  let alerts = 0;
+  let failed = 0;
+  for (const p of pairs) {
+    try {
+      alerts += await checkSavedSearches(p.userId, p.orgId);
+    } catch (e) {
+      failed++;
+      console.error("[alerts]", p.userId, e);
+    }
+  }
+  // One broken account is logged and skipped; every account failing means the job itself is broken
+  // and must show up as FAILED (health-check alerts on two in a row), not as a quiet "ok".
+  if (failed === pairs.length) throw new Error(`Saved-search check failed for all ${failed} account(s) — see the server log`);
+  return { users: pairs.length, alerts, failed };
+}
+
 export async function checkSavedSearches(userId: string, orgId: string) {
   const searches = await db.savedSearch.findMany({ where: { userId, orgId } });
   let alerts = 0;

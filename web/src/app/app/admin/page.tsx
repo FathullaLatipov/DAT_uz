@@ -5,6 +5,8 @@ import { can } from "@/server/auth/permissions";
 import { db, parseJson } from "@/server/db";
 import { getProvider } from "@/server/ai/provider";
 import { notifierStatus } from "@/server/services/alerts";
+import { JOBS } from "@/server/jobs/definitions";
+import { jobsEnabled } from "@/server/jobs/config";
 import { Badge, Card, CardHeader, DemoBadge, PageHeader, Stat } from "@/components/ui/primitives";
 import { CsvImport, SyncButton } from "@/components/admin/admin-actions";
 import { ago, dateTime } from "@/lib/format";
@@ -28,7 +30,14 @@ export default async function AdminPage() {
     db.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 12 }),
     db.broker.count(),
   ]);
-  const dupOffers = await db.$queryRaw<{ n: bigint }[]>`SELECT COUNT(*) as n FROM (SELECT offerId FROM FreightListing GROUP BY offerId HAVING COUNT(DISTINCT sourceId) > 1)`;
+  const dupOffers = await db.$queryRaw<{ n: bigint }[]>`SELECT COUNT(*) as n FROM (SELECT "offerId" FROM "FreightListing" GROUP BY "offerId" HAVING COUNT(DISTINCT "sourceId") > 1) multi`;
+  const jobRows = await Promise.all(
+    (Object.entries(JOBS) as [string, { everyMin: number }][]).map(async ([name, def]) => ({
+      name,
+      everyMin: def.everyMin,
+      last: await db.jobRun.findFirst({ where: { job: name }, orderBy: { startedAt: "desc" }, select: { status: true, startedAt: true, result: true, error: true } }),
+    })),
+  );
   const totalListings = listingCounts.reduce((a, l) => a + l._count, 0);
   const totalOffers = offerStats.reduce((a, o) => a + o._count, 0);
   const flagCounts = new Map<string, number>();
@@ -158,6 +167,37 @@ export default async function AdminPage() {
           </ul>
         </Card>
       </div>
+
+      <Card className="overflow-hidden">
+        <CardHeader
+          title="Background jobs"
+          subtitle={jobsEnabled() ? "Scheduler is on. Alerts go to admins (and Telegram if ALERT_TELEGRAM_CHAT_ID is set) when something breaks." : "Scheduler is off (JOBS_ENABLED is not 1) — sources sync only when the home page is visited."}
+        />
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-sm">
+            <thead>
+              <tr className="border-y border-border bg-surface-2/60 text-left text-xs uppercase tracking-wide text-muted">
+                <th className="px-4 py-2 font-medium">Job</th>
+                <th className="px-3 py-2 font-medium">Every</th>
+                <th className="px-3 py-2 font-medium">Last run</th>
+                <th className="px-3 py-2 font-medium">Result</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {jobRows.map((j) => (
+                <tr key={j.name} className="align-top">
+                  <td className="px-4 py-2.5 font-mono text-xs">{j.name}</td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-muted">{j.everyMin >= 60 ? `${j.everyMin / 60} h` : `${j.everyMin} min`}</td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-muted">
+                    {j.last ? <>{ago(j.last.startedAt)} <Badge tone={j.last.status === "SUCCESS" ? "pos" : j.last.status === "FAILED" ? "neg" : "neutral"}>{j.last.status.toLowerCase()}</Badge></> : "never"}
+                  </td>
+                  <td className="max-w-md truncate px-3 py-2.5 text-xs text-muted" title={j.last?.error ?? j.last?.result}>{j.last?.error ?? j.last?.result ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="overflow-hidden">
