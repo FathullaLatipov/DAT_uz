@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Loader2, MapPinned, Package, Wallet } from "lucide-react";
 import { apiCall } from "@/lib/client";
-import { CITIES, COUNTRIES } from "@/server/domain/geo";
+import { CITIES, COUNTRIES, estimateRoadKm, estimateTransitDays } from "@/server/domain/geo";
 import { BODY_TYPES, CARGO_TYPES, CURRENCIES, PAYMENT_TERMS, label } from "@/server/domain/enums";
+import { km } from "@/lib/format";
 import { Button, Field, Input, Select } from "../ui/primitives";
 
 const tomorrow = () => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
@@ -31,6 +32,7 @@ export function PostLoadForm({ defaultContact }: { defaultContact: string }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setV({ ...v, [k]: e.target.value });
+  const distance = useMemo(() => estimateRoadKm(v.originCityId, v.destCityId), [v.originCityId, v.destCityId]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -54,16 +56,19 @@ export function PostLoadForm({ defaultContact }: { defaultContact: string }) {
   return (
     <form onSubmit={submit} className="space-y-6">
       <section>
-        <h2 className="mb-3 text-sm font-semibold">Route & dates</h2>
+        <SectionHeader step={1} icon={<MapPinned className="h-4 w-4" />} title="Route & dates" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="From"><CitySelect value={v.originCityId} onChange={set("originCityId")} /></Field>
           <Field label="To"><CitySelect value={v.destCityId} onChange={set("destCityId")} /></Field>
           <Field label="Loading date"><Input type="date" required value={v.loadingDate} min={new Date().toISOString().slice(0, 10)} onChange={set("loadingDate")} /></Field>
           <Field label="Unloading date (optional)"><Input type="date" value={v.unloadingDate} onChange={set("unloadingDate")} /></Field>
         </div>
+        {distance > 0 && (
+          <p className="mt-3 text-xs text-muted">Estimated distance <strong className="num text-fg">{km(distance)}</strong> · ~{estimateTransitDays(distance)} day(s) on the road</p>
+        )}
       </section>
-      <section>
-        <h2 className="mb-3 text-sm font-semibold">Cargo & truck</h2>
+      <section className="border-t border-border pt-6">
+        <SectionHeader step={2} icon={<Package className="h-4 w-4" />} title="Cargo & truck" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Cargo"><Select value={v.cargoType} onChange={set("cargoType")}>{CARGO_TYPES.map((c) => <option key={c} value={c}>{label(c)}</option>)}</Select></Field>
           <Field label="Weight (kg)"><Input type="number" inputMode="numeric" required min={100} max={44000} step={100} value={v.weightKg} onChange={set("weightKg")} /></Field>
@@ -74,8 +79,8 @@ export function PostLoadForm({ defaultContact }: { defaultContact: string }) {
           </Field>
         </div>
       </section>
-      <section>
-        <h2 className="mb-3 text-sm font-semibold">Price & contact</h2>
+      <section className="border-t border-border pt-6">
+        <SectionHeader step={3} icon={<Wallet className="h-4 w-4" />} title="Price & contact" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="grid grid-cols-[1fr_96px] gap-2">
             <Field label="Rate (empty = negotiable)"><Input type="number" inputMode="decimal" min={0} value={v.rate} onChange={set("rate")} /></Field>
@@ -87,10 +92,21 @@ export function PostLoadForm({ defaultContact }: { defaultContact: string }) {
         </div>
       </section>
       {error && <p role="alert" className="rounded-lg bg-neg-soft px-3 py-2 text-sm text-neg">{error}</p>}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 border-t border-border pt-6">
         <Button type="submit" size="lg" disabled={pending}>{pending && <Loader2 className="h-4 w-4 animate-spin" />}Publish load</Button>
         <p className="text-xs text-muted">By publishing you confirm the load is real and you are authorised to offer it.</p>
       </div>
     </form>
+  );
+}
+
+function SectionHeader({ step, icon, title }: { step: number; icon: React.ReactNode; title: string }) {
+  return (
+    <div className="mb-3 flex items-center gap-2.5">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand">{icon}</span>
+      <h2 className="text-sm font-semibold">
+        <span className="text-subtle">{step}.</span> {title}
+      </h2>
+    </div>
   );
 }
