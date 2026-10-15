@@ -1,5 +1,6 @@
-// Reference geography. Coordinates are city centres; distances are ESTIMATES
-// (great-circle × road factor) until a routing provider (OSRM/Valhalla) is plugged in.
+// Reference geography. Coordinates are city centres. Distances come from a pre-computed table of
+// real driving distances (see estimateRoadKm); only city pairs missing from it are estimated.
+import { ROAD_KM } from "./road-distances.generated";
 
 export type CountryRef = { code: string; name: string; flag: string; aliases: string[] };
 export type CityRef = {
@@ -96,12 +97,31 @@ export function haversineKm(a: { lat: number; lng: number }, b: { lat: number; l
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-/** Road-distance estimate. Mountain/border corridors get a higher factor. */
+/**
+ * Pairs where the OSRM demo server's map data is known to be wrong, with the value to use instead.
+ * Remove an entry once the table is rebuilt from an up-to-date self-hosted OSRM and checks out.
+ */
+const ROAD_KM_OVERRIDES: Record<string, number> = {
+  // The demo server routes Baku→Tbilisi via ~900 km of detours (border crossing treated as
+  // impassable); the real road is ≈ 550–560 km. Other Baku→west pairs are inflated for the same reason.
+  "baku|tbilisi": 560,
+};
+
+const roadKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
+
+/**
+ * Road distance in km. Uses real driving distances (domain/road-distances.generated.ts, built from
+ * OSRM) when the pair is known, otherwise falls back to a great-circle estimate with a road factor —
+ * which is how a newly added city behaves until the table is rebuilt.
+ */
 export function estimateRoadKm(fromId: string, toId: string): number {
   if (fromId === toId) return 0;
   const a = cityById.get(fromId);
   const b = cityById.get(toId);
   if (!a || !b) return NaN;
+  const key = roadKey(fromId, toId);
+  const known = ROAD_KM_OVERRIDES[key] ?? ROAD_KM[key];
+  if (known) return known;
   const factor = a.country === b.country ? 1.22 : 1.3;
   return Math.round(haversineKm(a, b) * factor);
 }

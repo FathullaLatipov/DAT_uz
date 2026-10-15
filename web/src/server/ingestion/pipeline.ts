@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import { CITIES, COUNTRIES } from "../domain/geo";
 import { normalizeListing, qualityLevel } from "./normalize";
 import { findDuplicate, fingerprint, type DedupCandidate } from "./dedupe";
+import { loadRates } from "../services/fx";
 import type { FreightSourceAdapter, NormalizedOffer, ParsedListing, QualityIssue, SourceDescriptor } from "./types";
 
 export interface IngestionStats {
@@ -39,6 +40,7 @@ export async function ensureGeo(db: PrismaClient) {
 export async function runIngestion(db: PrismaClient, adapter: FreightSourceAdapter, now = new Date()): Promise<IngestionStats> {
   const d = adapter.descriptor;
   await ensureGeo(db);
+  await loadRates(db);
   const started = Date.now();
   const stats: IngestionStats = {
     sourceId: d.id, status: "SUCCESS", fetched: 0, created: 0, updated: 0, duplicates: 0, rejected: 0, errors: 0, durationMs: 0,
@@ -252,6 +254,7 @@ export const PLATFORM_SOURCE = {
  */
 export async function ingestSingleListing(db: PrismaClient, source: SourceDescriptor, listing: ParsedListing, now = new Date()) {
   await ensureGeo(db);
+  await loadRates(db);
   await db.freightSource.upsert({
     where: { id: source.id },
     create: { id: source.id, name: source.name, kind: source.kind, isDemo: source.isDemo, homepage: source.homepage, accessNotes: source.accessNotes, status: "ACTIVE", lastSyncAt: now, lastSuccessAt: now },
