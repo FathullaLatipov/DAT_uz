@@ -30,5 +30,13 @@ jobs:
               /var/www/karvon-src/web/ /var/www/karvon/
             cd /var/www/karvon
             docker compose build karvon-web
+            # Schema first, code second: a new image that reads a column the DB does not have yet
+            # breaks every page that touches it (this took the dashboard down once). Take a
+            # backup, apply pending migrations with the NEW image, and only then switch over.
+            # `migrate deploy` is a no-op when nothing is pending, and a failure here aborts the
+            # deploy (set -e) while the old container keeps serving.
+            docker compose up -d karvon-db
+            bash backup.sh
+            docker compose run --rm --no-deps karvon-web sh -c "DIRECT_URL=\"\${DIRECT_URL:-\$DATABASE_URL}\" npx prisma migrate deploy"
             docker compose up -d karvon-web
           '
