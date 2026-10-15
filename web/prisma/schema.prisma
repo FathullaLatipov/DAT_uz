@@ -200,6 +200,7 @@ model Trip {
   offer      FreightOffer? @relation(fields: [offerId], references: [id])
   originCity City          @relation("TripOrigin", fields: [originCityId], references: [id])
   destCity   City          @relation("TripDest", fields: [destCityId], references: [id])
+  review     BrokerReview?
 }
 
 // ───────────────────────────── Freight ─────────────────────────────
@@ -257,6 +258,7 @@ model BrokerReview {
   id         String   @id @default(cuid())
   brokerId   String
   orgId      String
+  tripId     String?  @unique // set when left from a specific completed trip; null for seeded/demo reviews
   rating     Int // 1..5
   paidOnTime Boolean?
   disputed   Boolean  @default(false)
@@ -267,6 +269,7 @@ model BrokerReview {
 
   broker Broker       @relation(fields: [brokerId], references: [id], onDelete: Cascade)
   org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  trip   Trip?        @relation(fields: [tripId], references: [id], onDelete: SetNull)
 }
 
 /// One deduplicated freight opportunity. Several source listings may point at it.

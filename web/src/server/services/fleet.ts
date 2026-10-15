@@ -62,7 +62,11 @@ export async function truckDetail(orgId: string, truckId: string) {
     include: {
       currentCity: true,
       driver: true,
-      trips: { orderBy: { startedAt: "desc" }, take: 40, include: { originCity: true, destCity: true } },
+      trips: {
+        orderBy: { startedAt: "desc" },
+        take: 40,
+        include: { originCity: true, destCity: true, review: { select: { id: true } }, offer: { select: { brokerId: true, broker: { select: { name: true } } } } },
+      },
     },
   });
   if (!truck) return null;

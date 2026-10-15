@@ -9,13 +9,14 @@ import { getMatchTrucks, recommendations } from "@/server/services/freight";
 import { bestChains, findBackhaul } from "@/server/services/backhaul";
 import { label } from "@/server/domain/enums";
 import { getCity } from "@/server/domain/geo";
-import { Badge, Card, CardHeader, DemoBadge, Stat } from "@/components/ui/primitives";
+import { Card, CardHeader, DemoBadge, Stat } from "@/components/ui/primitives";
 import { StatusBadge } from "@/components/fleet/status-badge";
 import { TruckForm } from "@/components/fleet/truck-form";
+import { TripHistoryTable } from "@/components/fleet/trip-history-table";
 import { KmStack, ProfitBars } from "@/components/charts/lazy";
 import { RecRow } from "@/components/loads/recommendation";
 import { cityLabel, RouteLabel } from "@/components/loads/parts";
-import { dateTime, pct, shortDate, usd } from "@/lib/format";
+import { dateTime, pct, usd } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Truck" };
 
@@ -111,32 +112,7 @@ export default async function TruckPage({ params, searchParams }: { params: Prom
             {t.trips.length === 0 ? (
               <p className="px-5 pb-5 text-sm text-muted">No trips yet.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[560px] text-sm">
-                  <thead>
-                    <tr className="border-y border-border bg-surface-2/60 text-left text-xs uppercase tracking-wide text-muted">
-                      <th className="px-4 py-2 font-medium">Date</th>
-                      <th className="px-3 py-2 font-medium">Route</th>
-                      <th className="px-3 py-2 text-right font-medium">Revenue</th>
-                      <th className="px-3 py-2 text-right font-medium">Profit</th>
-                      <th className="px-3 py-2 text-right font-medium">Empty km</th>
-                      <th className="px-3 py-2 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="num divide-y divide-border">
-                    {t.trips.slice(0, 15).map((tr) => (
-                      <tr key={tr.id}>
-                        <td className="whitespace-nowrap px-4 py-2">{shortDate(tr.startedAt)}</td>
-                        <td className="px-3 py-2">{tr.originCity.name} → {tr.destCity.name}</td>
-                        <td className="px-3 py-2 text-right">{usd(tr.revenueUsd)}</td>
-                        <td className={`px-3 py-2 text-right ${tr.revenueUsd - tr.costUsd >= 0 ? "text-pos" : "text-neg"}`}>{usd(tr.revenueUsd - tr.costUsd)}</td>
-                        <td className="px-3 py-2 text-right">{Math.round(tr.emptyKm)}</td>
-                        <td className="px-3 py-2"><Badge tone={tr.status === "COMPLETED" ? "neutral" : "info"}>{label(tr.status).toLowerCase()}</Badge>{tr.isDemo && <span className="ml-1 text-xs text-accent">demo</span>}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <TripHistoryTable trips={t.trips} />
             )}
           </Card>
 
