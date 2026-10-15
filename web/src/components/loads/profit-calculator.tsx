@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { RotateCcw } from "lucide-react";
+import { ChevronDown, RotateCcw } from "lucide-react";
 import { computeProfit } from "@/server/services/profitability";
 import { cn, pct, usd } from "@/lib/format";
 import { Input } from "../ui/primitives";
@@ -33,6 +33,7 @@ const FIELDS: { k: keyof CalcInput; label: string; step: number; unit: string }[
 /** Deterministic profitability calculator — same function the matching engine uses. */
 export function ProfitCalculator({ initial, compact }: { initial: CalcInput; compact?: boolean }) {
   const [v, setV] = useState<CalcInput>(initial);
+  const [adjust, setAdjust] = useState(false);
   const p = useMemo(() => computeProfit({ ...v, tollsUsd: v.tollsUsd }), [v]);
   const changed = FIELDS.some((f) => v[f.k] !== initial[f.k]);
 
@@ -45,35 +46,42 @@ export function ProfitCalculator({ initial, compact }: { initial: CalcInput; com
     ["Other", -p.other],
   ];
 
+  // Compact (inside the load-board detail panel): the result comes first and the nine inputs fold
+  // away behind "Adjust costs", so the column is no taller than its neighbours. The full-page
+  // calculator keeps inputs and result side by side, always visible.
+  const inputs = (
+    <div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-3">
+        {FIELDS.map((f) => (
+          <label key={f.k} className="block">
+            <span className="mb-1 block text-xs text-muted">{f.label}</span>
+            <span className="relative block">
+              <Input
+                type="number"
+                inputMode="decimal"
+                step={f.step}
+                min={0}
+                value={Number.isFinite(v[f.k]) ? v[f.k] : ""}
+                onChange={(e) => setV({ ...v, [f.k]: e.target.value === "" ? 0 : Number(e.target.value) })}
+                className={cn("num", compact ? "h-8 pr-14 text-xs" : "pr-16")}
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-subtle">{f.unit}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {changed && (
+        <button onClick={() => setV(initial)} className="mt-3 inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
+          <RotateCcw className="h-3 w-3" /> Reset to truck profile
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div className={cn("grid gap-5", !compact && "lg:grid-cols-2")}>
-      <div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-3">
-          {FIELDS.map((f) => (
-            <label key={f.k} className="block">
-              <span className="mb-1 block text-xs text-muted">{f.label}</span>
-              <span className="relative block">
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  step={f.step}
-                  min={0}
-                  value={Number.isFinite(v[f.k]) ? v[f.k] : ""}
-                  onChange={(e) => setV({ ...v, [f.k]: e.target.value === "" ? 0 : Number(e.target.value) })}
-                  className="num pr-16"
-                />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-subtle">{f.unit}</span>
-              </span>
-            </label>
-          ))}
-        </div>
-        {changed && (
-          <button onClick={() => setV(initial)} className="mt-3 inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
-            <RotateCcw className="h-3 w-3" /> Reset to truck profile
-          </button>
-        )}
-      </div>
-      <div className="rounded-lg bg-surface-2 p-4">
+      {!compact && inputs}
+      <div className={cn("rounded-lg bg-surface-2", compact ? "p-3.5" : "p-4")}>
         <table className="num w-full text-sm">
           <tbody>
             {rows.map(([l, n, bold]) => (
@@ -103,8 +111,22 @@ export function ProfitCalculator({ initial, compact }: { initial: CalcInput; com
           </div>
         </div>
         <p className="mt-3 text-xs leading-snug text-subtle">
-          Calculated, not guaranteed. Distances are estimates (great-circle × road factor); tolls use per-country planning rates.
+          Calculated, not guaranteed. Distances are city-centre road distances; tolls use per-country planning rates.
         </p>
+        {compact && (
+          <div className="mt-3 border-t border-border pt-3">
+            <button
+              type="button"
+              onClick={() => setAdjust((a) => !a)}
+              aria-expanded={adjust}
+              className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline"
+            >
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", adjust && "rotate-180")} />
+              {adjust ? "Hide cost inputs" : changed ? "Adjust costs (edited)" : "Adjust costs"}
+            </button>
+            {adjust && <div className="mt-3">{inputs}</div>}
+          </div>
+        )}
       </div>
     </div>
   );
