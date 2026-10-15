@@ -14,10 +14,10 @@ import { useExpandableRow } from "../loads/use-expandable-row";
  * equivalent of the authenticated load board's table. Cards remain the mobile layout. Clicking
  * a row expands the same public-safe detail panel inline, no private data included. */
 export function CatalogTable({ items }: { items: OfferWithRels[] }) {
-  const { toggle, isOpen } = useExpandableRow();
+  const { toggle, isOpen, containerRef } = useExpandableRow();
   return (
     <div className="hidden overflow-hidden rounded-xl border border-border bg-surface shadow-card md:block">
-      <div className="max-h-[calc(100dvh-13rem)] overflow-auto">
+      <div ref={containerRef} className="max-h-[calc(100dvh-13rem)] overflow-auto">
         <table className="w-full min-w-[760px] text-sm">
           <thead className="sticky top-0 z-10">
             <tr className="border-b border-border bg-surface-2 text-left text-xs uppercase tracking-wide text-muted">
@@ -37,6 +37,7 @@ export function CatalogTable({ items }: { items: OfferWithRels[] }) {
               return (
                 <Fragment key={o.id}>
                   <tr
+                    data-row-id={o.id}
                     className={cn("group animate-fade-up cursor-pointer transition-colors hover:bg-surface-2/70", open && "bg-brand-soft/40 hover:bg-brand-soft/40")}
                     style={{ animationDelay: `${Math.min(i, 12) * 18}ms` }}
                     onClick={() => toggle(o.id)}

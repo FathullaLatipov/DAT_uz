@@ -24,7 +24,7 @@ type SortKey = "rate" | "ratePerKm" | "profit" | "deadhead" | "loading";
  * `filters`/`view` (not a `sortHref` closure) build the sort links internally — a Server
  * Component parent can't hand a plain function prop across to a Client Component. */
 export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: LoadFilters; view: string }) {
-  const { toggle, isOpen } = useExpandableRow();
+  const { toggle, isOpen, containerRef } = useExpandableRow();
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
   const sort = filters.sort;
   const sortHref = (key: SortKey) => {
@@ -35,7 +35,7 @@ export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: L
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-card">
-      <div className="max-h-[calc(100dvh-13rem)] overflow-auto">
+      <div ref={containerRef} className="max-h-[calc(100dvh-13rem)] overflow-auto">
         <table className="w-full min-w-[960px] text-sm">
           <thead className="sticky top-0 z-10">
             <tr className="border-b border-border bg-surface-2 text-left text-xs uppercase tracking-wide text-muted backdrop-blur">
@@ -60,6 +60,7 @@ export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: L
               return (
                 <Fragment key={o.id}>
                   <tr
+                    data-row-id={o.id}
                     className={cn("group animate-fade-up cursor-pointer transition-colors hover:bg-surface-2/70", open && "bg-brand-soft/40 hover:bg-brand-soft/40")}
                     style={{ animationDelay: `${Math.min(i, 12) * 18}ms` }}
                     onClick={() => toggle(o.id)}

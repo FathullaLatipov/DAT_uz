@@ -26,7 +26,7 @@ import type { LaneStats } from "@/server/services/market";
 import type { BrokerReliability } from "@/server/services/broker";
 import type { ScoreComponent } from "@/server/services/matching";
 import type { CalcInput } from "./profit-calculator";
-import { ago, dateTime, km, money, perKm, shortDate, tonnes, usd } from "@/lib/format";
+import { ago, cn, dateTime, km, money, perKm, shortDate, tonnes, usd } from "@/lib/format";
 import { Badge, Bar, DemoBadge, ScoreBadge, Select, Skeleton, Trend } from "../ui/primitives";
 import { RouteMap } from "./route-map";
 import { ProfitCalculator } from "./profit-calculator";
@@ -130,7 +130,7 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
 
   return (
     <div className="animate-fade-up border-t border-border bg-surface-2/40 p-4 sm:p-5" role="region" aria-label="Load details">
-      <div className="grid gap-5 xl:grid-cols-3">
+      <div className="grid items-start gap-5 lg:grid-cols-2 xl:grid-cols-3">
         {/* Block A — route & trip */}
         <div className="min-w-0 space-y-3">
           <div className="h-44 overflow-hidden rounded-lg border border-border">
@@ -214,8 +214,8 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
           )}
         </div>
 
-        {/* Block C — broker & contacts */}
-        <div className="min-w-0 space-y-3">
+        {/* Block C — broker, contacts, why this match, take it */}
+        <div className="min-w-0 space-y-3 lg:col-span-2 xl:col-span-1">
           <div className="rounded-lg border border-border bg-surface p-3.5">
             {broker ? (
               <>
@@ -261,7 +261,18 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
             </div>
           )}
 
-          <div className="flex flex-wrap gap-1.5">
+          {data.authenticated && m && (m.reasons.length > 0 || m.warnings.length > 0) && (
+            <ul className="space-y-1.5 rounded-lg border border-border bg-surface p-3">
+              {m.reasons.map((r) => <li key={r} className="flex gap-1.5 text-xs"><Check className="mt-0.5 h-3 w-3 shrink-0 text-pos" />{r}</li>)}
+              {m.warnings.map((w) => <li key={w} className="flex gap-1.5 text-xs text-warn"><AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />{w}</li>)}
+            </ul>
+          )}
+
+          {data.authenticated && data.canAssign && data.truckOptions && (
+            <AssignPanel offerId={o.id} trucks={data.truckOptions} defaultTruckId={data.selectedTruckId ?? undefined} canAssign={data.canAssign} />
+          )}
+
+          <div className="flex flex-wrap gap-1.5 border-t border-border pt-3">
             <button onClick={() => copyText(detailsText(), "details")} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted hover:text-fg">
               {copied === "details" ? <Check className="h-3 w-3 text-pos" /> : <Clipboard className="h-3 w-3" />} Copy load
             </button>
@@ -280,38 +291,30 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
         </div>
       </div>
 
-      {/* Block D — AI recommendations (full width, authenticated + eligible match only) */}
-      {data.authenticated && m && (
-        <div className="mt-5 border-t border-border pt-4">
+      {/* Block D — score breakdown + return loads (authenticated with a truck only) */}
+      {data.authenticated && m && (m.components.length > 0 || data.backhaul) && (
+        <div className={cn("mt-5 grid gap-x-8 gap-y-5 border-t border-border pt-4", m.components.length > 0 && data.backhaul && "lg:grid-cols-[3fr_2fr]")}>
           {m.components.length > 0 && (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {m.components.map((c) => (
-                <div key={c.key} title={c.detail}>
-                  <div className="mb-1 flex justify-between text-xs"><span>{c.label}</span><span className="num font-medium">{c.score}%</span></div>
-                  <Bar value={c.score} tone={c.score >= 80 ? "pos" : c.score >= 55 ? "brand" : c.score >= 35 ? "warn" : "neg"} />
-                </div>
-              ))}
-            </div>
-          )}
-          {(m.reasons.length > 0 || m.warnings.length > 0) && (
-            <ul className="mt-3 space-y-1">
-              {m.reasons.map((r) => <li key={r} className="flex gap-1.5 text-xs"><Check className="mt-0.5 h-3 w-3 shrink-0 text-pos" />{r}</li>)}
-              {m.warnings.map((w) => <li key={w} className="flex gap-1.5 text-xs text-warn"><AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />{w}</li>)}
-            </ul>
-          )}
-          {data.canAssign && data.truckOptions && (
-            <div className="mt-4 max-w-sm">
-              <AssignPanel offerId={o.id} trucks={data.truckOptions} defaultTruckId={data.selectedTruckId ?? undefined} canAssign={data.canAssign} />
+            <div className="min-w-0">
+              <div className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted">Why this score</div>
+              <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2 xl:grid-cols-3">
+                {m.components.map((c) => (
+                  <div key={c.key} title={c.detail}>
+                    <div className="mb-1 flex justify-between gap-2 text-xs"><span className="truncate">{c.label}</span><span className="num font-medium">{c.score}%</span></div>
+                    <Bar value={c.score} tone={c.score >= 80 ? "pos" : c.score >= 55 ? "brand" : c.score >= 35 ? "warn" : "neg"} />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           {data.backhaul && (
-            <div className="mt-4">
-              <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted"><Repeat className="h-3.5 w-3.5" /> Return loads near destination</div>
+            <div className="min-w-0">
+              <div className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted"><Repeat className="h-3.5 w-3.5" /> Return loads near destination</div>
               {data.backhaul.options.length ? (
-                <ul className="grid gap-1.5 sm:grid-cols-2">
+                <ul className="grid gap-1.5">
                   {data.backhaul.options.map((b) => (
                     <li key={b.offer.id}>
-                      <Link href={`/app/loads/${b.offer.id}`} className="flex items-center justify-between gap-2 rounded-lg bg-surface px-3 py-2 text-xs hover:bg-surface-3">
+                      <Link href={`/app/loads/${b.offer.id}`} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-xs hover:bg-surface-3">
                         <span className="truncate">{getCity(b.offer.originCityId)?.name} → {getCity(b.offer.destCityId)?.name}</span>
                         <span className="num shrink-0"><span className="text-pos">{usd(b.match.profit.profit)}</span> · {b.match.score}%</span>
                       </Link>
