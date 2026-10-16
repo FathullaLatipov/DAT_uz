@@ -4,6 +4,15 @@ import { ZodError } from "zod";
 import { getSession, type Session } from "./auth/session";
 import { can, type Action } from "./auth/permissions";
 import { rateLimit } from "./security";
+import { getI18n } from "../i18n/server";
+import { findErrorTemplate } from "../i18n/errors";
+
+export async function localize(message: string): Promise<string> {
+  const hit = findErrorTemplate(message);
+  if (!hit) return message;
+  const { t } = await getI18n();
+  return t(`errors.${hit.key}` as Parameters<typeof t>[0], hit.vars);
+}
 
 export class HttpError extends Error {
   constructor(public status: number, message: string) {
@@ -30,12 +39,12 @@ export function api<P = Record<string, string>>(
       if (opts.action && !can(session, opts.action)) throw new HttpError(403, "Your role doesn't allow this action.");
       const rl = rateLimit(`${session.userId}:${req.nextUrl.pathname}:${req.method}`, opts.limit ?? 120, 60_000);
       if (!rl.ok) {
-        return NextResponse.json({ error: "Too many requests — please slow down." }, { status: 429, headers: { "Retry-After": String(rl.retryAfterS) } });
+        return NextResponse.json({ error: await localize("Too many requests — please slow down.") }, { status: 429, headers: { "Retry-After": String(rl.retryAfterS) } });
       }
       const data = await handler({ req, session, params: await params, ip: ip(req) });
       return NextResponse.json(data ?? { ok: true });
     } catch (e) {
-      return errorResponse(e);
+      return await errorResponse(e);
     }
   };
 }
@@ -62,7 +71,7 @@ export function serviceApi<P = Record<string, string>>(
       const data = await handler({ req, params: await params, ip: key });
       return NextResponse.json(data ?? { ok: true });
     } catch (e) {
-      return errorResponse(e);
+      return await errorResponse(e);
     }
   };
 }
@@ -74,13 +83,13 @@ function timingSafeEqualStr(a: string, b: string) {
   return diff === 0;
 }
 
-export function errorResponse(e: unknown) {
-  if (e instanceof HttpError) return NextResponse.json({ error: e.message }, { status: e.status });
-  if (e instanceof SyntaxError) return NextResponse.json({ error: "The request was malformed. Please try again." }, { status: 400 });
+export async function errorResponse(e: unknown) {
+  if (e instanceof HttpError) return NextResponse.json({ error: await localize(e.message) }, { status: e.status });
+  if (e instanceof SyntaxError) return NextResponse.json({ error: await localize("The request was malformed. Please try again.") }, { status: 400 });
   if (e instanceof ZodError)
-    return NextResponse.json({ error: "Some fields are invalid.", fields: e.issues.map((i) => ({ path: i.path.join("."), message: i.message })) }, { status: 400 });
+    return NextResponse.json({ error: await localize("Some fields are invalid."), fields: e.issues.map((i) => ({ path: i.path.join("."), message: i.message })) }, { status: 400 });
   console.error("[api]", e);
-  return NextResponse.json({ error: "Something went wrong on our side. Please try again in a moment." }, { status: 500 });
+  return NextResponse.json({ error: await localize("Something went wrong on our side. Please try again in a moment.") }, { status: 500 });
 }
 
 export { ip as clientIp };

@@ -7,14 +7,29 @@ import { laneBenchmarks, outboundCounts } from "./market";
 import { bestTruckFor, scoreMatch, type MatchContext, type MatchOffer, type MatchResult, type MatchTruck } from "./matching";
 import type { LoadFilters } from "./filters";
 import { demoOfferFilter } from "../domain/demo";
+import type { I18n } from "../../i18n/create";
+
+/**
+ * The visitor's language for explanation text. Dynamic import: `getI18n` is server-only and needs a request,
+ * so tests, scripts and anything without one fall back to English (undefined).
+ */
+async function requestI18n(): Promise<I18n | undefined> {
+  try {
+    const { getI18n } = await import("../../i18n/server");
+    return await getI18n();
+  } catch {
+    return undefined;
+  }
+}
 
 export async function getMatchContext(orgId: string): Promise<MatchContext> {
-  const [pref, routes, benchmarks, brokers, outbound] = await Promise.all([
+  const [pref, routes, benchmarks, brokers, outbound, i18n] = await Promise.all([
     db.orgPreference.findUnique({ where: { orgId } }),
     db.preferredRoute.findMany({ where: { orgId } }),
     laneBenchmarks(),
     brokerScores(),
     outboundCounts(),
+    requestI18n(),
   ]);
   return {
     prefs: {
@@ -28,6 +43,7 @@ export async function getMatchContext(orgId: string): Promise<MatchContext> {
     benchmarks,
     brokerScore: (id) => (id ? (brokers.get(id)?.score ?? null) : null),
     outbound,
+    i18n,
   };
 }
 
