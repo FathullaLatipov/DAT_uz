@@ -9,7 +9,7 @@ import { brokerReliability } from "@/server/services/broker";
 import { laneStats } from "@/server/services/market";
 import { findBackhaul } from "@/server/services/backhaul";
 import { estimateTollsUsd } from "@/server/services/profitability";
-import { estimateTransitDays } from "@/server/domain/geo";
+import { estimateTransitDays, freshGps } from "@/server/domain/geo";
 import { MIN_SAMPLES } from "@/server/services/market";
 import { getI18n } from "@/i18n/server";
 import type { I18n } from "@/i18n/create";
@@ -98,7 +98,7 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
           {/* Route */}
           <Card className="overflow-hidden">
             <div className="h-64 sm:h-80">
-              <RouteMap origin={o.originCityId} dest={o.destCityId} truckCity={t?.currentCityId} truckCode={t?.code} className="h-full w-full" />
+              <RouteMap origin={o.originCityId} dest={o.destCityId} truckCity={t?.currentCityId} truckPos={t ? freshGps(t) : null} truckCode={t?.code} className="h-full w-full" />
             </div>
             {m && (
               <div className="grid grid-cols-2 gap-4 border-t border-border p-4 sm:grid-cols-4 sm:p-5">

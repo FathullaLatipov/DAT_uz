@@ -129,3 +129,34 @@ export function estimateRoadKm(fromId: string, toId: string): number {
 /** Average truck speed incl. border/rest time, for ETA estimates. */
 export const AVG_KM_PER_DAY = 550;
 export const estimateTransitDays = (km: number) => Math.max(1, Math.ceil(km / AVG_KM_PER_DAY));
+
+/** The modelled city closest to a coordinate (straight line). */
+export function nearestCityTo(lat: number, lng: number): { city: CityRef; distanceKm: number } {
+  let best = { city: CITIES[0], distanceKm: Infinity };
+  for (const c of CITIES) {
+    const d = haversineKm({ lat, lng }, c);
+    if (d < best.distanceKm) best = { city: c, distanceKm: d };
+  }
+  return best;
+}
+
+/**
+ * Driving distance from an arbitrary point (a phone's GPS fix) to a city: great-circle distance times
+ * the same road factor `estimateRoadKm` falls back to. Within ~5 km counts as "there".
+ */
+export function roadKmFromPoint(lat: number, lng: number, toCityId: string): number {
+  const to = cityById.get(toCityId);
+  if (!to) return NaN;
+  const straight = haversineKm({ lat, lng }, to);
+  if (straight <= 5) return 0;
+  const near = nearestCityTo(lat, lng).city;
+  return Math.round(straight * (near.country === to.country ? 1.22 : 1.3));
+}
+
+/** A GPS fix older than this no longer describes where the truck is. */
+export const GPS_FRESH_MS = 12 * 3_600_000;
+
+/** A truck's GPS fix if it is recent enough to use, else null. */
+export function freshGps(t: { lat?: number | null; lng?: number | null; positionAt?: Date | null }, now = new Date()): { lat: number; lng: number } | null {
+  return t.lat != null && t.lng != null && t.positionAt && now.getTime() - t.positionAt.getTime() <= GPS_FRESH_MS ? { lat: t.lat, lng: t.lng } : null;
+}

@@ -3,10 +3,12 @@
 import { useMemo } from "react";
 import { getCity } from "@/server/domain/geo";
 import { useI18n } from "@/i18n/client";
+import { useSavedPosition } from "./near-me";
 import { LazyMap, type MapPoint, type MapRoute } from "../map/lazy-map";
 
 export function BoardMap({ items, className }: { items: { id: string; o: string; d: string; rateUsd: number; score: number | null }[]; className?: string }) {
   const { t, city, usd } = useI18n();
+  const me = useSavedPosition();
   const { points, routes } = useMemo(() => {
     const points: MapPoint[] = [];
     const routes: MapRoute[] = [];
@@ -33,8 +35,9 @@ export function BoardMap({ items, className }: { items: { id: string; o: string;
         routes.push({ id: lane, from: [o.lng, o.lat], to: [d.lng, d.lat] });
       }
     }
+    if (me) points.push({ id: "me", lng: me.lng, lat: me.lat, kind: "city", label: t("map.you"), tone: "warn" });
     return { points, routes };
-  }, [items, t, city, usd]);
+  }, [items, t, city, usd, me]);
 
   return <LazyMap points={points} routes={routes} className={className} />;
 }

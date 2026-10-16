@@ -11,7 +11,7 @@ import { invalidateMarketCache, laneStats } from "@/server/services/market";
 import { brokerReliability } from "@/server/services/broker";
 import { findBackhaul } from "@/server/services/backhaul";
 import { estimateTollsUsd } from "@/server/services/profitability";
-import { estimateTransitDays } from "@/server/domain/geo";
+import { estimateTransitDays, freshGps } from "@/server/domain/geo";
 
 const DAY = 86_400_000;
 
@@ -92,6 +92,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             benchmarkPerKm: m.benchmarkPerKm,
             truckCode: t.code,
             truckCity: t.currentCityId,
+            truckPos: freshGps(t),
             calc: {
               revenueUsd: Math.round(offer.rateUsd),
               loadedKm: Math.round(offer.distanceKm),

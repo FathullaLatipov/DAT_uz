@@ -20,7 +20,7 @@ export const PATCH = api<{ id: string }>(
       else if (t.driver) await db.driver.update({ where: { id: t.driver.id }, data: { name: driverName } });
       else driverId = (await db.driver.create({ data: { orgId: session.orgId, name: driverName } })).id;
     }
-    await db.truck.update({ where: { id: t.id }, data: { ...data, driverId, ...(availableFrom ? { availableFrom: new Date(availableFrom) } : {}) } });
+    await db.truck.update({ where: { id: t.id }, data: { ...data, ...(data.currentCityId && data.currentCityId !== t.currentCityId ? { lat: null, lng: null, positionAt: null } : {}), driverId, ...(availableFrom ? { availableFrom: new Date(availableFrom) } : {}) } });
     if (data.currentCityId && data.currentCityId !== t.currentCityId) await db.truckLocation.create({ data: { truckId: t.id, cityId: data.currentCityId } });
     // Freeing a truck closes its open trip.
     if (data.status === "AVAILABLE" && t.status !== "AVAILABLE") {

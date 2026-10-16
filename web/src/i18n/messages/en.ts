@@ -1307,6 +1307,8 @@ export const en = {
     pickup: "Pickup · {city}",
     delivery: "Delivery · {city}",
     showRoute: "Show route on map",
+    you: "You",
+    toPickup: "{dist} to pickup",
   },
 
   ob: {
@@ -1443,6 +1445,19 @@ export const en = {
       noContact: "No contact details",
       flagged: "Data problems found in the ad",
     },
+  },
+
+  gps: {
+    title: "GPS position",
+    set: "Use my location for this truck",
+    clear: "Clear GPS fix",
+    fix: "GPS fix {ago}",
+    used: "Used for deadhead distances.",
+    old: "Older than 12 hours, so distances use the city again.",
+    none: "No GPS fix. Distances are measured from {city}.",
+    hint: "Open this page on the phone in the cab and tap the button. Your coordinates are used only to measure distance to loads.",
+    saved: "Position saved.",
+    moved: "Position saved. The truck is now in {city}.",
   },
 
   enums: {

@@ -1,4 +1,4 @@
-import { AVG_KM_PER_DAY, estimateRoadKm } from "../domain/geo";
+import { AVG_KM_PER_DAY, GPS_FRESH_MS, estimateRoadKm, roadKmFromPoint } from "../domain/geo";
 import type { I18n } from "../../i18n/create";
 import { englishI18n } from "../../i18n/default";
 import { computeProfit, estimateTollsUsd, type CostProfile, type ProfitBreakdown } from "./profitability";
@@ -19,6 +19,10 @@ export interface MatchTruck extends CostProfile {
   currentCityId: string;
   availableFrom: Date;
   status: string;
+  /** Phone GPS fix; used for deadhead only while fresh and the truck is not mid-trip. */
+  lat?: number | null;
+  lng?: number | null;
+  positionAt?: Date | null;
 }
 
 export interface MatchOffer {
@@ -148,7 +152,8 @@ export function scoreMatch(truck: MatchTruck, offer: MatchOffer, ctx: MatchConte
     reasons.push(t("match.reasonFits", { t: (offer.weightKg / 1000).toFixed(1), cargo: lc(offer.cargoType), cap: (truck.capacityKg / 1000).toFixed(0), body: lc(truck.bodyType) }));
 
   // ── Deadhead & proximity ─────────────────────────────
-  const deadheadKm = estimateRoadKm(truck.currentCityId, offer.originCityId);
+  const gpsFresh = truck.lat != null && truck.lng != null && !!truck.positionAt && now.getTime() - truck.positionAt.getTime() <= GPS_FRESH_MS;
+  const deadheadKm = gpsFresh ? roadKmFromPoint(truck.lat!, truck.lng!, offer.originCityId) : estimateRoadKm(truck.currentCityId, offer.originCityId);
   const maxDh = Math.max(50, ctx.prefs.maxDeadheadKm);
   const proximity = deadheadKm <= 25 ? 100 : 100 * (1 - deadheadKm / (maxDh * 2));
   add("proximity", proximity, deadheadKm === 0 ? t("match.proximityHere", { city: city(offer.originCityId) }) : t("match.proximityKm", { km: deadheadKm, city: city(truck.currentCityId) }));

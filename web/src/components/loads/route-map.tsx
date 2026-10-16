@@ -1,12 +1,14 @@
 "use client";
 
-import { getCity } from "@/server/domain/geo";
+import { getCity, roadKmFromPoint } from "@/server/domain/geo";
 import { useI18n } from "@/i18n/client";
+import { useSavedPosition } from "./near-me";
 import { LazyMap, type MapPoint, type MapRoute } from "../map/lazy-map";
 
 /** Truck → (empty) → pickup → (loaded) → delivery. */
-export function RouteMap({ origin, dest, truckCity, truckCode, className, onDemand }: { origin: string; dest: string; truckCity?: string; truckCode?: string; className?: string; onDemand?: boolean }) {
-  const { t: tr, city } = useI18n();
+export function RouteMap({ origin, dest, truckCity, truckCode, truckPos, className, onDemand }: { origin: string; dest: string; truckCity?: string; truckCode?: string; truckPos?: { lat: number; lng: number } | null; className?: string; onDemand?: boolean }) {
+  const { t: tr, city, km } = useI18n();
+  const me = useSavedPosition();
   const o = getCity(origin)!;
   const d = getCity(dest)!;
   const t = truckCity ? getCity(truckCity) : undefined;
@@ -15,9 +17,16 @@ export function RouteMap({ origin, dest, truckCity, truckCode, className, onDema
     { id: "d", lng: d.lng, lat: d.lat, kind: "city", label: tr("map.delivery", { city: city(d.id) }), tone: "pos" },
   ];
   const routes: MapRoute[] = [{ id: "loaded", from: [o.lng, o.lat], to: [d.lng, d.lat], highlight: true }];
-  if (t && t.id !== o.id) {
-    points.push({ id: "t", lng: t.lng, lat: t.lat, kind: "truck", label: `${truckCode ?? tr("fleet.truck")} · ${city(t.id)}` });
-    routes.push({ id: "empty", from: [t.lng, t.lat], to: [o.lng, o.lat], kind: "empty", highlight: true });
+  const from = truckPos ?? (t && t.id !== o.id ? { lat: t.lat, lng: t.lng } : null);
+  if (from && !(truckPos && roadKmFromPoint(truckPos.lat, truckPos.lng, o.id) === 0)) {
+    points.push({ id: "t", lng: from.lng, lat: from.lat, kind: "truck", label: `${truckCode ?? tr("fleet.truck")} · ${city(t?.id ?? o.id)}${truckPos ? " · GPS" : ""}` });
+    routes.push({ id: "empty", from: [from.lng, from.lat], to: [o.lng, o.lat], kind: "empty", highlight: true });
+  }
+  // Where the viewer is (remembered from "Near me"), with the drive to the pickup when no truck is shown.
+  if (me) {
+    const dist = roadKmFromPoint(me.lat, me.lng, o.id);
+    points.push({ id: "me", lng: me.lng, lat: me.lat, kind: "city", label: tr("map.you"), sub: dist > 0 ? tr("map.toPickup", { dist: km(dist) }) : undefined, tone: "warn" });
+    if (!from && dist > 0) routes.push({ id: "me-empty", from: [me.lng, me.lat], to: [o.lng, o.lat], kind: "empty", highlight: true });
   }
   return <LazyMap points={points} routes={routes} className={className} fitPadding={56} onDemand={onDemand} />;
 }

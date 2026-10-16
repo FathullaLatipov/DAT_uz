@@ -50,7 +50,7 @@ export interface LoadDetailResponse {
   selectedTruckId: string | null;
   match: {
     score: number; eligible: boolean; blockers: string[]; components: ScoreComponent[]; reasons: string[]; warnings: string[];
-    deadheadKm: number; benchmarkPerKm: number | null; truckCode: string; truckCity: string; calc: CalcInput;
+    deadheadKm: number; benchmarkPerKm: number | null; truckCode: string; truckCity: string; truckPos?: { lat: number; lng: number } | null; calc: CalcInput;
   } | null;
   backhaul: { options: { offer: { id: string; originCityId: string; destCityId: string }; match: { score: number; profit: { profit: number } } }[] } | null;
 }
@@ -135,7 +135,7 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
         <div className="min-w-0 space-y-3">
           <div className="h-44 overflow-hidden rounded-lg border border-border">
             {o.originCityId && o.destCityId ? (
-              <RouteMap origin={o.originCityId} dest={o.destCityId} truckCity={m?.truckCity} truckCode={m?.truckCode} className="h-full w-full" />
+              <RouteMap origin={o.originCityId} dest={o.destCityId} truckCity={m?.truckCity} truckPos={m?.truckPos} truckCode={m?.truckCode} className="h-full w-full" />
             ) : (
               <div className="flex h-full items-center justify-center text-xs text-muted">{t("panel.noCoords")}</div>
             )}
