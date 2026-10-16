@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { db, parseJson } from "@/server/db";
-import { api, errorResponse, HttpError } from "@/server/http";
+import { api, errorResponse, HttpError, localize } from "@/server/http";
+import { getI18n } from "@/i18n/server";
 import { can } from "@/server/auth/permissions";
 import { getSession } from "@/server/auth/session";
 import { audit, rateLimit } from "@/server/security";
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const session = await getSession();
     const rl = rateLimit(`load-detail:${session?.userId ?? req.headers.get("x-forwarded-for") ?? "anon"}`, 120, 60_000);
-    if (!rl.ok) return NextResponse.json({ error: "Too many requests — please slow down." }, { status: 429, headers: { "Retry-After": String(rl.retryAfterS) } });
+    if (!rl.ok) return NextResponse.json({ error: await localize("Too many requests — please slow down.") }, { status: 429, headers: { "Retry-After": String(rl.retryAfterS) } });
 
     if (!session) {
       const offer = await db.freightOffer.findUnique({
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const m = selected?.match;
 
     const [broker, lane, backhaul] = await Promise.all([
-      offer.brokerId ? brokerReliability(offer.brokerId) : null,
+      offer.brokerId ? brokerReliability(offer.brokerId, await getI18n()) : null,
       laneStats(offer.originCityId, offer.destCityId),
       t && m?.eligible
         ? findBackhaul(session.orgId, t, offer.destCityId, new Date(Math.max(offer.loadingDate.getTime(), m.readyAt.getTime()) + estimateTransitDays(offer.distanceKm) * DAY), 120, 3)
@@ -107,7 +108,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       backhaul,
     });
   } catch (e) {
-    return errorResponse(e);
+    return await errorResponse(e);
   }
 }
 

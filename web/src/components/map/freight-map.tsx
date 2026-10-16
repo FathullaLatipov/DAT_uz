@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useI18n } from "@/i18n/client";
 import * as maplibregl from "maplibre-gl";
 import type { GeoJSONSource, Map as MLMap, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -81,6 +82,9 @@ export default function FreightMap({
   onSelect?: (id: string) => void;
   fitPadding?: number;
 }) {
+  const { t } = useI18n();
+  const openLabel = useRef("");
+  openLabel.current = t("map.open");
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<MLMap | null>(null);
   const data = useRef({ points, routes });
@@ -184,7 +188,7 @@ export default function FreightMap({
       if (!f) return;
       const p = f.properties as { id: string; label: string; sub: string; href: string };
       onSelect?.(p.id);
-      const html = `<div style="font:500 13px var(--font-sans)">${p.label}</div>${p.sub ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">${p.sub}</div>` : ""}${p.href ? `<a href="${p.href}" style="display:inline-block;margin-top:6px;font-size:12px;color:var(--brand)">Open →</a>` : ""}`;
+      const html = `<div style="font:500 13px var(--font-sans)">${p.label}</div>${p.sub ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">${p.sub}</div>` : ""}${p.href ? `<a href="${p.href}" style="display:inline-block;margin-top:6px;font-size:12px;color:var(--brand)">${openLabel.current}</a>` : ""}`;
       new maplibregl.Popup({ closeButton: false, offset: 10 }).setLngLat(e.lngLat).setHTML(html).addTo(m);
     });
     if (mode !== "heat")

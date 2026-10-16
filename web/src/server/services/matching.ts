@@ -1,10 +1,13 @@
-import { AVG_KM_PER_DAY, estimateRoadKm, getCity } from "../domain/geo";
-import { label } from "../domain/enums";
+import { AVG_KM_PER_DAY, estimateRoadKm } from "../domain/geo";
+import type { I18n } from "../../i18n/create";
+import { englishI18n } from "../../i18n/default";
 import { computeProfit, estimateTollsUsd, type CostProfile, type ProfitBreakdown } from "./profitability";
 
 /**
  * Load-matching engine. Deterministic and explainable: every score is a weighted sum of
  * named components, and each component carries the human sentence that justifies it.
+ * The sentences are produced in the caller's language (ctx.i18n, English when absent) at the
+ * moment they are built, so what the engine returns can be shown as-is.
  */
 
 export interface MatchTruck extends CostProfile {
@@ -50,6 +53,8 @@ export interface MatchContext {
   brokerScore: (brokerId: string | null) => number | null;
   outbound: Map<string, number>; // city → active outbound loads
   now?: Date;
+  /** Language of the explanation text. English when omitted (tests, background jobs). */
+  i18n?: I18n;
 }
 
 export interface ScoreComponent {
@@ -89,8 +94,7 @@ const WEIGHTS = {
 
 const clamp = (n: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
 const DAY = 86_400_000;
-const money = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
-const cityName = (id: string) => getCity(id)?.name ?? id;
+
 
 /** Body-type compatibility: 100 exact, partial for interchangeable bodies, 0 = cannot carry. */
 export function bodyCompatibility(truckBody: string, offerBody: string, cargo: string): number {
@@ -111,40 +115,50 @@ export function bodyCompatibility(truckBody: string, offerBody: string, cargo: s
 }
 
 export function scoreMatch(truck: MatchTruck, offer: MatchOffer, ctx: MatchContext): MatchResult {
+  const i = ctx.i18n ?? englishI18n();
+  const { t, tn, label, city, usd } = i;
   const now = ctx.now ?? new Date();
   const blockers: string[] = [];
   const reasons: string[] = [];
   const warnings: string[] = [];
   const comps: ScoreComponent[] = [];
-  const add = (key: keyof typeof WEIGHTS, lbl: string, score: number, detail: string) =>
-    comps.push({ key, label: lbl, score: Math.round(clamp(score)), weight: WEIGHTS[key], detail });
+  const add = (key: keyof typeof WEIGHTS, score: number, detail: string) =>
+    comps.push({ key, label: t(`match.components.${key}`), score: Math.round(clamp(score)), weight: WEIGHTS[key], detail });
+  const lc = (code: string) => label(code).toLowerCase();
 
   // ── Truck compatibility ───────────────────────────────
   const body = bodyCompatibility(truck.bodyType, offer.bodyType, offer.cargoType);
   const weightOk = offer.weightKg <= truck.capacityKg;
   const volumeOk = offer.volumeM3 == null || offer.volumeM3 <= truck.volumeM3 * 1.02;
-  if (body === 0) blockers.push(`Requires ${label(offer.bodyType).toLowerCase()} body — truck is ${label(truck.bodyType).toLowerCase()}`);
-  if (!weightOk) blockers.push(`Cargo ${(offer.weightKg / 1000).toFixed(1)} t exceeds truck capacity ${(truck.capacityKg / 1000).toFixed(1)} t`);
-  if (!volumeOk) blockers.push(`Cargo volume ${offer.volumeM3} m³ exceeds truck volume ${truck.volumeM3} m³`);
-  if (truck.status === "MAINTENANCE" || truck.status === "OFFLINE") blockers.push(`Truck is ${label(truck.status).toLowerCase()}`);
+  if (body === 0) blockers.push(t("match.blockerBody", { body: lc(offer.bodyType), truckBody: lc(truck.bodyType) }));
+  if (!weightOk) blockers.push(t("match.blockerWeight", { cargo: (offer.weightKg / 1000).toFixed(1), cap: (truck.capacityKg / 1000).toFixed(1) }));
+  if (!volumeOk) blockers.push(t("match.blockerVolume", { v: offer.volumeM3 ?? 0, cap: truck.volumeM3 }));
+  if (truck.status === "MAINTENANCE" || truck.status === "OFFLINE") blockers.push(t("match.blockerStatus", { status: lc(truck.status) }));
   const fill = offer.weightKg / truck.capacityKg;
-  add("truck", "Truck compatibility", weightOk && volumeOk ? body : 0,
-    body === 100 ? `Matching ${label(truck.bodyType).toLowerCase()}, ${Math.round(fill * 100)}% of capacity used` : body > 0 ? `${label(truck.bodyType)} can carry a ${label(offer.bodyType).toLowerCase()} load` : "Body type incompatible");
-  if (body === 100 && weightOk) reasons.push(`The cargo (${(offer.weightKg / 1000).toFixed(1)} t, ${label(offer.cargoType).toLowerCase()}) fits your ${(truck.capacityKg / 1000).toFixed(0)}-ton ${label(truck.bodyType).toLowerCase()}.`);
+  add(
+    "truck",
+    weightOk && volumeOk ? body : 0,
+    body === 100
+      ? t("match.truckExact", { body: lc(truck.bodyType), pct: Math.round(fill * 100) })
+      : body > 0
+        ? t("match.truckPartial", { truckBody: label(truck.bodyType), body: lc(offer.bodyType) })
+        : t("match.truckNone"),
+  );
+  if (body === 100 && weightOk)
+    reasons.push(t("match.reasonFits", { t: (offer.weightKg / 1000).toFixed(1), cargo: lc(offer.cargoType), cap: (truck.capacityKg / 1000).toFixed(0), body: lc(truck.bodyType) }));
 
   // ── Deadhead & proximity ─────────────────────────────
   const deadheadKm = estimateRoadKm(truck.currentCityId, offer.originCityId);
   const maxDh = Math.max(50, ctx.prefs.maxDeadheadKm);
   const proximity = deadheadKm <= 25 ? 100 : 100 * (1 - deadheadKm / (maxDh * 2));
-  add("proximity", "Location proximity", proximity,
-    deadheadKm === 0 ? `Truck is already in ${cityName(offer.originCityId)}` : `${deadheadKm} km from ${cityName(truck.currentCityId)} to pickup`);
-  if (deadheadKm === 0) reasons.push(`Your truck is already in ${cityName(offer.originCityId)} — no repositioning needed.`);
-  else if (deadheadKm <= maxDh) reasons.push(`Your truck is ${deadheadKm} km from the loading point.`);
-  else warnings.push(`Deadhead of ${deadheadKm} km exceeds your ${maxDh} km preference.`);
-  if (deadheadKm > Math.max(maxDh * 4, 800)) blockers.push(`Pickup is ${deadheadKm} km away`);
+  add("proximity", proximity, deadheadKm === 0 ? t("match.proximityHere", { city: city(offer.originCityId) }) : t("match.proximityKm", { km: deadheadKm, city: city(truck.currentCityId) }));
+  if (deadheadKm === 0) reasons.push(t("match.reasonHere", { city: city(offer.originCityId) }));
+  else if (deadheadKm <= maxDh) reasons.push(t("match.reasonNear", { km: deadheadKm }));
+  else warnings.push(t("match.warnDeadhead", { km: deadheadKm, max: maxDh }));
+  if (deadheadKm > Math.max(maxDh * 4, 800)) blockers.push(t("match.blockerPickup", { km: deadheadKm }));
 
   const emptyShare = deadheadKm / (deadheadKm + offer.distanceKm || 1);
-  add("deadhead", "Deadhead", 100 * (1 - emptyShare / 0.35), `${Math.round(emptyShare * 100)}% of total driving would be empty`);
+  add("deadhead", 100 * (1 - emptyShare / 0.35), t("match.deadheadShare", { pct: Math.round(emptyShare * 100) }));
 
   // ── Date ─────────────────────────────────────────────
   const start = Math.max(truck.availableFrom.getTime(), now.getTime());
@@ -155,17 +169,17 @@ export function scoreMatch(truck: MatchTruck, offer: MatchOffer, ctx: MatchConte
   let dateDetail: string;
   if (lateH > 24) {
     dateScore = 0;
-    dateDetail = `Truck can reach pickup ~${Math.round(lateH)} h after loading time`;
-    blockers.push("Truck can't reach the pickup before the loading date");
+    dateDetail = t("match.dateLate", { h: Math.round(lateH) });
+    blockers.push(t("match.blockerLate"));
   } else if (lateH > 6) {
     dateScore = 50;
-    dateDetail = `Tight: arrives ~${Math.round(lateH)} h after the loading window opens`;
-    warnings.push("Arrival at pickup is tight — confirm the loading window with the broker.");
+    dateDetail = t("match.dateTight", { h: Math.round(lateH) });
+    warnings.push(t("match.warnTight"));
   } else {
     dateScore = idleDays > 4 ? 60 : idleDays > 2 ? 80 : 100;
-    dateDetail = idleDays < 1 ? "Truck is ready in time for loading" : `Truck waits ~${Math.round(idleDays)} day(s) before loading`;
+    dateDetail = idleDays < 1 ? t("match.dateReady") : tn("match.dateWaits", Math.round(idleDays));
   }
-  add("date", "Date compatibility", dateScore, dateDetail);
+  add("date", dateScore, dateDetail);
 
   // ── Profitability & price ───────────────────────────
   const tolls = estimateTollsUsd(offer.distanceKm, offer.originCountry, offer.destCountry);
@@ -173,46 +187,45 @@ export function scoreMatch(truck: MatchTruck, offer: MatchOffer, ctx: MatchConte
   const perKm = offer.distanceKm > 0 ? offer.rateUsd / offer.distanceKm : 0;
   const benchmark = ctx.benchmarks.get(`${offer.originCityId}>${offer.destCityId}`) ?? null;
   if (offer.rateUsd <= 0) {
-    add("price", "Price attractiveness", 40, "No rate published — negotiable");
-    warnings.push("No rate published — profitability cannot be estimated until you negotiate.");
+    add("price", 40, t("match.priceNone"));
+    warnings.push(t("match.warnNoRate"));
   } else if (benchmark) {
     const ratio = perKm / benchmark;
-    add("price", "Price attractiveness", 55 + (ratio - 1) * 250,
-      `$${perKm.toFixed(2)}/km vs lane median $${benchmark.toFixed(2)}/km (${ratio >= 1 ? "+" : ""}${Math.round((ratio - 1) * 100)}%)`);
-    if (ratio >= 1.03) reasons.push(`This offer is $${perKm.toFixed(2)}/km — ${Math.round((ratio - 1) * 100)}% above the recent lane median of $${benchmark.toFixed(2)}/km.`);
-    else if (ratio < 0.92) warnings.push(`Rate is ${Math.round((1 - ratio) * 100)}% below the lane median ($${benchmark.toFixed(2)}/km).`);
+    add("price", 55 + (ratio - 1) * 250, t("match.priceVsLane", { perKm: i.perKm(perKm), median: i.perKm(benchmark), sign: ratio >= 1 ? "+" : "", pct: Math.round((ratio - 1) * 100) }));
+    if (ratio >= 1.03) reasons.push(t("match.reasonAbove", { perKm: i.perKm(perKm), pct: Math.round((ratio - 1) * 100), median: i.perKm(benchmark) }));
+    else if (ratio < 0.92) warnings.push(t("match.warnBelow", { pct: Math.round((1 - ratio) * 100), median: i.perKm(benchmark) }));
   } else {
-    add("price", "Price attractiveness", 20 + profit.margin * 180, `$${perKm.toFixed(2)}/km — no lane benchmark yet, scored on estimated margin (${Math.round(profit.margin * 100)}%)`);
+    add("price", 20 + profit.margin * 180, t("match.priceNoBench", { perKm: i.perKm(perKm), pct: Math.round(profit.margin * 100) }));
   }
-  if (offer.rateUsd > 0 && profit.profit > 0) reasons.push(`Estimated profit ${money(profit.profit)} (${Math.round(profit.margin * 100)}% margin) after fuel, driver, maintenance and tolls.`);
-  if (offer.rateUsd > 0 && profit.profit <= 0) warnings.push(`Estimated loss of ${money(-profit.profit)} with your truck's cost profile.`);
+  if (offer.rateUsd > 0 && profit.profit > 0) reasons.push(t("match.reasonProfit", { profit: usd(profit.profit), pct: Math.round(profit.margin * 100) }));
+  if (offer.rateUsd > 0 && profit.profit <= 0) warnings.push(t("match.warnLoss", { loss: usd(-profit.profit) }));
 
   // ── Route preferences ────────────────────────────────
   const routes = ctx.prefs.routes;
-  let route: [number, string] = [70, "No preferred routes set"];
+  let route: [number, string] = [70, t("match.routeNone")];
   if (routes.length) {
     const exact = routes.find((r) => r.originCityId === offer.originCityId && r.destCityId === offer.destCityId);
     const country = routes.find((r) => r.originCityId === offer.originCityId && (r.destCountry === offer.destCountry || (!r.destCityId && !r.destCountry)));
     const reverse = routes.find((r) => r.destCityId === offer.originCityId && r.originCityId === offer.destCityId);
-    if (exact) route = [100, "One of your preferred routes"];
-    else if (country) route = [85, "Preferred origin and destination country"];
-    else if (reverse) route = [80, "Return leg of a preferred route"];
-    else if (ctx.prefs.preferredCountries.includes(offer.destCountry)) route = [65, "Destination in a preferred country"];
-    else route = [35, "Outside your preferred routes"];
-    if (route[0] >= 80) reasons.push(`${cityName(offer.originCityId)} → ${cityName(offer.destCityId)} matches your preferred routes.`);
+    if (exact) route = [100, t("match.routeExact")];
+    else if (country) route = [85, t("match.routeCountry")];
+    else if (reverse) route = [80, t("match.routeReverse")];
+    else if (ctx.prefs.preferredCountries.includes(offer.destCountry)) route = [65, t("match.routePrefCountry")];
+    else route = [35, t("match.routeOutside")];
+    if (route[0] >= 80) reasons.push(t("match.reasonRoute", { from: city(offer.originCityId), to: city(offer.destCityId) }));
   }
-  add("route", "Route compatibility", route[0], route[1]);
+  add("route", route[0], route[1]);
 
   // ── Destination demand (next-load potential) ─────────
   const out = ctx.outbound.get(offer.destCityId) ?? 0;
-  add("demand", "Market demand at destination", 25 + out * 8, `${out} active load${out === 1 ? "" : "s"} leaving ${cityName(offer.destCityId)}`);
-  if (out >= 5) reasons.push(`${out} loads are currently leaving ${cityName(offer.destCityId)} — good chances for a return load.`);
+  add("demand", 25 + out * 8, tn("match.demandLoads", out, { city: city(offer.destCityId) }));
+  if (out >= 5) reasons.push(t("match.reasonDemand", { n: out, city: city(offer.destCityId) }));
 
   // ── Broker ───────────────────────────────────────────
   const bs = ctx.brokerScore(offer.brokerId);
-  add("broker", "Broker reliability", bs ?? 55, bs == null ? "Insufficient broker history — neutral" : `Reliability ${bs}/100 from platform reviews`);
-  if (bs != null && bs >= 80) reasons.push(`The broker has a strong track record on the platform (${bs}/100).`);
-  if (bs != null && bs < 55) warnings.push(`Broker reliability is low (${bs}/100).`);
+  add("broker", bs ?? 55, bs == null ? t("match.brokerNeutral") : t("match.brokerScore", { n: bs }));
+  if (bs != null && bs >= 80) reasons.push(t("match.reasonBroker", { n: bs }));
+  if (bs != null && bs < 55) warnings.push(t("match.warnBroker", { n: bs }));
 
   // ── User preferences ─────────────────────────────────
   let pref = 70;
@@ -220,24 +233,24 @@ export function scoreMatch(truck: MatchTruck, offer: MatchOffer, ctx: MatchConte
   if (ctx.prefs.minRatePerKmUsd && offer.rateUsd > 0) {
     if (perKm >= ctx.prefs.minRatePerKmUsd) {
       pref += 15;
-      prefNotes.push("meets minimum rate");
+      prefNotes.push(t("match.prefMinOk"));
     } else {
       pref -= 40;
-      prefNotes.push("below minimum rate");
-      warnings.push(`Below your minimum of $${ctx.prefs.minRatePerKmUsd.toFixed(2)}/km.`);
+      prefNotes.push(t("match.prefMinBad"));
+      warnings.push(t("match.warnMin", { min: i.perKm(ctx.prefs.minRatePerKmUsd) }));
     }
   }
   if (ctx.prefs.preferredCargo.length) {
     const hit = ctx.prefs.preferredCargo.includes(offer.cargoType);
     pref += hit ? 15 : -10;
-    if (hit) prefNotes.push("preferred cargo");
+    if (hit) prefNotes.push(t("match.prefCargo"));
   }
   if (ctx.prefs.paymentTerms.length && offer.paymentTerms) {
     const hit = ctx.prefs.paymentTerms.includes(offer.paymentTerms);
     pref += hit ? 10 : -10;
-    if (hit) prefNotes.push("preferred payment terms");
+    if (hit) prefNotes.push(t("match.prefPayment"));
   }
-  add("prefs", "Your preferences", pref, prefNotes.length ? prefNotes.join(", ") : "Neutral");
+  add("prefs", pref, prefNotes.length ? prefNotes.join(", ") : t("match.prefNeutral"));
 
   const raw = comps.reduce((s, c) => s + c.score * c.weight, 0);
   const eligible = blockers.length === 0;

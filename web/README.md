@@ -97,13 +97,14 @@ When real data is flowing, set `HIDE_DEMO=1` to keep demo listings off the publi
 
 ### Languages (English, Russian, Uzbek)
 
-The public site, sign-in/sign-up, the cabinet menu and the load detail panel are translated; the rest of the cabinet (board, fleet, market, settings, admin) is still English. A visitor's language comes from the `lang` cookie (set by the language switcher), else from the browser's `Accept-Language`, else English — URLs never change.
+The whole app is translated: the public site, sign-in/sign-up and every cabinet page, plus server-generated text (scoring-engine reasons/warnings, assistant replies, import problems, API errors). A visitor's language comes from the `lang` cookie (set by the language switcher), else from the browser's `Accept-Language`, else English — URLs never change.
 
 - Messages live in `src/i18n/messages/{en,ru,uz}.ts`. `en.ts` is the source: `Messages` is derived from it, so `ru.ts`/`uz.ts` fail to compile if a key is missing, and `tests/i18n.test.ts` checks keys, `{placeholders}`, plural forms and stray Cyrillic look-alikes in Latin text.
 - Server components: `const { t, label, city, km } = await getI18n();`. Client components: `const { t } = useI18n();`. `t("group.key", { name })` is type-checked; `tn("group.plural", n)` picks the right plural form (Russian has three); `label(code)`, `city(id)`, `country(code)` translate enum codes and places.
 - To translate another part of the app: add its strings to `en.ts` (group by page), replace the literals with `t(...)`, then add the Russian and Uzbek text — the compiler lists what is missing.
 - To add a language: add it to `LOCALES`/`LOCALE_META` in `src/i18n/config.ts` and create its messages file.
-- Not translated yet: text produced by the scoring engine (`reasons`, `warnings`, `blockers`) and API error messages — they are English strings from the server.
+- Engine text is built in the request language through `MatchContext.i18n`; thrown English API messages are translated at the response boundary (`src/i18n/errors.ts`, `localize()` in `src/server/http.ts`).
+- Still English: notifications stored in the database keep the language they were created in, and job-created ones (no user language) are English.
 - Have a native speaker review the Russian and Uzbek copy before launch.
 
 ### Data sources: policy

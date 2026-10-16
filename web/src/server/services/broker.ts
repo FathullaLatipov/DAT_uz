@@ -1,5 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { db } from "../db";
+import type { I18n } from "../../i18n/create";
+import { englishI18n } from "../../i18n/default";
 
 /**
  * Broker reliability is computed ONLY from data on the platform: identity verification,
@@ -32,14 +34,15 @@ export interface BrokerReliability {
 
 type ReviewLite = { rating: number; paidOnTime: boolean | null; disputed: boolean; cancelled: boolean; isDemo: boolean };
 
-export function computeReliability(verified: boolean, reviews: ReviewLite[], completedTrips: number): BrokerReliability {
+export function computeReliability(verified: boolean, reviews: ReviewLite[], completedTrips: number, i18n?: I18n): BrokerReliability {
+  const { t, tn } = i18n ?? englishI18n();
   const n = reviews.length;
   const isDemo = reviews.some((r) => r.isDemo);
   if (n < MIN_REVIEWS) {
     return {
       score: null, sufficient: false, reviews: n, avgRating: n ? reviews.reduce((s, r) => s + r.rating, 0) / n : null,
       paidOnTimePct: null, disputePct: null, cancelPct: null, completedTrips, components: [], isDemo,
-      explanation: `Insufficient history: ${n} review${n === 1 ? "" : "s"} on the platform (minimum ${MIN_REVIEWS}). No score is shown until enough verified activity exists.`,
+      explanation: tn("broker.insufficient", n, { min: MIN_REVIEWS }),
     };
   }
   const avg = reviews.reduce((s, r) => s + r.rating, 0) / n;
@@ -49,33 +52,33 @@ export function computeReliability(verified: boolean, reviews: ReviewLite[], com
   const cancels = reviews.filter((r) => r.cancelled).length / n;
 
   const components: ReliabilityComponent[] = [
-    { key: "identity", label: "Verified identity", max: 20, points: verified ? 20 : 0, detail: verified ? "Identity verified" : "Not verified" },
-    { key: "rating", label: "Carrier ratings", max: 35, points: Math.round(((avg - 1) / 4) * 35), detail: `${avg.toFixed(2)} / 5 from ${n} reviews` },
+    { key: "identity", label: t("broker.identity"), max: 20, points: verified ? 20 : 0, detail: verified ? t("broker.identityYes") : t("broker.identityNo") },
+    { key: "rating", label: t("broker.rating"), max: 35, points: Math.round(((avg - 1) / 4) * 35), detail: tn("broker.ratingDetail", n, { avg: avg.toFixed(2) }) },
     {
-      key: "payment", label: "Payment behaviour", max: 25,
+      key: "payment", label: t("broker.payment"), max: 25,
       points: onTime == null ? 12 : Math.round(onTime * 25),
-      detail: onTime == null ? "No payment data — neutral" : `${Math.round(onTime * 100)}% paid on time (${payKnown.length} reports)`,
+      detail: onTime == null ? t("broker.paymentNone") : tn("broker.paymentDetail", payKnown.length, { pct: Math.round(onTime * 100) }),
     },
-    { key: "disputes", label: "Disputes", max: 10, points: Math.round((1 - Math.min(1, disputes * 4)) * 10), detail: `${Math.round(disputes * 100)}% of trips disputed` },
-    { key: "cancellations", label: "Cancellations", max: 10, points: Math.round((1 - Math.min(1, cancels * 4)) * 10), detail: `${Math.round(cancels * 100)}% cancelled` },
+    { key: "disputes", label: t("broker.disputes"), max: 10, points: Math.round((1 - Math.min(1, disputes * 4)) * 10), detail: t("broker.disputesDetail", { pct: Math.round(disputes * 100) }) },
+    { key: "cancellations", label: t("broker.cancellations"), max: 10, points: Math.round((1 - Math.min(1, cancels * 4)) * 10), detail: t("broker.cancellationsDetail", { pct: Math.round(cancels * 100) }) },
   ];
   const score = components.reduce((s, c) => s + c.points, 0);
   return {
     score, sufficient: true, reviews: n, avgRating: Math.round(avg * 100) / 100,
     paidOnTimePct: onTime == null ? null : Math.round(onTime * 100), disputePct: Math.round(disputes * 100), cancelPct: Math.round(cancels * 100),
     completedTrips, components, isDemo,
-    explanation: `Score = identity (20) + carrier ratings (35) + on-time payment (25) + low disputes (10) + low cancellations (10), computed from ${n} carrier reviews on this platform${isDemo ? " (DEMO reviews)" : ""}.`,
+    explanation: `${tn("broker.formula", n)}${isDemo ? ` ${t("broker.demoReviews")}` : ""}`,
   };
 }
 
-export async function brokerReliability(brokerId: string): Promise<BrokerReliability | null> {
+export async function brokerReliability(brokerId: string, i18n?: I18n): Promise<BrokerReliability | null> {
   const b = await db.broker.findUnique({
     where: { id: brokerId },
     include: { reviews: true, offers: { select: { trips: { where: { status: "COMPLETED" }, select: { id: true } } } } },
   });
   if (!b) return null;
   const trips = b.offers.reduce((s, o) => s + o.trips.length, 0);
-  return computeReliability(b.verified, b.reviews, trips);
+  return computeReliability(b.verified, b.reviews, trips, i18n);
 }
 
 /**

@@ -6,16 +6,17 @@ import { ArrowLeft, ArrowRight, Building2, Check, Handshake, Headset, Loader2, P
 import { apiCall } from "@/lib/client";
 import { cn } from "@/lib/format";
 import { CITIES, COUNTRIES } from "@/server/domain/geo";
-import { BODY_TYPES, CARGO_TYPES, PAYMENT_TERMS, label } from "@/server/domain/enums";
+import { BODY_TYPES, CARGO_TYPES, PAYMENT_TERMS } from "@/server/domain/enums";
+import { useI18n } from "@/i18n/client";
 import { Button, Card, Field, Input, Select } from "@/components/ui/primitives";
 
 const ACCOUNT = [
-  { v: "TRUCK_OWNER", t: "Truck owner", d: "I own trucks and hire drivers", icon: Truck },
-  { v: "OWNER_OPERATOR", t: "Owner-operator", d: "I own and drive my truck", icon: User },
-  { v: "FLEET_MANAGER", t: "Fleet manager", d: "I manage several trucks", icon: Users },
-  { v: "DISPATCHER", t: "Dispatcher", d: "I find loads for carriers", icon: Headset },
-  { v: "LOGISTICS_COMPANY", t: "Logistics company", d: "We run a transport business", icon: Building2 },
-  { v: "BROKER", t: "Broker", d: "I post loads for carriers to find — I don't own trucks", icon: Handshake },
+  { v: "TRUCK_OWNER", icon: Truck },
+  { v: "OWNER_OPERATOR", icon: User },
+  { v: "FLEET_MANAGER", icon: Users },
+  { v: "DISPATCHER", icon: Headset },
+  { v: "LOGISTICS_COMPANY", icon: Building2 },
+  { v: "BROKER", icon: Handshake },
 ] as const;
 
 const UZ_CITIES = CITIES.filter((c) => c.country === "UZ");
@@ -30,6 +31,7 @@ const PRESETS: Record<string, { capacityKg: number; volumeM3: number }> = {
 };
 
 export function OnboardingWizard() {
+  const { t, m, label, city, country } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const typeFromSignup = searchParams.get("type");
@@ -46,7 +48,7 @@ export function OnboardingWizard() {
 
   const isBroker = accountType === "BROKER";
   const skipTruck = accountType === "DISPATCHER" || isBroker;
-  const steps = ["You", "Truck", "Routes", "Preferences"];
+  const steps = m.ob.steps;
 
   async function finish() {
     setPending(true);
@@ -70,7 +72,7 @@ export function OnboardingWizard() {
 
   return (
     <div>
-      <ol className="mb-8 flex items-center gap-2" aria-label="Progress">
+      <ol className="mb-8 flex items-center gap-2" aria-label={t("ob.progress")}>
         {steps.map((s, i) => (
           <li key={s} className="flex flex-1 items-center gap-2">
             <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold", i < step ? "bg-brand text-brand-fg" : i === step ? "border-2 border-brand text-brand" : "bg-surface-3 text-subtle")}>
@@ -85,8 +87,8 @@ export function OnboardingWizard() {
       <Card className="animate-fade-up p-5 sm:p-7" key={step}>
         {step === 0 && (
           <>
-            <h1 className="text-xl font-semibold">Who are you?</h1>
-            <p className="mt-1 text-sm text-muted">We tailor recommendations and permissions to how you work.</p>
+            <h1 className="text-xl font-semibold">{t("ob.whoTitle")}</h1>
+            <p className="mt-1 text-sm text-muted">{t("ob.whoSub")}</p>
             <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
               {ACCOUNT.map((a) => (
                 <button
@@ -98,8 +100,8 @@ export function OnboardingWizard() {
                 >
                   <a.icon className={cn("mt-0.5 h-5 w-5", accountType === a.v ? "text-brand" : "text-muted")} />
                   <span>
-                    <span className="block text-sm font-medium">{a.t}</span>
-                    <span className="block text-xs text-muted">{a.d}</span>
+                    <span className="block text-sm font-medium">{m.ob.accounts[a.v].t}</span>
+                    <span className="block text-xs text-muted">{m.ob.accounts[a.v].d}</span>
                   </span>
                 </button>
               ))}
@@ -109,46 +111,46 @@ export function OnboardingWizard() {
 
         {step === 1 && (
           <>
-            <h1 className="text-xl font-semibold">{skipTruck ? "Trucks come later" : "Add your first truck"}</h1>
+            <h1 className="text-xl font-semibold">{skipTruck ? t("ob.trucksLater") : t("ob.firstTruck")}</h1>
             {skipTruck ? (
               <p className="mt-2 text-sm text-muted">
-                {isBroker ? "Brokers post loads, not trucks — you can do that from \"Post a load\" right after this." : "As a dispatcher you can add carrier trucks from the Fleet page anytime. Skip to routes."}
+                {isBroker ? t("ob.brokerNote") : t("ob.dispatcherNote")}
               </p>
             ) : (
               <>
-                <p className="mt-1 text-sm text-muted">The basics are enough — you can add costs and a driver later.</p>
+                <p className="mt-1 text-sm text-muted">{t("ob.basics")}</p>
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                  <Field label="Truck type">
+                  <Field label={t("fleet.type")}>
                     <Select value={truck.truckType} onChange={(e) => setTruck({ ...truck, truckType: e.target.value })}>
                       {["SEMI", "RIGID", "VAN", "ROAD_TRAIN"].map((t) => <option key={t} value={t}>{label(t)}</option>)}
                     </Select>
                   </Field>
-                  <Field label="Body">
+                  <Field label={t("fleet.body")}>
                     <Select value={truck.bodyType} onChange={(e) => setTruck({ ...truck, bodyType: e.target.value, ...(PRESETS[e.target.value] ?? {}) })}>
                       {BODY_TYPES.map((t) => <option key={t} value={t}>{label(t)}</option>)}
                     </Select>
                   </Field>
-                  <Field label="Capacity (kg)">
+                  <Field label={t("fleet.capacity")}>
                     <Input type="number" inputMode="numeric" min={500} max={60000} step={500} value={truck.capacityKg} onChange={(e) => setTruck({ ...truck, capacityKg: Number(e.target.value) })} />
                   </Field>
-                  <Field label="Volume (m³)">
+                  <Field label={t("fleet.volume")}>
                     <Input type="number" inputMode="decimal" min={1} max={200} value={truck.volumeM3} onChange={(e) => setTruck({ ...truck, volumeM3: Number(e.target.value) })} />
                   </Field>
-                  <Field label="Current location">
+                  <Field label={t("fleet.location")}>
                     <Select value={truck.currentCityId} onChange={(e) => setTruck({ ...truck, currentCityId: e.target.value })}>
-                      <optgroup label="Uzbekistan">{UZ_CITIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>
-                      <optgroup label="Abroad">{CITIES.filter((c) => c.country !== "UZ").map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>
+                      <optgroup label={country("UZ")}>{UZ_CITIES.map((c) => <option key={c.id} value={c.id}>{city(c.id)}</option>)}</optgroup>
+                      <optgroup label={t("ob.abroad")}>{CITIES.filter((c) => c.country !== "UZ").map((c) => <option key={c.id} value={c.id}>{city(c.id)}</option>)}</optgroup>
                     </Select>
                   </Field>
-                  <div role="group" aria-label="Available from">
-                    <span className="mb-1.5 block text-xs font-medium text-muted">Available from</span>
+                  <div role="group" aria-label={t("fleet.availableFrom")}>
+                    <span className="mb-1.5 block text-xs font-medium text-muted">{t("fleet.availableFrom")}</span>
                     <div className="flex gap-1.5">
-                      {[["Today", today()], ["Tomorrow", tomorrow()]].map(([l, v]) => (
+                      {[[t("time.today"), today()], [t("time.tomorrow"), tomorrow()]].map(([l, v]) => (
                         <button key={l} type="button" onClick={() => setTruck({ ...truck, availableFrom: v })} className={cn("h-9 flex-1 rounded-lg border text-sm", truck.availableFrom === v ? "border-brand bg-brand-soft text-brand" : "border-border")}>
                           {l}
                         </button>
                       ))}
-                      <Input type="date" aria-label="Pick date" className="flex-1" value={truck.availableFrom} onChange={(e) => setTruck({ ...truck, availableFrom: e.target.value })} />
+                      <Input type="date" aria-label={t("ob.pickDate")} className="flex-1" value={truck.availableFrom} onChange={(e) => setTruck({ ...truck, availableFrom: e.target.value })} />
                     </div>
                   </div>
                 </div>
@@ -159,26 +161,26 @@ export function OnboardingWizard() {
 
         {step === 2 && (
           <>
-            <h1 className="text-xl font-semibold">Preferred routes</h1>
-            <p className="mt-1 text-sm text-muted">Loads on these lanes get a boost. Return legs count too.</p>
+            <h1 className="text-xl font-semibold">{t("pf.routes")}</h1>
+            <p className="mt-1 text-sm text-muted">{t("ob.routesSub")}</p>
             <div className="mt-5 space-y-2.5">
               {routes.map((r, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <Select aria-label="From" value={r.originCityId} onChange={(e) => setRoutes(routes.map((x, j) => (j === i ? { ...x, originCityId: e.target.value } : x)))}>
-                    {CITIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  <Select aria-label={t("search.from")} value={r.originCityId} onChange={(e) => setRoutes(routes.map((x, j) => (j === i ? { ...x, originCityId: e.target.value } : x)))}>
+                    {CITIES.map((c) => <option key={c.id} value={c.id}>{city(c.id)}</option>)}
                   </Select>
                   <ArrowRight className="h-4 w-4 shrink-0 text-subtle" />
-                  <Select aria-label="To" value={r.destCityId} onChange={(e) => setRoutes(routes.map((x, j) => (j === i ? { ...x, destCityId: e.target.value } : x)))}>
-                    {CITIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  <Select aria-label={t("search.to")} value={r.destCityId} onChange={(e) => setRoutes(routes.map((x, j) => (j === i ? { ...x, destCityId: e.target.value } : x)))}>
+                    {CITIES.map((c) => <option key={c.id} value={c.id}>{city(c.id)}</option>)}
                   </Select>
-                  <Button variant="ghost" size="icon" aria-label="Remove route" onClick={() => setRoutes(routes.filter((_, j) => j !== i))}>
+                  <Button variant="ghost" size="icon" aria-label={t("pf.removeRoute")} onClick={() => setRoutes(routes.filter((_, j) => j !== i))}>
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
               ))}
               {routes.length < 10 && (
                 <Button variant="outline" size="sm" onClick={() => setRoutes([...routes, { originCityId: truck.currentCityId, destCityId: "bishkek" }])}>
-                  <Plus className="h-4 w-4" /> Add route
+                  <Plus className="h-4 w-4" /> {t("pf.addRoute")}
                 </Button>
               )}
             </div>
@@ -187,19 +189,19 @@ export function OnboardingWizard() {
 
         {step === 3 && (
           <>
-            <h1 className="text-xl font-semibold">Preferences</h1>
-            <p className="mt-1 text-sm text-muted">Used to rank loads. Leave anything empty to stay flexible.</p>
+            <h1 className="text-xl font-semibold">{t("ob.prefsTitle")}</h1>
+            <p className="mt-1 text-sm text-muted">{t("ob.prefsSub")}</p>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <Field label="Minimum rate ($/km)">
-                <Input type="number" inputMode="decimal" step="0.05" min={0} value={prefs.minRatePerKmUsd} onChange={(e) => setPrefs({ ...prefs, minRatePerKmUsd: e.target.value })} placeholder="e.g. 1.20" />
+              <Field label={t("pf.minRate")}>
+                <Input type="number" inputMode="decimal" step="0.05" min={0} value={prefs.minRatePerKmUsd} onChange={(e) => setPrefs({ ...prefs, minRatePerKmUsd: e.target.value })} placeholder={t("ob.ratePlaceholder")} />
               </Field>
-              <Field label={`Maximum deadhead: ${prefs.maxDeadheadKm} km`}>
+              <Field label={t("pf.maxDeadhead", { n: prefs.maxDeadheadKm })}>
                 <input type="range" min={0} max={500} step={10} value={prefs.maxDeadheadKm} onChange={(e) => setPrefs({ ...prefs, maxDeadheadKm: Number(e.target.value) })} className="mt-2 w-full accent-[var(--brand)]" />
               </Field>
             </div>
-            <Chips title="Preferred cargo" options={CARGO_TYPES.map((c) => [c, label(c)])} value={prefs.preferredCargo} onToggle={(v) => setPrefs({ ...prefs, preferredCargo: toggle(prefs.preferredCargo, v) })} />
-            <Chips title="Preferred countries" options={COUNTRIES.map((c) => [c.code, c.name])} value={prefs.preferredCountries} onToggle={(v) => setPrefs({ ...prefs, preferredCountries: toggle(prefs.preferredCountries, v) })} />
-            <Chips title="Acceptable payment terms" options={PAYMENT_TERMS.map((c) => [c, label(c)])} value={prefs.paymentTerms} onToggle={(v) => setPrefs({ ...prefs, paymentTerms: toggle(prefs.paymentTerms, v) })} />
+            <Chips title={t("pf.cargo")} options={CARGO_TYPES.map((c) => [c, label(c)])} value={prefs.preferredCargo} onToggle={(v) => setPrefs({ ...prefs, preferredCargo: toggle(prefs.preferredCargo, v) })} />
+            <Chips title={t("pf.countries")} options={COUNTRIES.map((c) => [c.code, country(c.code)])} value={prefs.preferredCountries} onToggle={(v) => setPrefs({ ...prefs, preferredCountries: toggle(prefs.preferredCountries, v) })} />
+            <Chips title={t("ob.payment")} options={PAYMENT_TERMS.map((c) => [c, label(c)])} value={prefs.paymentTerms} onToggle={(v) => setPrefs({ ...prefs, paymentTerms: toggle(prefs.paymentTerms, v) })} />
           </>
         )}
 
@@ -207,15 +209,15 @@ export function OnboardingWizard() {
 
         <div className="mt-7 flex items-center justify-between">
           <Button variant="ghost" onClick={() => setStep(step - 1)} disabled={step === 0 || pending}>
-            <ArrowLeft className="h-4 w-4" /> Back
+            <ArrowLeft className="h-4 w-4" /> {t("bk.back")}
           </Button>
           {step < 3 ? (
             <Button onClick={() => setStep(step + 1)}>
-              Continue <ArrowRight className="h-4 w-4" />
+              {t("ob.continue")} <ArrowRight className="h-4 w-4" />
             </Button>
           ) : (
             <Button onClick={finish} disabled={pending}>
-              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} {isBroker ? "Start posting loads" : "Show my best loads"}
+              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} {isBroker ? t("ob.startPosting") : t("ob.showBest")}
             </Button>
           )}
         </div>

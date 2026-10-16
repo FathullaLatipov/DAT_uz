@@ -5,15 +5,19 @@ import { ArrowLeft, BadgeCheck, Info } from "lucide-react";
 import { requireSession } from "@/server/auth/session";
 import { db } from "@/server/db";
 import { brokerReliability } from "@/server/services/broker";
-import { countryName } from "@/server/domain/geo";
+import { getI18n } from "@/i18n/server";
 import { Badge, Bar, Card, CardHeader, DemoBadge, PageHeader, Stat } from "@/components/ui/primitives";
 import { RouteLabel } from "@/components/loads/parts";
-import { relativeDay, usd } from "@/lib/format";
 
-export const metadata: Metadata = { title: "Broker" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: t("bk.title") };
+}
 
 export default async function BrokerPage({ params }: { params: Promise<{ id: string }> }) {
   await requireSession();
+  const i18n = await getI18n();
+  const { t, tn, country, relativeDay, usd } = i18n;
   const { id } = await params;
   const [b, rel] = await Promise.all([
     db.broker.findUnique({
@@ -23,7 +27,7 @@ export default async function BrokerPage({ params }: { params: Promise<{ id: str
         _count: { select: { offers: true } },
       },
     }),
-    brokerReliability(id),
+    brokerReliability(id, i18n),
   ]);
   if (!b || !rel) notFound();
   const sources = await db.freightListing.groupBy({ by: ["sourceId"], where: { offer: { brokerId: id } }, _count: true });
@@ -31,16 +35,16 @@ export default async function BrokerPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="mx-auto max-w-5xl">
-      <Link href="/app/loads" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-fg"><ArrowLeft className="h-4 w-4" /> Back</Link>
+      <Link href="/app/loads" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-fg"><ArrowLeft className="h-4 w-4" /> {t("bk.back")}</Link>
       <PageHeader
         title={b.name}
-        subtitle={b.countryCode ? countryName(b.countryCode) : undefined}
-        badge={<span className="flex gap-1.5">{b.verified ? <Badge tone="pos"><BadgeCheck className="h-3 w-3" /> Verified</Badge> : <Badge>Not verified</Badge>}{b.isDemo && <DemoBadge />}</span>}
+        subtitle={b.countryCode ? country(b.countryCode) : undefined}
+        badge={<span className="flex gap-1.5">{b.verified ? <Badge tone="pos"><BadgeCheck className="h-3 w-3" /> {t("load.brokerVerified")}</Badge> : <Badge>{t("load.brokerNotVerified")}</Badge>}{b.isDemo && <DemoBadge />}</span>}
       />
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-5">
           <Card>
-            <CardHeader title="Reliability score" />
+            <CardHeader title={t("bk.score")} />
             <div className="px-4 pb-5 sm:px-5">
               {rel.sufficient ? (
                 <>
@@ -59,15 +63,15 @@ export default async function BrokerPage({ params }: { params: Promise<{ id: str
                   </div>
                 </>
               ) : (
-                <p className="flex gap-2 text-sm text-muted"><Info className="mt-0.5 h-4 w-4 shrink-0" />No score yet.</p>
+                <p className="flex gap-2 text-sm text-muted"><Info className="mt-0.5 h-4 w-4 shrink-0" />{t("bk.noScore")}</p>
               )}
-              <p className="mt-4 rounded-lg bg-surface-2 p-3 text-xs text-muted"><strong className="text-fg">How this is calculated: </strong>{rel.explanation}</p>
+              <p className="mt-4 rounded-lg bg-surface-2 p-3 text-xs text-muted"><strong className="text-fg">{t("bk.howCalculated")} </strong>{rel.explanation}</p>
             </div>
           </Card>
           <Card className="overflow-hidden">
-            <CardHeader title="Active loads from this broker" />
+            <CardHeader title={t("bk.activeLoads")} />
             {b.offers.length === 0 ? (
-              <p className="px-5 pb-5 text-sm text-muted">No active loads right now.</p>
+              <p className="px-5 pb-5 text-sm text-muted">{t("bk.noActive")}</p>
             ) : (
               <ul className="divide-y divide-border border-t border-border">
                 {b.offers.map((o) => (
@@ -84,23 +88,23 @@ export default async function BrokerPage({ params }: { params: Promise<{ id: str
         </div>
         <div className="space-y-5">
           <Card className="grid grid-cols-2 gap-5 p-5">
-            <Stat label="Reviews" value={rel.reviews} />
-            <Stat label="Avg rating" value={rel.avgRating ? `${rel.avgRating.toFixed(1)} ★` : "—"} />
-            <Stat label="Paid on time" value={rel.paidOnTimePct != null ? `${rel.paidOnTimePct}%` : "—"} />
-            <Stat label="Loads seen" value={b._count.offers} />
-            <Stat label="Completed via platform" value={rel.completedTrips} />
-            <Stat label="Avg response time" value="—" sub="not tracked yet" />
+            <Stat label={t("detail.reviews")} value={rel.reviews} />
+            <Stat label={t("bk.avgRating")} value={rel.avgRating ? `${rel.avgRating.toFixed(1)} ★` : "—"} />
+            <Stat label={t("detail.paidOnTime")} value={rel.paidOnTimePct != null ? `${rel.paidOnTimePct}%` : "—"} />
+            <Stat label={t("bk.loadsSeen")} value={b._count.offers} />
+            <Stat label={t("bk.completed")} value={rel.completedTrips} />
+            <Stat label={t("bk.response")} value="—" sub={t("bk.notTracked")} />
           </Card>
           <Card>
-            <CardHeader title="Seen on sources" />
+            <CardHeader title={t("bk.seenOn")} />
             <ul className="space-y-1.5 px-5 pb-5 text-sm">
               {sources.map((s) => (
-                <li key={s.sourceId} className="flex justify-between"><span>{sourceNames.find((n) => n.id === s.sourceId)?.name ?? s.sourceId}</span><span className="num text-muted">{s._count} listings</span></li>
+                <li key={s.sourceId} className="flex justify-between"><span>{sourceNames.find((n) => n.id === s.sourceId)?.name ?? s.sourceId}</span><span className="num text-muted">{tn("bk.listings", s._count)}</span></li>
               ))}
             </ul>
           </Card>
           <Card className="p-5 text-xs text-muted">
-            Verification: {b.verificationMethod ?? "not performed"}. We only show metrics computed from data on this platform and never publish unverified claims about a company.
+            {t("bk.verification", { method: b.verificationMethod ?? t("bk.notPerformed") })}
           </Card>
         </div>
       </div>

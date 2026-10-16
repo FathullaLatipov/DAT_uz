@@ -4,6 +4,11 @@ import { CITIES, COUNTRIES } from "../domain/geo";
 import { normalizeCity } from "../ingestion/normalize";
 import { loadFiltersSchema } from "../services/filters";
 import { parseQueryRules, type Intent, type ParsedQuery } from "./nlsearch";
+import type { I18n } from "../../i18n/create";
+import { englishI18n } from "../../i18n/default";
+
+// Language names as the model understands them, for the "answer in …" instruction.
+const REPLY_LANGUAGE = { en: "English", ru: "Russian", uz: "Uzbek (Latin script)" } as const;
 
 /**
  * LLM provider abstraction. The LLM is used ONLY for language: turning a request into
@@ -13,8 +18,8 @@ import { parseQueryRules, type Intent, type ParsedQuery } from "./nlsearch";
 export interface LLMProvider {
   name: string;
   available(): boolean;
-  parseQuery(text: string, now: Date): Promise<ParsedQuery>;
-  summarize(facts: string, question: string): Promise<string | null>;
+  parseQuery(text: string, now: Date, i18n?: I18n): Promise<ParsedQuery>;
+  summarize(facts: string, question: string, i18n?: I18n): Promise<string | null>;
 }
 
 const MODEL = process.env.ANTHROPIC_MODEL ?? "claude-opus-5-5";
@@ -58,8 +63,8 @@ class AnthropicProvider implements LLMProvider {
     return (this.client ??= new Anthropic());
   }
 
-  async parseQuery(text: string, now: Date): Promise<ParsedQuery> {
-    const rules = parseQueryRules(text, now);
+  async parseQuery(text: string, now: Date, i18n?: I18n): Promise<ParsedQuery> {
+    const rules = parseQueryRules(text, now, i18n);
     try {
       const res = await this.c.beta.messages.create({
         model: MODEL,
@@ -90,16 +95,17 @@ class AnthropicProvider implements LLMProvider {
       });
       if (!filters.success) return rules;
       const f = filters.data;
+      const L = i18n ?? englishI18n();
       const understood = [
-        j.truck_code && `Truck ${j.truck_code}`,
-        f.origin && `From ${CITIES.find((c) => c.id === f.origin)?.name}`,
-        f.dest && `To ${CITIES.find((c) => c.id === f.dest)?.name}`,
-        f.destCountry && `To ${COUNTRIES.find((c) => c.code === f.destCountry)?.name}`,
-        f.weightMin && `≥ ${f.weightMin / 1000} t`,
-        f.body?.join(", ").toLowerCase(),
-        f.cargo?.join(", ").toLowerCase(),
-        f.loadingFrom && `Loading ${f.loadingFrom}${f.loadingTo && f.loadingTo !== f.loadingFrom ? ` → ${f.loadingTo}` : ""}`,
-        f.ratePerKmMin && `≥ $${f.ratePerKmMin}/km`,
+        j.truck_code && L.t("ai.truck", { code: String(j.truck_code) }),
+        f.origin && L.t("ai.from", { name: L.city(f.origin) }),
+        f.dest && L.t("ai.to", { name: L.city(f.dest) }),
+        f.destCountry && L.t("ai.to", { name: L.country(f.destCountry) }),
+        f.weightMin && L.t("ai.weightMinT", { n: f.weightMin / 1000 }),
+        f.body?.map((b) => L.label(b)).join(", ").toLowerCase(),
+        f.cargo?.map((c) => L.label(c)).join(", ").toLowerCase(),
+        f.loadingFrom && L.t("ai.loading", { when: `${f.loadingFrom}${f.loadingTo && f.loadingTo !== f.loadingFrom ? ` → ${f.loadingTo}` : ""}` }),
+        f.ratePerKmMin && L.t("ai.ratePerKmMin", { n: f.ratePerKmMin }),
       ].filter(Boolean) as string[];
       return { filters: f, truckCode: (j.truck_code as string) ?? rules.truckCode, intent: (j.intent as Intent) ?? rules.intent, understood, parser: "llm" };
     } catch (e) {
@@ -109,7 +115,7 @@ class AnthropicProvider implements LLMProvider {
     }
   }
 
-  async summarize(facts: string, question: string): Promise<string | null> {
+  async summarize(facts: string, question: string, i18n?: I18n): Promise<string | null> {
     try {
       const res = await this.c.beta.messages.create({
         model: MODEL,
@@ -118,7 +124,7 @@ class AnthropicProvider implements LLMProvider {
         fallbacks: "default",
         output_config: { effort: "low" },
         system:
-          "You are a freight dispatcher assistant for truck owners. Write a short, direct recommendation (max 90 words) using ONLY the numbers in FACTS — never invent or recompute figures. Plain text, no markdown headings.",
+          `You are a freight dispatcher assistant for truck owners. Write a short, direct recommendation (max 90 words) using ONLY the numbers in FACTS — never invent or recompute figures. Plain text, no markdown headings. Answer in ${REPLY_LANGUAGE[i18n?.locale ?? "en"]}.`,
         messages: [{ role: "user", content: `QUESTION: ${question}\n\nFACTS:\n${facts}` }],
       });
       if (res.stop_reason === "refusal") return null;
@@ -136,8 +142,8 @@ class RulesProvider implements LLMProvider {
   available() {
     return true;
   }
-  async parseQuery(text: string, now: Date) {
-    return parseQueryRules(text, now);
+  async parseQuery(text: string, now: Date, i18n?: I18n) {
+    return parseQueryRules(text, now, i18n);
   }
   async summarize() {
     return null;

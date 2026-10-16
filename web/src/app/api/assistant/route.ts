@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/server/db";
 import { api } from "@/server/http";
 import { dispatch } from "@/server/ai/dispatcher";
+import { getI18n } from "@/i18n/server";
 
 const schema = z.object({ message: z.string().trim().min(1).max(500), conversationId: z.string().max(64).optional() });
 
@@ -12,7 +13,7 @@ export const POST = api(
     conv ??= await db.aIConversation.create({ data: { userId: session.userId, orgId: session.orgId, title: message.slice(0, 60) } });
 
     await db.aIMessage.create({ data: { conversationId: conv.id, role: "user", content: message } });
-    const reply = await dispatch(session.orgId, session.userId, message);
+    const reply = await dispatch(session.orgId, session.userId, message, await getI18n());
     const { text, ...data } = reply;
     const saved = await db.aIMessage.create({ data: { conversationId: conv.id, role: "assistant", content: text, data: JSON.stringify(data) } });
     return { conversationId: conv.id, message: { id: saved.id, role: "assistant", content: text, data } };

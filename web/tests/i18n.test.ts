@@ -45,7 +45,8 @@ for (const l of others) {
 
 test("i18n: Latin-script languages contain no Cyrillic look-alikes (a Cyrillic 'о' inside Latin text breaks search and sorting)", () => {
   for (const l of ["en", "uz"] as const) {
-    const hits = [...flatten(MESSAGES[l])].filter(([, v]) => /[Ѐ-ӿ]/.test(v)).map(([k]) => k);
+    // `parse.*` quotes Russian sample input ("20 т", "завтра") on purpose — it shows what the parser accepts.
+    const hits = [...flatten(MESSAGES[l])].filter(([k, v]) => !k.startsWith("parse.") && /[Ѐ-ӿ]/.test(v)).map(([k]) => k);
     assert.deepEqual(hits, [], `${l} has Cyrillic characters`);
   }
 });
@@ -147,4 +148,104 @@ test("numbers and units follow the language", () => {
   assert.match(ru.perKm(1.2), /^\$1,20\/км$/u);
   assert.equal(en.tonnes(20_000), "20 t");
   assert.equal(ru.tonnes(20_000), "20 т");
+});
+
+// ── API errors ────────────────────────────────────────────────────────────────
+
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { findErrorTemplate } from "../src/i18n/errors";
+
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((n) => {
+    const p = join(dir, n);
+    return statSync(p).isDirectory() ? sourceFiles(p) : /\.tsx?$/.test(n) ? [p] : [];
+  });
+}
+
+test("errors: every message the API can send has a translation template", () => {
+  const files = [...sourceFiles("src/app/api"), "src/server/http.ts"];
+  const literal = /(?:HttpError\(\d+,\s*|error:\s*|localize\()\s*(?:"((?:[^"\\]|\\.)*)"|`((?:[^`\\]|\\.)*)`)/g;
+  const uncovered: string[] = [];
+  let seen = 0;
+  for (const f of files) {
+    const src = readFileSync(f, "utf8");
+    for (const m of src.matchAll(literal)) {
+      const raw = m[1] ?? m[2];
+      // `${expression}` becomes a placeholder value so a template can match it.
+      const text = raw.replace(/\$\{[^}]*\}/g, "X").replace(/\\'/g, "'");
+      // Messages assembled elsewhere (e.g. joined validation issues) are not literals.
+      if (!text || /^\W*$/.test(text)) continue;
+      seen++;
+      if (!findErrorTemplate(text)) uncovered.push(`${f}: ${text}`);
+    }
+  }
+  assert.ok(seen >= 20, `expected to find the known messages, found ${seen}`);
+  assert.deepEqual(uncovered, []);
+});
+
+test("errors: templates capture their placeholders, and unknown text passes through", () => {
+  assert.deepEqual(findErrorTemplate("T-1024 can't take this load: Cargo 30.0 t exceeds truck capacity 20.0 t"), { key: "truckCantTake", vars: { code: "T-1024", reason: "Cargo 30.0 t exceeds truck capacity 20.0 t" } });
+  assert.deepEqual(findErrorTemplate("T-7 is not available right now."), { key: "truckNotAvailable", vars: { code: "T-7" } });
+  assert.equal(findErrorTemplate("Load not found.")?.key, "loadNotFound");
+  assert.equal(findErrorTemplate("Truck not found.")?.key, "truckNotFound");
+  assert.equal(findErrorTemplate("Truck not found in your fleet.")?.key, "truckNotInFleet", "anchored: the shorter message must not swallow the longer one");
+  assert.equal(findErrorTemplate("Something nobody wrote a translation for"), null);
+});
+
+test("errors: every language renders every template with its placeholders filled", () => {
+  for (const l of LOCALES) {
+    const i = createI18n(l, MESSAGES[l]);
+    assert.match(i.t("errors.truckCantTake", { code: "T-1", reason: "REASON" }), /T-1[\s\S]*REASON|REASON[\s\S]*T-1/, l);
+    assert.doesNotMatch(i.t("errors.truckNotAvailable", { code: "T-1" }), /\{/);
+  }
+});
+
+// ── Scoring-engine text follows the request language ──────────────────────────
+
+import { scoreMatch, type MatchContext, type MatchOffer, type MatchTruck } from "../src/server/services/matching";
+
+const truck: MatchTruck = {
+  id: "t1", code: "T-1", bodyType: "CURTAINSIDER", capacityKg: 20_000, volumeM3: 82, currentCityId: "tashkent",
+  availableFrom: new Date("2026-10-15T00:00:00Z"), status: "AVAILABLE",
+  fuelLPer100km: 32, fuelPriceUsd: 0.95, driverCostPerKm: 0.22, maintenancePerKm: 0.08, otherPerTripUsd: 20,
+};
+const offer: MatchOffer = {
+  id: "o1", originCityId: "tashkent", destCityId: "almaty", originCountry: "UZ", destCountry: "KZ", loadingDate: new Date("2026-10-16T08:00:00Z"),
+  weightKg: 18_000, volumeM3: 70, bodyType: "CURTAINSIDER", cargoType: "GENERAL", distanceKm: 820, rateUsd: 1250, paymentTerms: null, brokerId: null,
+};
+const ctx = (locale?: Locale): MatchContext => ({
+  prefs: { minRatePerKmUsd: null, maxDeadheadKm: 150, preferredCargo: [], preferredCountries: [], paymentTerms: [], routes: [] },
+  benchmarks: new Map([["tashkent>almaty", 1.2]]),
+  brokerScore: () => null,
+  outbound: new Map([["almaty", 6]]),
+  now: new Date("2026-10-15T06:00:00Z"),
+  i18n: locale ? createI18n(locale, MESSAGES[locale]) : undefined,
+});
+
+test("matching: explanations come out in the caller's language and stay English by default", () => {
+  const en = scoreMatch(truck, offer, ctx());
+  const enExplicit = scoreMatch(truck, offer, ctx("en"));
+  assert.deepEqual(en.reasons, enExplicit.reasons, "no translator = English");
+  assert.ok(en.reasons.some((r) => r.includes("already in Tashkent")));
+
+  const ru = scoreMatch(truck, offer, ctx("ru"));
+  assert.ok(ru.reasons.some((r) => r.includes("Ташкент")), JSON.stringify(ru.reasons));
+  assert.ok(ru.components.every((c) => /[Ѐ-ӿ]/.test(c.label)), "component labels translated");
+  assert.equal(ru.score, en.score, "language never changes the numbers");
+  assert.equal(ru.profit.profit, en.profit.profit);
+
+  const uz = scoreMatch(truck, offer, ctx("uz"));
+  assert.ok(uz.reasons.some((r) => r.includes("Toshkent")), JSON.stringify(uz.reasons));
+  assert.equal(uz.score, en.score);
+});
+
+test("matching: blockers are translated too, with the same eligibility decision", () => {
+  const heavy = { ...offer, weightKg: 30_000 };
+  const en = scoreMatch(truck, heavy, ctx());
+  const ru = scoreMatch(truck, heavy, ctx("ru"));
+  assert.equal(en.eligible, false);
+  assert.equal(ru.eligible, false);
+  assert.match(en.blockers[0], /exceeds truck capacity/);
+  assert.match(ru.blockers[0], /превышает грузоподъёмность/);
 });

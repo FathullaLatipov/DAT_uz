@@ -1,6 +1,8 @@
 import { COUNTRIES, CITIES } from "../domain/geo";
 import { normalizeBodyType, normalizeCargo } from "../ingestion/normalize";
 import type { LoadFilters } from "../services/filters";
+import type { I18n } from "../../i18n/create";
+import { englishI18n } from "../../i18n/default";
 
 /**
  * Rule-based natural-language → structured filters. Always available (no API key needed),
@@ -42,14 +44,23 @@ const TO_WORDS = /(^|[^\p{L}])(to|into|towards|в|во|до|на|ga)\s*$/iu;
 
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
-function parseDates(text: string, now: Date): { from?: string; to?: string; note?: string } {
+/** What a date phrase meant — formatted for the reader by `describeDate`. */
+type DateNote = "today" | "tomorrow" | "dayAfterTomorrow" | "nextWeek" | "thisWeek" | { within: number } | { weekday: number };
+
+function describeDate(note: DateNote, i: I18n) {
+  if (typeof note === "string") return i.t(`ai.dates.${note}`);
+  if ("within" in note) return i.tn("ai.withinDays", note.within);
+  return i.m.ai.weekdays[note.weekday];
+}
+
+function parseDates(text: string, now: Date): { from?: string; to?: string; note?: DateNote } {
   const t = text.toLowerCase();
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   // \b is ASCII-only in JS, so Cyrillic words use explicit Unicode letter boundaries.
   if (/(^|[^\p{L}])(today|сегодня|bugun|бугун)(?!\p{L})/u.test(t)) return { from: iso(today), to: iso(today), note: "today" };
   if (/(day after tomorrow|послезавтра)/.test(t)) {
     const d = new Date(today.getTime() + 2 * DAY);
-    return { from: iso(d), to: iso(d), note: "day after tomorrow" };
+    return { from: iso(d), to: iso(d), note: "dayAfterTomorrow" };
   }
   if (/(^|[^\p{L}])(tomorrow|завтра|ertaga|эртага)(?!\p{L})/u.test(t)) {
     const d = new Date(today.getTime() + DAY);
@@ -58,11 +69,11 @@ function parseDates(text: string, now: Date): { from?: string; to?: string; note
   if (/(next week|следующей неделе|след\. неделе)/.test(t)) {
     const dow = today.getUTCDay() || 7;
     const mon = new Date(today.getTime() + (8 - dow) * DAY);
-    return { from: iso(mon), to: iso(new Date(mon.getTime() + 6 * DAY)), note: "next week" };
+    return { from: iso(mon), to: iso(new Date(mon.getTime() + 6 * DAY)), note: "nextWeek" };
   }
   if (/(this week|на этой неделе)/.test(t)) {
     const dow = today.getUTCDay() || 7;
-    return { from: iso(today), to: iso(new Date(today.getTime() + (7 - dow) * DAY)), note: "this week" };
+    return { from: iso(today), to: iso(new Date(today.getTime() + (7 - dow) * DAY)), note: "thisWeek" };
   }
   // "через 3 дня" / "in 3 days" / "в ближайшие 3 дня" / "в ближайшие три дня" — the Russian
   // phrasing commonly drops "через" for "в (ближайшие|следующие) N дней", and N is spelled out
@@ -72,19 +83,20 @@ function parseDates(text: string, now: Date): { from?: string; to?: string; note
   const inDays = t.match(new RegExp(`(?:in|within|через|в\\s+(?:ближайши|следующи)\\p{L}*)\\s+(${numWord})\\s*(?:days?|дн\\p{L}*)`, "u"));
   if (inDays) {
     const n = /^\d+$/.test(inDays[1]) ? Number(inDays[1]) : RU_NUM[inDays[1]];
-    return { from: iso(today), to: iso(new Date(today.getTime() + n * DAY)), note: `within ${n} days` };
+    return { from: iso(today), to: iso(new Date(today.getTime() + n * DAY)), note: { within: n } };
   }
   for (let i = 0; i < 7; i++) {
     if (new RegExp(`\\b(on )?${WEEKDAYS[i]}\\b`).test(t)) {
       const diff = (i - today.getUTCDay() + 7) % 7 || 7;
       const d = new Date(today.getTime() + diff * DAY);
-      return { from: iso(d), to: iso(d), note: WEEKDAYS[i] };
+      return { from: iso(d), to: iso(d), note: { weekday: i } };
     }
   }
   return {};
 }
 
-export function parseQueryRules(text: string, now = new Date()): ParsedQuery {
+export function parseQueryRules(text: string, now = new Date(), i18n?: I18n): ParsedQuery {
+  const i = i18n ?? englishI18n();
   const t = ` ${text.toLowerCase()} `;
   const f: LoadFilters = {};
   const understood: string[] = [];
@@ -92,7 +104,7 @@ export function parseQueryRules(text: string, now = new Date()): ParsedQuery {
   // Truck reference: "T-1024", "truck 1024"
   const tm = text.match(/\b[Tt]-?(\d{3,5})\b/) ?? text.match(/truck\s*#?\s*(\d{3,5})/i);
   const truckCode = tm ? `T-${tm[1]}` : null;
-  if (truckCode) understood.push(`Truck ${truckCode}`);
+  if (truckCode) understood.push(i.t("ai.truck", { code: truckCode }));
 
   // Cities, in order of appearance, with role from the preceding word.
   const found: { id: string; name: string; idx: number; role: "from" | "to" | null }[] = [];
@@ -122,11 +134,11 @@ export function parseQueryRules(text: string, now = new Date()): ParsedQuery {
   const toCity = found.find((c) => c.role === "to" && c !== fromCity) ?? found.find((c) => c !== fromCity && c.role === null);
   if (fromCity) {
     f.origin = fromCity.id;
-    understood.push(`From ${fromCity.name}`);
+    understood.push(i.t("ai.from", { name: i.city(fromCity.id) }));
   }
   if (toCity) {
     f.dest = toCity.id;
-    understood.push(`To ${toCity.name}`);
+    understood.push(i.t("ai.to", { name: i.city(toCity.id) }));
   }
 
   // Destination country ("to Kazakhstan", "в Россию")
@@ -139,11 +151,11 @@ export function parseQueryRules(text: string, now = new Date()): ParsedQuery {
       if (FROM_WORDS.test(before)) {
         if (!f.origin) {
           f.originCountry = c.code;
-          understood.push(`From ${c.name}`);
+          understood.push(i.t("ai.from", { name: i.country(c.code) }));
         }
       } else {
         f.destCountry = c.code;
-        understood.push(`To ${c.name}`);
+        understood.push(i.t("ai.to", { name: i.country(c.code) }));
       }
       break;
     }
@@ -154,41 +166,41 @@ export function parseQueryRules(text: string, now = new Date()): ParsedQuery {
   const wkg = t.match(/(\d{3,6})\s*(kg|кг)/);
   if (wt) {
     f.weightMin = Math.round(parseFloat(wt[1].replace(",", ".")) * 1000);
-    understood.push(`≥ ${f.weightMin / 1000} t`);
+    understood.push(i.t("ai.weightMinT", { n: f.weightMin / 1000 }));
   } else if (wkg) {
     f.weightMin = Number(wkg[1]);
-    understood.push(`≥ ${f.weightMin} kg`);
+    understood.push(i.t("ai.weightMinKg", { n: f.weightMin }));
   }
 
   // Body type & cargo
   const body = normalizeBodyType(t.match(/(refrigerat\w*|reefer|реф\w*|tent\w*|тент\w*|curtain\w*|flatbed|площадк\w*|tanker|цистерн\w*|container|контейнер\w*|box|изотерм\w*|car carrier|автовоз\w*|lowbed|трал\w*|open body|борт\w*)/)?.[0]);
   if (body) {
     f.body = [body];
-    understood.push(body.toLowerCase().replace("_", " "));
+    understood.push(i.label(body).toLowerCase());
   }
   const cargoWord = t.match(/(cotton|хлоп\w*|textile\w*|текстил\w*|produce|fruit\w*|vegetable\w*|фрукт\w*|овощ\w*|food|продукт\w*|construction|строй\w*|cement|equipment|оборуд\w*|chemical\w*|хими\w*|fuel|топлив\w*|vehicles?|cars|electronics?|электрон\w*|furniture|мебел\w*|metal|steel|метал\w*)/)?.[0];
   if (cargoWord) {
     const c = normalizeCargo(cargoWord);
     f.cargo = [c];
-    understood.push(c.toLowerCase());
+    understood.push(i.label(c).toLowerCase());
   }
 
   // Rate: "$1.4/km", "1.4 per km", "above $1000"
   const pk = t.match(/\$?\s*(\d+(?:[.,]\d+)?)\s*(?:\$\s*)?(?:\/|per)\s*km/);
   if (pk) {
     f.ratePerKmMin = parseFloat(pk[1].replace(",", "."));
-    understood.push(`≥ $${f.ratePerKmMin}/km`);
+    understood.push(i.t("ai.ratePerKmMin", { n: f.ratePerKmMin }));
   }
   const minRate = t.match(/(?:above|over|more than|min(?:imum)?|от|больше)\s*\$\s*(\d{3,6})/) ?? t.match(/\$\s*(\d{3,6})\s*\+/);
   if (minRate) {
     f.rateMin = Number(minRate[1]);
-    understood.push(`≥ $${f.rateMin}`);
+    understood.push(i.t("ai.rateMin", { n: f.rateMin }));
   }
   // "with a published rate" / "с опубликованной ставкой" / "с ценой" — excludes negotiable
   // (unpriced) loads, distinct from the rate-threshold matches above.
   if (/(published rate|with a rate|с\s+(?:опубликованн\p{L}+|указанн\p{L}+)\s+ставк\p{L}*|с\s+цен\p{L}*)/u.test(t)) {
     f.hasRate = true;
-    understood.push("published rate only");
+    understood.push(i.t("ai.publishedOnly"));
   }
 
   // Dates
@@ -196,7 +208,7 @@ export function parseQueryRules(text: string, now = new Date()): ParsedQuery {
   if (d.from) {
     f.loadingFrom = d.from;
     f.loadingTo = d.to;
-    understood.push(`Loading ${d.note}`);
+    understood.push(i.t("ai.loading", { when: d.note ? describeDate(d.note, i) : "" }));
   }
 
   // Intent

@@ -2,7 +2,8 @@ import { z } from "zod";
 import { db } from "@/server/db";
 import { api, HttpError } from "@/server/http";
 import { audit } from "@/server/security";
-import { estimateTransitDays, getCity } from "@/server/domain/geo";
+import { estimateTransitDays } from "@/server/domain/geo";
+import { getI18n } from "@/i18n/server";
 import { getMatchContext, getMatchTrucks, toMatchOffer } from "@/server/services/freight";
 import { scoreMatch } from "@/server/services/matching";
 import { findBackhaul } from "@/server/services/backhaul";
@@ -43,14 +44,15 @@ export const POST = api<{ id: string }>(
     // Kick off the backhaul search immediately and tell the user what we found.
     const plan = await findBackhaul(session.orgId, { ...truck, status: "AVAILABLE" }, offer.destCityId, eta, 120, 1);
     const best = plan.options[0];
+    const { t, tn, city, usd } = await getI18n();
     await db.notification.create({
       data: {
         userId: session.userId,
         type: "BACKHAUL",
-        title: `${truck.code} arrives in ${getCity(offer.destCityId)?.name} in ~${Math.max(1, Math.round((eta.getTime() - Date.now()) / DAY))} days`,
+        title: tn("notify.arrives", Math.max(1, Math.round((eta.getTime() - Date.now()) / DAY)), { code: truck.code, city: city(offer.destCityId) }),
         body: best
-          ? `We found ${plan.totalFound} return loads. Best: ${getCity(best.offer.originCityId)?.name} → ${getCity(best.offer.destCityId)?.name}, $${Math.round(best.offer.rateUsd)}, ${best.match.score}% match, est. profit $${Math.round(best.match.profit.profit)}.`
-          : "No return loads yet — we'll keep looking as sources sync.",
+          ? tn("notify.found", plan.totalFound, { route: `${city(best.offer.originCityId)} → ${city(best.offer.destCityId)}`, rate: usd(best.offer.rateUsd), score: best.match.score, profit: usd(best.match.profit.profit) })
+          : t("notify.none"),
         link: best ? `/app/loads/${best.offer.id}?truck=${truck.id}` : `/app/fleet/${truck.id}`,
       },
     });

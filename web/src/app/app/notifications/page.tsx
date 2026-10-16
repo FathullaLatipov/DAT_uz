@@ -4,23 +4,28 @@ import { Bell, Repeat, Search, Sparkles } from "lucide-react";
 import { requireSession } from "@/server/auth/session";
 import { db } from "@/server/db";
 import { Card, EmptyState, PageHeader } from "@/components/ui/primitives";
-import { ago, cn } from "@/lib/format";
+import { getI18n } from "@/i18n/server";
+import { cn } from "@/lib/format";
 
-export const metadata: Metadata = { title: "Notifications" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: t("nav.notifications") };
+}
 
 const ICON = { BACKHAUL: Repeat, SAVED_SEARCH: Search, NEW_MATCH: Sparkles, SYSTEM: Bell } as const;
 
 export default async function NotificationsPage() {
   const s = await requireSession();
+  const { t, ago } = await getI18n();
   const items = await db.notification.findMany({ where: { userId: s.userId }, orderBy: { createdAt: "desc" }, take: 50 });
   // Opening the page marks everything read.
   await db.notification.updateMany({ where: { userId: s.userId, readAt: null }, data: { readAt: new Date() } });
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader title="Notifications" />
+      <PageHeader title={t("nav.notifications")} />
       <Card className="overflow-hidden">
         {items.length === 0 ? (
-          <EmptyState icon={<Bell className="h-5 w-5" />} title="You're all caught up" body="Alerts for saved searches and return loads will appear here." />
+          <EmptyState icon={<Bell className="h-5 w-5" />} title={t("nt.emptyTitle")} body={t("nt.emptyBody")} />
         ) : (
           <ul className="divide-y divide-border">
             {items.map((n) => {
