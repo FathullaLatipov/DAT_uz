@@ -6,6 +6,7 @@ import { BODY_TYPES, CARGO_TYPES, CURRENCIES, PAYMENT_TERMS } from "@/server/dom
 import { getCity } from "@/server/domain/geo";
 import { ingestPlatformListing } from "@/server/ingestion/pipeline";
 import { invalidateMarketCache } from "@/server/services/market";
+import { getI18n } from "@/i18n/server";
 
 const city = z.string().refine((id) => !!getCity(id), "Unknown city");
 const schema = z
@@ -55,7 +56,10 @@ export const POST = api(
       expiresAt: new Date(loading.getTime() + 86_400_000),
       raw: { ...b, postedBy: session.userId, orgId: session.orgId },
     });
-    if (!res.ok) throw new HttpError(400, res.issues.map((i) => i.message).join("; "));
+    if (!res.ok) {
+      const { m } = await getI18n();
+      throw new HttpError(400, res.issues.map((i) => m.issues[i.code] ?? i.message).join("; "));
+    }
     invalidateMarketCache();
     await audit({ userId: session.userId, orgId: session.orgId, action: "load.post", entity: "FreightOffer", entityId: res.offerId, ip });
     return { ok: true, id: res.offerId, merged: res.outcome === "duplicates", warnings: res.issues.filter((i) => i.severity === "WARN").map((i) => i.message) };

@@ -1,6 +1,8 @@
 import { parseQueryRules } from "../ai/nlsearch";
 import { normalizeCurrency } from "./normalize";
 import type { ParsedListing } from "./types";
+import type { I18n } from "../../i18n/create";
+import { englishI18n } from "../../i18n/default";
 
 /**
  * Free-text freight ads (as copied from boards, Telegram or WhatsApp) → ParsedListing.
@@ -69,22 +71,23 @@ export interface ParsedAd {
   problems: string[];
 }
 
-export function parseAd(text: string, idx: number, batch: string, now = new Date()): ParsedAd {
+export function parseAd(text: string, idx: number, batch: string, now = new Date(), i18n?: I18n): ParsedAd {
+  const { t } = i18n ?? englishI18n();
   const problems: string[] = [];
-  const q = parseQueryRules(text, now);
+  const q = parseQueryRules(text, now, i18n);
   const f = q.filters;
-  if (!f.origin) problems.push("Could not find the origin city");
-  if (!f.dest) problems.push("Could not find the destination city");
+  if (!f.origin) problems.push(t("parse.noOrigin"));
+  if (!f.dest) problems.push(t("parse.noDest"));
 
   // \b is ASCII-only in JS, so Cyrillic units use an explicit Unicode letter lookahead.
   const tm = text.match(/(\d{1,3}(?:[.,]\d{1,2})?)\s?(?:т|тонн\p{L}*|tons?|tonnes?|ton|t)(?!\p{L})/iu);
   const kg = text.match(/(\d{4,5})\s*(?:кг|kg)/i);
   const weight = tm ? Math.round(parseFloat(tm[1].replace(",", ".")) * 1000) : kg ? Number(kg[1]) : null;
-  if (!weight) problems.push("Could not find the weight (e.g. “20 т”)");
+  if (!weight) problems.push(t("parse.noWeight"));
 
   let loading = f.loadingFrom ? new Date(`${f.loadingFrom}T08:00:00Z`) : parseLoadingDate(stripPhone(text), now);
   if (!loading) loading = null;
-  if (!loading) problems.push("Could not find the loading date (e.g. “12.10”, “завтра”)");
+  if (!loading) problems.push(t("parse.noDate"));
 
   if (problems.length || !f.origin || !f.dest || !weight || !loading) return { text, listing: null, problems };
 
@@ -113,6 +116,6 @@ export function parseAd(text: string, idx: number, batch: string, now = new Date
   };
 }
 
-export function parseAds(text: string, batch: string, now = new Date()): ParsedAd[] {
-  return splitAds(text).map((a, i) => parseAd(a, i, batch, now));
+export function parseAds(text: string, batch: string, now = new Date(), i18n?: I18n): ParsedAd[] {
+  return splitAds(text).map((a, i) => parseAd(a, i, batch, now, i18n));
 }

@@ -713,6 +713,37 @@ export const uz: Messages = {
     invalidSecret: "Maxfiy kalit ko'rsatilmagan yoki noto'g'ri.",
   },
 
+  parse: {
+    noOrigin: "Jo'nash shahri topilmadi",
+    noDest: "Boradigan shahar topilmadi",
+    noWeight: "Og'irlik topilmadi (masalan, «20 t»)",
+    noDate: "Yuklash sanasi topilmadi (masalan, «12.10», «ertaga»)",
+  },
+
+  notify: {
+    arrives: p({ other: "{code} mashinasi {city} shahriga ~{n} kunda yetib boradi" }),
+    found: p({ other: "{n} ta qaytish yuki topildi. Eng yaxshisi: {route}, {rate}, moslik {score}%, taxminiy foyda {profit}." }),
+    none: "Qaytish yuklari hozircha yo'q — manbalar yangilanishi bilan qidirishda davom etamiz.",
+  },
+
+  issues: {
+    MISSING_ORIGIN: "Jo'nash joyi ko'rsatilmagan",
+    UNKNOWN_ORIGIN: "Jo'nash joyi tanilmadi",
+    MISSING_DESTINATION: "Boradigan joy ko'rsatilmagan",
+    UNKNOWN_DESTINATION: "Boradigan joy tanilmadi",
+    SAME_ORIGIN_DEST: "Jo'nash va boradigan joy bir xil",
+    INVALID_LOADING_DATE: "Yuklash sanasi ko'rsatilmagan yoki noto'g'ri",
+    IMPOSSIBLE_DATES: "Tushirish sanasi yuklash sanasidan oldin",
+    INVALID_WEIGHT: "Og'irlik ko'rsatilmagan yoki noto'g'ri",
+    SUSPICIOUS_WEIGHT: "Og'irlik standart 44 t chegarasidan oshadi",
+    UNKNOWN_BODY_TYPE: "Kuzov turi tanilmadi — tentli deb qabul qilindi",
+    INVALID_CURRENCY: "Noma'lum valyuta — narx e'tiborga olinmadi",
+    NO_RATE: "Narx ko'rsatilmagan (kelishiladi)",
+    SUSPICIOUS_RATE: "Narx ishonarli oraliqdan tashqarida",
+    NO_BROKER: "Broker / yuk jo'natuvchi aniqlanmadi",
+    EXPIRED: "E'lon eskirgan",
+  },
+
   enums: {
     CURTAINSIDER: "Tentli",
     BOX: "Furgon",

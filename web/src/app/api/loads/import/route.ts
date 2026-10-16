@@ -5,6 +5,7 @@ import { audit } from "@/server/security";
 import { parseAds } from "@/server/ingestion/textparse";
 import { ingestPlatformListing } from "@/server/ingestion/pipeline";
 import { invalidateMarketCache } from "@/server/services/market";
+import { getI18n } from "@/i18n/server";
 
 const schema = z.object({ text: z.string().min(12).max(60_000), commit: z.boolean() });
 
@@ -16,7 +17,8 @@ export const POST = api(
   async ({ req, session, ip }) => {
     const { text, commit } = schema.parse(await req.json());
     const batch = `${session.orgId}-p${Date.now().toString(36)}`;
-    const ads = parseAds(text, batch).slice(0, 100);
+    const i18n = await getI18n();
+    const ads = parseAds(text, batch, new Date(), i18n).slice(0, 100);
 
     const results = [];
     for (const a of ads) {
@@ -31,7 +33,7 @@ export const POST = api(
         continue;
       }
       const r = await ingestPlatformListing(db, { ...l, broker: session.org.name });
-      results.push(r.ok ? { text: a.text, ok: true as const, summary, offerId: r.offerId, merged: r.outcome === "duplicates" } : { text: a.text, ok: false as const, problems: r.issues.map((i) => i.message) });
+      results.push(r.ok ? { text: a.text, ok: true as const, summary, offerId: r.offerId, merged: r.outcome === "duplicates" } : { text: a.text, ok: false as const, problems: r.issues.map((i) => i18n.m.issues[i.code] ?? i.message) });
     }
     if (commit) {
       invalidateMarketCache();

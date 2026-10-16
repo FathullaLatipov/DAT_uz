@@ -721,6 +721,40 @@ export const en = {
     invalidSecret: "Invalid or missing secret.",
   },
 
+  parse: {
+    noOrigin: "Could not find the origin city",
+    noDest: "Could not find the destination city",
+    noWeight: "Could not find the weight (e.g. “20 т”)",
+    noDate: "Could not find the loading date (e.g. “12.10”, “завтра”)",
+  },
+
+  notify: {
+    arrives: p({ one: "{code} arrives in {city} in ~{n} day", other: "{code} arrives in {city} in ~{n} days" }),
+    found: p({
+      one: "We found {n} return load. Best: {route}, {rate}, {score}% match, est. profit {profit}.",
+      other: "We found {n} return loads. Best: {route}, {rate}, {score}% match, est. profit {profit}.",
+    }),
+    none: "No return loads yet — we'll keep looking as sources sync.",
+  },
+
+  issues: {
+    MISSING_ORIGIN: "Origin is missing",
+    UNKNOWN_ORIGIN: "Origin not recognized",
+    MISSING_DESTINATION: "Destination is missing",
+    UNKNOWN_DESTINATION: "Destination not recognized",
+    SAME_ORIGIN_DEST: "Origin equals destination",
+    INVALID_LOADING_DATE: "Loading date is missing or invalid",
+    IMPOSSIBLE_DATES: "Unloading date is before loading date",
+    INVALID_WEIGHT: "Weight is missing or invalid",
+    SUSPICIOUS_WEIGHT: "Weight exceeds a standard 44 t limit",
+    UNKNOWN_BODY_TYPE: "Body type not recognized — assumed curtainsider",
+    INVALID_CURRENCY: "Unknown currency — rate ignored",
+    NO_RATE: "No rate published (negotiable)",
+    SUSPICIOUS_RATE: "Rate is outside the plausible range",
+    NO_BROKER: "No broker / shipper identified",
+    EXPIRED: "Listing has expired",
+  } as Record<string, string>,
+
   enums: {
     CURTAINSIDER: "Curtainsider",
     BOX: "Box / Van",
