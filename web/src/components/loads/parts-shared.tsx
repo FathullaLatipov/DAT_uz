@@ -6,6 +6,7 @@ import { getCity } from "@/server/domain/geo";
 import { useI18n } from "@/i18n/client";
 import { cn, isStale } from "@/lib/format";
 import type { LoadRow } from "@/server/services/freight";
+import type { GradeResult } from "@/server/services/grade";
 import { Badge, DemoBadge, ScoreBadge } from "../ui/primitives";
 
 /**
@@ -37,6 +38,19 @@ export function CountryTag({ code }: { code?: string }) {
     <span title={country(code)} className="shrink-0 rounded border border-border bg-surface-2 px-1 py-px font-mono text-xs font-medium leading-none text-muted">
       {code}
     </span>
+  );
+}
+
+export const GRADE_TONE = { A: "pos", B: "info", C: "warn", D: "neg" } as const;
+
+/** DAT-style letter: how far to trust this posting. The tooltip lists what pushed it up or down. */
+export function GradeBadge({ grade, className }: { grade: GradeResult; className?: string }) {
+  const { t } = useI18n();
+  const reasons = grade.reasons.map((r) => `${r.good ? "✓" : "✗"} ${t(`grade.reason.${r.code}`)}`).join("\n");
+  return (
+    <Badge tone={GRADE_TONE[grade.grade]} className={cn("min-w-[1.75rem] justify-center font-bold", className)} title={`${t("grade.title", { g: grade.grade, score: grade.score })}\n${t(`grade.legend.${grade.grade}`)}\n\n${reasons}`}>
+      {grade.grade}
+    </Badge>
   );
 }
 
@@ -134,7 +148,7 @@ export function LoadCard({ row, compact, expanded, onToggle }: { row: LoadRow; c
       {!compact && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2.5">
           <div className="flex flex-wrap items-center gap-1">
-            <QualityBadge quality={o.quality} flags={row.flags} />
+            <GradeBadge grade={row.grade} />
             <Sources sources={row.sources} demo={o.isDemo} />
           </div>
           <Freshness lastSeen={lastSeen} />
