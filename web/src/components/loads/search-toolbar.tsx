@@ -8,6 +8,7 @@ import { BODY_TYPES, CARGO_TYPES, CURRENCIES, PAYMENT_TERMS } from "@/server/dom
 import { useI18n } from "@/i18n/client";
 import { Button, Field, Input, Select } from "../ui/primitives";
 import { cn } from "@/lib/format";
+import { NEAR_DEFAULT_RADIUS, NearMeButton, NearMeNote, type NearMeStatus } from "./near-me";
 
 type Opt = { id: string; name: string };
 
@@ -37,6 +38,7 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
   const path = usePathname();
   const sp = useSearchParams();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [near, setNear] = useState<NearMeStatus>(null);
   const [v, setV] = useState<Record<string, string>>(() => Object.fromEntries(KEYS.map((k) => [k, sp.get(k) ?? ""])));
   const set = (k: string, val: string) => setV((s) => ({ ...s, [k]: val }));
   const multi = (k: string) => (v[k] ? v[k].split(",") : []);
@@ -46,12 +48,19 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
   };
   const activeCount = KEYS.filter((k) => sp.get(k)).length;
 
-  function apply() {
+  function go(vals: Record<string, string>) {
     const p = new URLSearchParams();
     for (const k of ["sort", "view"]) if (sp.get(k)) p.set(k, sp.get(k)!);
-    for (const [k, val] of Object.entries(v)) if (val) p.set(k, val);
+    for (const [k, val] of Object.entries(vals)) if (val) p.set(k, val);
     router.push(`${path}?${p.toString()}`);
     setMobileOpen(false);
+  }
+  const apply = () => go(v);
+  /** "Near me": search from the nearest city, keeping a radius the user already chose. */
+  function searchNear(cityId: string) {
+    const next = { ...v, origin: cityId, radiusKm: v.radiusKm || String(NEAR_DEFAULT_RADIUS) };
+    setV(next);
+    go(next);
   }
   function reset() {
     setV(Object.fromEntries(KEYS.map((k) => [k, ""])));
@@ -77,6 +86,9 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
       set={set}
       multi={multi}
       toggleMulti={toggleMulti}
+      near={near}
+      setNear={setNear}
+      searchNear={searchNear}
       layout="stacked"
     />
   );
@@ -115,6 +127,7 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
               {CITIES.map((c) => <option key={c.id} value={c.id}>{city(c.id)}</option>)}
             </Select>
           </Field>
+          <NearMeButton onFound={(r) => searchNear(r.cityId)} onStatus={setNear} status={near} />
           <Field label={t("toolbar.dhO")} hint={v.radiusKm ? t("toolbar.withinOrigin", { n: v.radiusKm }) : undefined} className="w-24">
             <Select value={v.radiusKm} onChange={(e) => set("radiusKm", e.target.value)} disabled={!v.origin}>
               <option value="">{t("toolbar.exact")}</option>
@@ -248,14 +261,16 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
             <Truck className="h-3.5 w-3.5" /> {t("toolbar.footnote")}
           </span>
         </div>
+        <NearMeNote status={near} />
       </div>
     </>
   );
 }
 
-function FieldGroup({ trucks, sources, brokers, v, set, multi, toggleMulti }: {
+function FieldGroup({ trucks, sources, brokers, v, set, multi, toggleMulti, near, setNear, searchNear }: {
   trucks: Opt[]; sources: Opt[]; brokers: Opt[];
   v: Record<string, string>; set: (k: string, val: string) => void; multi: (k: string) => string[]; toggleMulti: (k: string, item: string) => void;
+  near: NearMeStatus; setNear: (s: NearMeStatus) => void; searchNear: (cityId: string) => void;
   layout: "stacked";
 }) {
   const { t, label, city, country, m } = useI18n();
@@ -281,6 +296,8 @@ function FieldGroup({ trucks, sources, brokers, v, set, multi, toggleMulti }: {
           </Select>
         </Field>
       </div>
+      <NearMeButton withLabel className="w-full" onFound={(r) => searchNear(r.cityId)} onStatus={setNear} status={near} />
+      <NearMeNote status={near} />
       <div className="grid grid-cols-[1fr_96px] gap-2">
         <Field label={t("toolbar.dest")}>
           <Select value={v.dest} onChange={(e) => set("dest", e.target.value)}>
