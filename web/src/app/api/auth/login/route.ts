@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getLocale } from "@/i18n/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/server/db";
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
     }
     const m = user.memberships[0];
     await startSession({ uid: user.id, oid: m.orgId, role: m.role, prole: user.platformRole });
-    await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date(), locale: await getLocale() } });
     await audit({ userId: user.id, orgId: m.orgId, action: "auth.login", ip });
     const trucks = await db.truck.count({ where: { orgId: m.orgId } });
     return NextResponse.json({ ok: true, next: trucks ? "/app" : "/onboarding" });

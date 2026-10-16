@@ -1,7 +1,7 @@
 import { db, parseJson } from "../db";
-import { getCity } from "../domain/geo";
 import { searchLoads } from "./freight";
 import { loadFiltersSchema } from "./filters";
+import { i18nFor, sendTelegram, siteUrl, telegramConfigured } from "./telegram";
 
 /**
  * Saved-search alerts. A check finds offers that appeared since the last check and match
@@ -13,6 +13,11 @@ export interface AlertMessage {
   title: string;
   body: string;
   link: string;
+  /** Extra detail lines (Telegram shows them under the title). */
+  lines?: string[];
+  /** Set when the user linked a Telegram chat. */
+  telegramChatId?: string | null;
+  buttonText?: string;
 }
 
 export interface Notifier {
@@ -29,16 +34,13 @@ const webNotifier: Notifier = {
   },
 };
 
-/**
- * Telegram: requires TELEGRAM_BOT_TOKEN and a per-user chat id (linking flow via /start <code>
- * is designed but not shipped in the MVP). Until then, it reports not configured and is skipped.
- */
+/** Telegram: delivers to the chat the user linked in Settings (see services/telegram.ts). */
 const telegramNotifier: Notifier = {
   channel: "TELEGRAM",
-  configured: () => !!process.env.TELEGRAM_BOT_TOKEN,
-  async send() {
-    // Implementation sketch: POST https://api.telegram.org/bot<TOKEN>/sendMessage
-    // { chat_id, text, reply_markup: { inline_keyboard: [[{ text: "View load", url }]] } }
+  configured: () => telegramConfigured(),
+  async send(m) {
+    if (!m.telegramChatId) return;
+    await sendTelegram(m.telegramChatId, { title: m.title, lines: m.lines, button: { text: m.buttonText ?? "Open", url: `${siteUrl()}${m.link}` } });
   },
 };
 
@@ -51,7 +53,9 @@ const emailNotifier: Notifier = {
 };
 
 const NOTIFIERS = [webNotifier, telegramNotifier, emailNotifier];
-export const notifierStatus = () => NOTIFIERS.map((n) => ({ channel: n.channel, configured: n.configured() }));
+/** `telegramLinked`: whether this user has linked a chat; Telegram counts as configured for them only then. */
+export const notifierStatus = (opts?: { telegramLinked?: boolean }) =>
+  NOTIFIERS.map((n) => ({ channel: n.channel, configured: n.configured() && (n.channel !== "TELEGRAM" || (opts?.telegramLinked ?? true)) }));
 
 /**
  * Scheduler entry point: checks every user's saved searches, not just the one who happens to open
@@ -86,6 +90,9 @@ export async function checkAllSavedSearches(maxUsers = 200) {
 
 export async function checkSavedSearches(userId: string, orgId: string) {
   const searches = await db.savedSearch.findMany({ where: { userId, orgId } });
+  // Alerts are written in the language the user last signed in with, not the server's.
+  const user = await db.user.findUnique({ where: { id: userId }, select: { locale: true, telegramChatId: true } });
+  const i = i18nFor(user?.locale);
   let alerts = 0;
   for (const s of searches) {
     const parsed = loadFiltersSchema.safeParse(parseJson(s.filters, {}));
@@ -94,12 +101,21 @@ export async function checkSavedSearches(userId: string, orgId: string) {
     const fresh = res.rows.filter((r) => (r.offer.sourceCreatedAt ?? r.offer.createdAt) > s.lastCheckedAt);
     if (fresh.length) {
       const best = fresh[0];
-      const route = `${getCity(best.offer.originCityId)?.name} → ${getCity(best.offer.destCityId)?.name}`;
+      const line = (r: (typeof fresh)[number], key: "alerts.top" | "alerts.line") =>
+        i.t(key, {
+          route: `${i.city(r.offer.originCityId)} → ${i.city(r.offer.destCityId)}`,
+          rate: r.offer.rateUsd > 0 ? i.usd(r.offer.rateUsd) : i.t("table.negotiable"),
+          match: r.match?.eligible ? i.t("alerts.matchPct", { n: r.match.score }) : "",
+        });
+      const top = fresh.slice(0, 3);
       const msg: AlertMessage = {
         userId,
-        title: `${fresh.length} new load${fresh.length > 1 ? "s" : ""} for “${s.name}”`,
-        body: `Top: ${route}, $${Math.round(best.offer.rateUsd).toLocaleString("en-US")}${best.match?.eligible ? ` · ${best.match.score}% match` : ""}`,
+        title: i.tn("alerts.title", fresh.length, { name: s.name }),
+        body: line(best, "alerts.top"),
+        lines: [...top.map((r) => line(r, "alerts.line")), ...(fresh.length > top.length ? [i.tn("alerts.more", fresh.length - top.length)] : [])],
         link: `/app/loads/${best.offer.id}`,
+        telegramChatId: user?.telegramChatId,
+        buttonText: i.t("alerts.open"),
       };
       const channels = parseJson<string[]>(s.channels, ["WEB"]);
       for (const n of NOTIFIERS) if (channels.includes(n.channel) && n.configured()) await n.send(msg);

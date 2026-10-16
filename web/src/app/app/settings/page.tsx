@@ -6,6 +6,7 @@ import { db, parseJson } from "@/server/db";
 import { getI18n } from "@/i18n/server";
 import { notifierStatus } from "@/server/services/alerts";
 import { Badge, Card, CardHeader, PageHeader } from "@/components/ui/primitives";
+import { TelegramConnect } from "@/components/settings/telegram-connect";
 import { PreferencesForm } from "@/components/settings/preferences-form";
 import { cn } from "@/lib/format";
 
@@ -17,12 +18,13 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function SettingsPage() {
   const s = await requireSession();
   const { t, label, m: msgs } = await getI18n();
-  const [pref, routes, members] = await Promise.all([
+  const [me, pref, routes, members] = await Promise.all([
+    db.user.findUnique({ where: { id: s.userId }, select: { telegramChatId: true } }),
     db.orgPreference.findUnique({ where: { orgId: s.orgId } }),
     db.preferredRoute.findMany({ where: { orgId: s.orgId, destCityId: { not: null } } }),
     db.membership.findMany({ where: { orgId: s.orgId }, include: { user: { select: { name: true, email: true } } } }),
   ]);
-  const telegram = notifierStatus().find((n) => n.channel === "TELEGRAM")!;
+  const telegram = notifierStatus({ telegramLinked: true }).find((n) => n.channel === "TELEGRAM")!;
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
@@ -52,9 +54,7 @@ export default async function SettingsPage() {
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-info-soft text-info"><Send className="h-4 w-4" /></div>
               <div>
                 <p>{t("st.tgText")}</p>
-                <p className="mt-2 text-muted">
-                  {telegram.configured ? t("st.tgConfigured") : t("st.tgNot")}
-                </p>
+                <TelegramConnect configured={telegram.configured} linked={!!me?.telegramChatId} />
               </div>
             </div>
           </div>

@@ -107,6 +107,14 @@ The whole app is translated: the public site, sign-in/sign-up and every cabinet 
 - Still English: notifications stored in the database keep the language they were created in, and job-created ones (no user language) are English.
 - Have a native speaker review the Russian and Uzbek copy before launch.
 
+### Telegram alerts
+
+Users connect their own Telegram in **Settings → Telegram**, then switch the Telegram channel on for any saved search; new matching loads arrive in the bot chat (in the language they last signed in with), with a button that opens the load.
+
+- **Set up once:** create a bot with @BotFather, set `TELEGRAM_BOT_TOKEN` and `APP_URL=https://<your domain>` in the server's `.env`, redeploy. The webhook (`/api/telegram/webhook`, authenticated with a secret derived from the token) is registered automatically on the first connect.
+- **How linking works:** the button creates a one-time token (15 min) and opens `t.me/<bot>?start=<token>`; tapping Start makes Telegram call the webhook, which binds that chat to the account. `/stop` in the chat (or Disconnect in Settings) unlinks; a user who blocks the bot is unlinked automatically. Private chats only.
+- **Testing without Telegram:** `TELEGRAM_API_BASE` points the bot at a local stand-in server.
+
 ### Location
 
 - **Near me** (load board): the browser position is mapped to the nearest modelled city and used as the search origin. Coordinates stay in the browser (remembered 24 h in `localStorage` so maps can mark "You").
