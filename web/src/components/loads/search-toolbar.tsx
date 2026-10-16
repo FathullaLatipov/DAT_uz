@@ -4,7 +4,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeftRight, Calendar, ChevronDown, RotateCcw, Search, SlidersHorizontal, Truck, X } from "lucide-react";
 import { CITIES, COUNTRIES } from "@/server/domain/geo";
-import { BODY_TYPES, CARGO_TYPES, CURRENCIES, PAYMENT_TERMS, label } from "@/server/domain/enums";
+import { BODY_TYPES, CARGO_TYPES, CURRENCIES, PAYMENT_TERMS } from "@/server/domain/enums";
+import { useI18n } from "@/i18n/client";
 import { Button, Field, Input, Select } from "../ui/primitives";
 import { cn } from "@/lib/format";
 
@@ -16,11 +17,11 @@ const KEYS = [
 ];
 
 const SCOPES = [
-  ["", "Any"],
-  ["domestic", "Domestic (within Uzbekistan)"],
-  ["export", "Export (from Uzbekistan)"],
-  ["import", "Import (into Uzbekistan)"],
-  ["transit", "Other international"],
+  ["", "any"],
+  ["domestic", "scopeDomestic"],
+  ["export", "scopeExport"],
+  ["import", "scopeImport"],
+  ["transit", "scopeTransit"],
 ] as const;
 
 /**
@@ -31,6 +32,7 @@ const SCOPES = [
  * single-row layout for desktop. Mobile keeps a full-screen sheet with everything in one list.
  */
 export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sources: Opt[]; brokers: Opt[] }) {
+  const { t, label, city, country, m } = useI18n();
   const router = useRouter();
   const path = usePathname();
   const sp = useSearchParams();
@@ -61,8 +63,8 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
 
   const dateSummary =
     v.loadingFrom || v.loadingTo || v.unloadingTo
-      ? `${v.loadingFrom || "Any"} – ${v.loadingTo || "Any"}${v.unloadingTo ? `, unload by ${v.unloadingTo}` : ""}`
-      : "Any date";
+      ? `${v.loadingFrom || t("toolbar.any")} – ${v.loadingTo || t("toolbar.any")}${v.unloadingTo ? `, ${t("toolbar.unloadByDate", { date: v.unloadingTo })}` : ""}`
+      : t("toolbar.anyDate");
   const requirementsCount = ["cargo", "payment", "verifiedOnly", "hasRate"].filter((k) => v[k]).length;
   const moreCount = ["weightMin", "weightMax", "volumeMin", "rateMin", "ratePerKmMin", "minScore", "maxDeadhead", "distanceMin", "distanceMax", "currency", "source", "brokerId"].filter((k) => v[k]).length;
 
@@ -84,21 +86,21 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
       {/* Mobile: a single button that opens a full sheet, same as before */}
       <div className="flex items-center gap-2 lg:hidden">
         <Button variant="outline" size="sm" onClick={() => setMobileOpen(true)} className="flex-1">
-          <SlidersHorizontal className="h-4 w-4" /> Search & filters{activeCount ? ` · ${activeCount}` : ""}
+          <SlidersHorizontal className="h-4 w-4" /> {t("toolbar.searchFilters")}{activeCount ? ` · ${activeCount}` : ""}
         </Button>
       </div>
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Search and filters">
-          <button className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} aria-label="Close" />
+        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label={t("toolbar.searchAndFilters")}>
+          <button className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} aria-label={t("nav.close")} />
           <div className="absolute inset-x-0 bottom-0 flex max-h-[90dvh] animate-fade-up flex-col rounded-t-2xl bg-surface">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <h2 className="font-semibold">Search & filters</h2>
-              <button onClick={() => setMobileOpen(false)} className="p-1 text-muted" aria-label="Close"><X className="h-5 w-5" /></button>
+              <h2 className="font-semibold">{t("toolbar.searchFilters")}</h2>
+              <button onClick={() => setMobileOpen(false)} className="p-1 text-muted" aria-label={t("nav.close")}><X className="h-5 w-5" /></button>
             </div>
             <div className="flex-1 overflow-y-auto p-4">{allFields}</div>
             <div className="flex gap-2 border-t border-border p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-              <Button variant="outline" className="flex-1" onClick={reset}>Reset</Button>
-              <Button className="flex-1" onClick={apply}>Show results</Button>
+              <Button variant="outline" className="flex-1" onClick={reset}>{t("toolbar.reset")}</Button>
+              <Button className="flex-1" onClick={apply}>{t("toolbar.showResults")}</Button>
             </div>
           </div>
         </div>
@@ -107,116 +109,116 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
       {/* Desktop: compact DAT-style bar */}
       <div className="hidden rounded-xl border border-border bg-surface p-3 lg:block">
         <div className="flex flex-wrap items-end gap-2.5">
-          <Field label="Origin" className="w-44">
+          <Field label={t("toolbar.origin")} className="w-44">
             <Select value={v.origin} onChange={(e) => set("origin", e.target.value)}>
-              <option value="">Any</option>
-              {CITIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <option value="">{t("toolbar.any")}</option>
+              {CITIES.map((c) => <option key={c.id} value={c.id}>{city(c.id)}</option>)}
             </Select>
           </Field>
-          <Field label="DH-O" hint={v.radiusKm ? `Within ${v.radiusKm} km of origin` : undefined} className="w-24">
+          <Field label={t("toolbar.dhO")} hint={v.radiusKm ? t("toolbar.withinOrigin", { n: v.radiusKm }) : undefined} className="w-24">
             <Select value={v.radiusKm} onChange={(e) => set("radiusKm", e.target.value)} disabled={!v.origin}>
-              <option value="">Exact</option>
-              {[50, 100, 200, 300].map((r) => <option key={r} value={r}>{r} km</option>)}
+              <option value="">{t("toolbar.exact")}</option>
+              {[50, 100, 200, 300].map((r) => <option key={r} value={r}>{r} {m.units.km}</option>)}
             </Select>
           </Field>
           <button
             type="button"
-            title="Swap origin and destination"
-            aria-label="Swap origin and destination"
+            title={t("toolbar.swap")}
+            aria-label={t("toolbar.swap")}
             onClick={() => setV((s) => ({ ...s, origin: s.dest, dest: s.origin, radiusKm: s.destRadiusKm, destRadiusKm: s.radiusKm, originCountry: s.destCountry, destCountry: s.originCountry }))}
             className="mb-[9px] flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted transition hover:border-brand hover:text-brand"
           >
             <ArrowLeftRight className="h-4 w-4" />
           </button>
-          <Field label="Destination" className="w-44">
+          <Field label={t("toolbar.dest")} className="w-44">
             <Select value={v.dest} onChange={(e) => set("dest", e.target.value)}>
-              <option value="">Any</option>
-              {CITIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <option value="">{t("toolbar.any")}</option>
+              {CITIES.map((c) => <option key={c.id} value={c.id}>{city(c.id)}</option>)}
             </Select>
           </Field>
-          <Field label="DH-D" hint={v.destRadiusKm ? `Within ${v.destRadiusKm} km of destination` : undefined} className="w-24">
+          <Field label={t("toolbar.dhD")} hint={v.destRadiusKm ? t("toolbar.withinDest", { n: v.destRadiusKm }) : undefined} className="w-24">
             <Select value={v.destRadiusKm} onChange={(e) => set("destRadiusKm", e.target.value)} disabled={!v.dest}>
-              <option value="">Exact</option>
-              {[50, 100, 200, 300].map((r) => <option key={r} value={r}>{r} km</option>)}
+              <option value="">{t("toolbar.exact")}</option>
+              {[50, 100, 200, 300].map((r) => <option key={r} value={r}>{r} {m.units.km}</option>)}
             </Select>
           </Field>
-          <Field label="Origin country" className="w-32">
+          <Field label={t("toolbar.originCountry")} className="w-32">
             <Select value={v.originCountry} onChange={(e) => set("originCountry", e.target.value)}>
-              <option value="">Any</option>
-              {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+              <option value="">{t("toolbar.any")}</option>
+              {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{country(c.code)}</option>)}
             </Select>
           </Field>
-          <Field label="Dest. country" className="w-32">
+          <Field label={t("toolbar.destCountry")} className="w-32">
             <Select value={v.destCountry} onChange={(e) => set("destCountry", e.target.value)}>
-              <option value="">Any</option>
-              {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+              <option value="">{t("toolbar.any")}</option>
+              {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{country(c.code)}</option>)}
             </Select>
           </Field>
-          <Field label="Route type" className="w-40">
+          <Field label={t("toolbar.routeType")} className="w-40">
             <Select value={v.scope} onChange={(e) => set("scope", e.target.value)}>
-              {SCOPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              {SCOPES.map(([k, l]) => <option key={k} value={k}>{t(`toolbar.${l}`)}</option>)}
             </Select>
           </Field>
-          <Dropdown label="Equipment" count={multi("body").length} icon={<ChevronDown className="h-3.5 w-3.5" />}>
+          <Dropdown label={t("toolbar.equipment")} count={multi("body").length} icon={<ChevronDown className="h-3.5 w-3.5" />}>
             <ChipGroup options={BODY_TYPES.map((b) => [b, label(b)])} value={multi("body")} onToggle={(x) => toggleMulti("body", x)} />
           </Dropdown>
-          <Dropdown label="Date range" summary={dateSummary} icon={<Calendar className="h-3.5 w-3.5" />}>
+          <Dropdown label={t("toolbar.dateRange")} summary={dateSummary} icon={<Calendar className="h-3.5 w-3.5" />}>
             <div className="grid grid-cols-2 gap-2 p-1">
-              <Field label="Loading from"><Input type="date" value={v.loadingFrom} onChange={(e) => set("loadingFrom", e.target.value)} /></Field>
-              <Field label="Loading to"><Input type="date" value={v.loadingTo} onChange={(e) => set("loadingTo", e.target.value)} /></Field>
-              <Field label="Unload by" className="col-span-2"><Input type="date" value={v.unloadingTo} onChange={(e) => set("unloadingTo", e.target.value)} /></Field>
+              <Field label={t("toolbar.loadingFrom")}><Input type="date" value={v.loadingFrom} onChange={(e) => set("loadingFrom", e.target.value)} /></Field>
+              <Field label={t("toolbar.loadingTo")}><Input type="date" value={v.loadingTo} onChange={(e) => set("loadingTo", e.target.value)} /></Field>
+              <Field label={t("toolbar.unloadBy")} className="col-span-2"><Input type="date" value={v.unloadingTo} onChange={(e) => set("unloadingTo", e.target.value)} /></Field>
             </div>
           </Dropdown>
-          <Field label="Score for truck" className="w-48">
+          <Field label={t("toolbar.scoreForTruck")} className="w-48">
             <Select value={v.truckId} onChange={(e) => set("truckId", e.target.value)}>
-              <option value="">Best truck in my fleet</option>
+              <option value="">{t("toolbar.bestTruck")}</option>
               {trucks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </Select>
           </Field>
-          <Button onClick={apply} className="h-9"><Search className="h-4 w-4" /> Search</Button>
+          <Button onClick={apply} className="h-9"><Search className="h-4 w-4" /> {t("toolbar.search")}</Button>
         </div>
 
         <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-border pt-2.5">
-          <Dropdown label="Load requirements" count={requirementsCount}>
+          <Dropdown label={t("toolbar.loadRequirements")} count={requirementsCount}>
             <div className="space-y-4 p-1">
-              <ChipGroup title="Cargo" options={CARGO_TYPES.map((b) => [b, label(b)])} value={multi("cargo")} onToggle={(x) => toggleMulti("cargo", x)} />
-              <ChipGroup title="Payment terms" options={PAYMENT_TERMS.map((b) => [b, label(b)])} value={multi("payment")} onToggle={(x) => toggleMulti("payment", x)} />
+              <ChipGroup title={t("toolbar.cargo")} options={CARGO_TYPES.map((b) => [b, label(b)])} value={multi("cargo")} onToggle={(x) => toggleMulti("cargo", x)} />
+              <ChipGroup title={t("toolbar.payment")} options={PAYMENT_TERMS.map((b) => [b, label(b)])} value={multi("payment")} onToggle={(x) => toggleMulti("payment", x)} />
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={v.verifiedOnly === "1"} onChange={(e) => set("verifiedOnly", e.target.checked ? "1" : "")} className="h-4 w-4 accent-[var(--brand)]" />
-                Verified loads only
+                {t("toolbar.verifiedOnly")}
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={v.hasRate === "1"} onChange={(e) => set("hasRate", e.target.checked ? "1" : "")} className="h-4 w-4 accent-[var(--brand)]" />
-                Published rate only <span className="text-xs text-subtle">(excludes negotiable)</span>
+                {t("toolbar.publishedOnly")} <span className="text-xs text-subtle">{t("toolbar.excludesNegotiable")}</span>
               </label>
             </div>
           </Dropdown>
-          <Dropdown label="More filters" count={moreCount}>
+          <Dropdown label={t("toolbar.moreFilters")} count={moreCount}>
             <div className="grid w-80 grid-cols-2 gap-2 p-1">
-              <Field label="Weight min (kg)"><Input type="number" inputMode="numeric" value={v.weightMin} onChange={(e) => set("weightMin", e.target.value)} /></Field>
-              <Field label="Weight max (kg)"><Input type="number" inputMode="numeric" value={v.weightMax} onChange={(e) => set("weightMax", e.target.value)} /></Field>
-              <Field label="Volume min (m³)"><Input type="number" inputMode="numeric" value={v.volumeMin} onChange={(e) => set("volumeMin", e.target.value)} /></Field>
-              <Field label="Distance min (km)"><Input type="number" inputMode="numeric" value={v.distanceMin} onChange={(e) => set("distanceMin", e.target.value)} /></Field>
-              <Field label="Distance max (km)"><Input type="number" inputMode="numeric" value={v.distanceMax} onChange={(e) => set("distanceMax", e.target.value)} /></Field>
-              <Field label="Rate min ($)"><Input type="number" inputMode="numeric" value={v.rateMin} onChange={(e) => set("rateMin", e.target.value)} /></Field>
-              <Field label="Rate/km min ($)"><Input type="number" inputMode="decimal" step="0.05" value={v.ratePerKmMin} onChange={(e) => set("ratePerKmMin", e.target.value)} /></Field>
-              <Field label="AI score min"><Input type="number" inputMode="numeric" min={0} max={100} value={v.minScore} onChange={(e) => set("minScore", e.target.value)} /></Field>
-              <Field label="Deadhead max (km)"><Input type="number" inputMode="numeric" value={v.maxDeadhead} onChange={(e) => set("maxDeadhead", e.target.value)} /></Field>
-              <Field label="Currency">
+              <Field label={t("toolbar.weightMin")}><Input type="number" inputMode="numeric" value={v.weightMin} onChange={(e) => set("weightMin", e.target.value)} /></Field>
+              <Field label={t("toolbar.weightMax")}><Input type="number" inputMode="numeric" value={v.weightMax} onChange={(e) => set("weightMax", e.target.value)} /></Field>
+              <Field label={t("toolbar.volumeMin")}><Input type="number" inputMode="numeric" value={v.volumeMin} onChange={(e) => set("volumeMin", e.target.value)} /></Field>
+              <Field label={t("toolbar.distanceMin")}><Input type="number" inputMode="numeric" value={v.distanceMin} onChange={(e) => set("distanceMin", e.target.value)} /></Field>
+              <Field label={t("toolbar.distanceMax")}><Input type="number" inputMode="numeric" value={v.distanceMax} onChange={(e) => set("distanceMax", e.target.value)} /></Field>
+              <Field label={t("toolbar.rateMin")}><Input type="number" inputMode="numeric" value={v.rateMin} onChange={(e) => set("rateMin", e.target.value)} /></Field>
+              <Field label={t("toolbar.ratePerKmMin")}><Input type="number" inputMode="decimal" step="0.05" value={v.ratePerKmMin} onChange={(e) => set("ratePerKmMin", e.target.value)} /></Field>
+              <Field label={t("toolbar.scoreMin")}><Input type="number" inputMode="numeric" min={0} max={100} value={v.minScore} onChange={(e) => set("minScore", e.target.value)} /></Field>
+              <Field label={t("toolbar.deadheadMax")}><Input type="number" inputMode="numeric" value={v.maxDeadhead} onChange={(e) => set("maxDeadhead", e.target.value)} /></Field>
+              <Field label={t("toolbar.currency")}>
                 <Select value={v.currency} onChange={(e) => set("currency", e.target.value)}>
-                  <option value="">Any</option>
+                  <option value="">{t("toolbar.any")}</option>
                   {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
                 </Select>
               </Field>
-              <Field label="Source">
+              <Field label={t("toolbar.source")}>
                 <Select value={v.source} onChange={(e) => set("source", e.target.value)}>
-                  <option value="">Any</option>
+                  <option value="">{t("toolbar.any")}</option>
                   {sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </Select>
               </Field>
-              <Field label="Broker">
+              <Field label={t("toolbar.broker")}>
                 <Select value={v.brokerId} onChange={(e) => set("brokerId", e.target.value)}>
-                  <option value="">Any</option>
+                  <option value="">{t("toolbar.any")}</option>
                   {brokers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </Select>
               </Field>
@@ -224,11 +226,11 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
           </Dropdown>
           {activeCount > 0 && (
             <button onClick={reset} className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
-              <RotateCcw className="h-3 w-3" /> Reset all{activeCount ? ` (${activeCount})` : ""}
+              <RotateCcw className="h-3 w-3" /> {t("toolbar.resetAll")}{activeCount ? ` (${activeCount})` : ""}
             </button>
           )}
           <span className="ml-auto inline-flex items-center gap-1 text-xs text-subtle">
-            <Truck className="h-3.5 w-3.5" /> Filters update the whole board — hit Search to apply
+            <Truck className="h-3.5 w-3.5" /> {t("toolbar.footnote")}
           </span>
         </div>
       </div>
@@ -241,107 +243,108 @@ function FieldGroup({ trucks, sources, brokers, v, set, multi, toggleMulti }: {
   v: Record<string, string>; set: (k: string, val: string) => void; multi: (k: string) => string[]; toggleMulti: (k: string, item: string) => void;
   layout: "stacked";
 }) {
+  const { t, label, city, country, m } = useI18n();
   return (
     <div className="space-y-4">
       <Field label="Score for truck">
         <Select value={v.truckId} onChange={(e) => set("truckId", e.target.value)}>
-          <option value="">Best truck in my fleet</option>
+          <option value="">{t("toolbar.bestTruck")}</option>
           {trucks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </Select>
       </Field>
       <div className="grid grid-cols-[1fr_96px] gap-2">
         <Field label="Origin">
           <Select value={v.origin} onChange={(e) => set("origin", e.target.value)}>
-            <option value="">Any</option>
-            {CITIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            <option value="">{t("toolbar.any")}</option>
+            {CITIES.map((c) => <option key={c.id} value={c.id}>{city(c.id)}</option>)}
           </Select>
         </Field>
         <Field label="DH-O">
           <Select value={v.radiusKm} onChange={(e) => set("radiusKm", e.target.value)} disabled={!v.origin}>
-            <option value="">Exact</option>
-            {[50, 100, 200, 300].map((r) => <option key={r} value={r}>{r} km</option>)}
+            <option value="">{t("toolbar.exact")}</option>
+            {[50, 100, 200, 300].map((r) => <option key={r} value={r}>{r} {m.units.km}</option>)}
           </Select>
         </Field>
       </div>
       <div className="grid grid-cols-[1fr_96px] gap-2">
         <Field label="Destination">
           <Select value={v.dest} onChange={(e) => set("dest", e.target.value)}>
-            <option value="">Any</option>
-            {CITIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            <option value="">{t("toolbar.any")}</option>
+            {CITIES.map((c) => <option key={c.id} value={c.id}>{city(c.id)}</option>)}
           </Select>
         </Field>
         <Field label="DH-D">
           <Select value={v.destRadiusKm} onChange={(e) => set("destRadiusKm", e.target.value)} disabled={!v.dest}>
-            <option value="">Exact</option>
-            {[50, 100, 200, 300].map((r) => <option key={r} value={r}>{r} km</option>)}
+            <option value="">{t("toolbar.exact")}</option>
+            {[50, 100, 200, 300].map((r) => <option key={r} value={r}>{r} {m.units.km}</option>)}
           </Select>
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <Field label="Origin country">
           <Select value={v.originCountry} onChange={(e) => set("originCountry", e.target.value)}>
-            <option value="">Any</option>
-            {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+            <option value="">{t("toolbar.any")}</option>
+            {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{country(c.code)}</option>)}
           </Select>
         </Field>
         <Field label="Dest. country">
           <Select value={v.destCountry} onChange={(e) => set("destCountry", e.target.value)}>
-            <option value="">Any</option>
-            {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+            <option value="">{t("toolbar.any")}</option>
+            {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{country(c.code)}</option>)}
           </Select>
         </Field>
       </div>
       <Field label="Route type">
         <Select value={v.scope} onChange={(e) => set("scope", e.target.value)}>
-          {SCOPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          {SCOPES.map(([k, l]) => <option key={k} value={k}>{t(`toolbar.${l}`)}</option>)}
         </Select>
       </Field>
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Loading from"><Input type="date" value={v.loadingFrom} onChange={(e) => set("loadingFrom", e.target.value)} /></Field>
-        <Field label="Loading to"><Input type="date" value={v.loadingTo} onChange={(e) => set("loadingTo", e.target.value)} /></Field>
+        <Field label={t("toolbar.loadingFrom")}><Input type="date" value={v.loadingFrom} onChange={(e) => set("loadingFrom", e.target.value)} /></Field>
+        <Field label={t("toolbar.loadingTo")}><Input type="date" value={v.loadingTo} onChange={(e) => set("loadingTo", e.target.value)} /></Field>
       </div>
-      <Field label="Unload by"><Input type="date" value={v.unloadingTo} onChange={(e) => set("unloadingTo", e.target.value)} /></Field>
-      <ChipGroup title="Equipment" options={BODY_TYPES.map((b) => [b, label(b)])} value={multi("body")} onToggle={(x) => toggleMulti("body", x)} />
-      <ChipGroup title="Cargo" options={CARGO_TYPES.map((b) => [b, label(b)])} value={multi("cargo")} onToggle={(x) => toggleMulti("cargo", x)} />
+      <Field label={t("toolbar.unloadBy")}><Input type="date" value={v.unloadingTo} onChange={(e) => set("unloadingTo", e.target.value)} /></Field>
+      <ChipGroup title={t("toolbar.equipment")} options={BODY_TYPES.map((b) => [b, label(b)])} value={multi("body")} onToggle={(x) => toggleMulti("body", x)} />
+      <ChipGroup title={t("toolbar.cargo")} options={CARGO_TYPES.map((b) => [b, label(b)])} value={multi("cargo")} onToggle={(x) => toggleMulti("cargo", x)} />
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Weight min (kg)"><Input type="number" inputMode="numeric" value={v.weightMin} onChange={(e) => set("weightMin", e.target.value)} /></Field>
-        <Field label="Weight max (kg)"><Input type="number" inputMode="numeric" value={v.weightMax} onChange={(e) => set("weightMax", e.target.value)} /></Field>
-        <Field label="Volume min (m³)"><Input type="number" inputMode="numeric" value={v.volumeMin} onChange={(e) => set("volumeMin", e.target.value)} /></Field>
-        <Field label="Distance min (km)"><Input type="number" inputMode="numeric" value={v.distanceMin} onChange={(e) => set("distanceMin", e.target.value)} /></Field>
-        <Field label="Distance max (km)"><Input type="number" inputMode="numeric" value={v.distanceMax} onChange={(e) => set("distanceMax", e.target.value)} /></Field>
-        <Field label="Rate min ($)"><Input type="number" inputMode="numeric" value={v.rateMin} onChange={(e) => set("rateMin", e.target.value)} /></Field>
-        <Field label="Rate/km min ($)"><Input type="number" inputMode="decimal" step="0.05" value={v.ratePerKmMin} onChange={(e) => set("ratePerKmMin", e.target.value)} /></Field>
-        <Field label="AI score min"><Input type="number" inputMode="numeric" min={0} max={100} value={v.minScore} onChange={(e) => set("minScore", e.target.value)} /></Field>
-        <Field label="Deadhead max (km)"><Input type="number" inputMode="numeric" value={v.maxDeadhead} onChange={(e) => set("maxDeadhead", e.target.value)} /></Field>
+        <Field label={t("toolbar.weightMin")}><Input type="number" inputMode="numeric" value={v.weightMin} onChange={(e) => set("weightMin", e.target.value)} /></Field>
+        <Field label={t("toolbar.weightMax")}><Input type="number" inputMode="numeric" value={v.weightMax} onChange={(e) => set("weightMax", e.target.value)} /></Field>
+        <Field label={t("toolbar.volumeMin")}><Input type="number" inputMode="numeric" value={v.volumeMin} onChange={(e) => set("volumeMin", e.target.value)} /></Field>
+        <Field label={t("toolbar.distanceMin")}><Input type="number" inputMode="numeric" value={v.distanceMin} onChange={(e) => set("distanceMin", e.target.value)} /></Field>
+        <Field label={t("toolbar.distanceMax")}><Input type="number" inputMode="numeric" value={v.distanceMax} onChange={(e) => set("distanceMax", e.target.value)} /></Field>
+        <Field label={t("toolbar.rateMin")}><Input type="number" inputMode="numeric" value={v.rateMin} onChange={(e) => set("rateMin", e.target.value)} /></Field>
+        <Field label={t("toolbar.ratePerKmMin")}><Input type="number" inputMode="decimal" step="0.05" value={v.ratePerKmMin} onChange={(e) => set("ratePerKmMin", e.target.value)} /></Field>
+        <Field label={t("toolbar.scoreMin")}><Input type="number" inputMode="numeric" min={0} max={100} value={v.minScore} onChange={(e) => set("minScore", e.target.value)} /></Field>
+        <Field label={t("toolbar.deadheadMax")}><Input type="number" inputMode="numeric" value={v.maxDeadhead} onChange={(e) => set("maxDeadhead", e.target.value)} /></Field>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Currency">
+        <Field label={t("toolbar.currency")}>
           <Select value={v.currency} onChange={(e) => set("currency", e.target.value)}>
-            <option value="">Any</option>
+            <option value="">{t("toolbar.any")}</option>
             {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
           </Select>
         </Field>
-        <Field label="Source">
+        <Field label={t("toolbar.source")}>
           <Select value={v.source} onChange={(e) => set("source", e.target.value)}>
-            <option value="">Any</option>
+            <option value="">{t("toolbar.any")}</option>
             {sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </Select>
         </Field>
       </div>
-      <Field label="Broker">
+      <Field label={t("toolbar.broker")}>
         <Select value={v.brokerId} onChange={(e) => set("brokerId", e.target.value)}>
-          <option value="">Any</option>
+          <option value="">{t("toolbar.any")}</option>
           {brokers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </Select>
       </Field>
-      <ChipGroup title="Payment terms" options={PAYMENT_TERMS.map((b) => [b, label(b)])} value={multi("payment")} onToggle={(x) => toggleMulti("payment", x)} />
+      <ChipGroup title={t("toolbar.payment")} options={PAYMENT_TERMS.map((b) => [b, label(b)])} value={multi("payment")} onToggle={(x) => toggleMulti("payment", x)} />
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={v.verifiedOnly === "1"} onChange={(e) => set("verifiedOnly", e.target.checked ? "1" : "")} className="h-4 w-4 accent-[var(--brand)]" />
-        Verified loads only
+        {t("toolbar.verifiedOnly")}
       </label>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={v.hasRate === "1"} onChange={(e) => set("hasRate", e.target.checked ? "1" : "")} className="h-4 w-4 accent-[var(--brand)]" />
-        Published rate only <span className="text-xs text-subtle">(excludes negotiable)</span>
+        {t("toolbar.publishedOnly")} <span className="text-xs text-subtle">{t("toolbar.excludesNegotiable")}</span>
       </label>
     </div>
   );

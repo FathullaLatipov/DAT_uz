@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PackageSearch, Sparkles } from "lucide-react";
 import { requireSession } from "@/server/auth/session";
+import { getI18n } from "@/i18n/server";
 import { db } from "@/server/db";
 import { filtersFromParams, filtersToParams } from "@/server/services/filters";
 import { searchLoads } from "@/server/services/freight";
@@ -14,12 +15,16 @@ import { BoardMap } from "@/components/loads/board-map";
 import { Card, EmptyState, LinkButton, PageHeader } from "@/components/ui/primitives";
 import { cn } from "@/lib/format";
 
-export const metadata: Metadata = { title: "Load board" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: t("nav.loadBoard") };
+}
 
 const PAGE_SIZE = 25;
 
 export default async function LoadsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const s = await requireSession();
+  const { t, tn, label } = await getI18n();
   const sp = await searchParams;
   const filters = filtersFromParams(sp);
   const page = Math.max(1, Number(sp.page) || 1);
@@ -45,16 +50,16 @@ export default async function LoadsPage({ searchParams }: { searchParams: Promis
       <Card>
         <EmptyState
           icon={<PackageSearch className="h-5 w-5" />}
-          title={res.truckCount ? "No loads match your trucks and filters" : "No loads match these filters"}
+          title={res.truckCount ? t("board.noMatchTrucks") : t("board.noMatch")}
           body={
             <ul className="mt-1 space-y-1 text-left">
-              <li>• Expand the search radius around the origin</li>
-              <li>• Lower the minimum rate or AI score</li>
-              <li>• Change or remove the destination</li>
-              <li>• Widen the loading dates</li>
+              <li>• {t("board.tip1")}</li>
+              <li>• {t("board.tip2")}</li>
+              <li>• {t("board.tip3")}</li>
+              <li>• {t("board.tip4")}</li>
             </ul>
           }
-          actions={<LinkButton href="/app/loads" variant="outline">Clear all filters</LinkButton>}
+          actions={<LinkButton href="/app/loads" variant="outline">{t("catalog.clearFilters")}</LinkButton>}
         />
       </Card>
     ) : (
@@ -64,11 +69,11 @@ export default async function LoadsPage({ searchParams }: { searchParams: Promis
         </div>
         <LoadCardList key={`m-${filtersToParams(filters).toString()}-${page}-${filters.sort ?? ""}`} rows={res.rows} className="grid grid-cols-1 gap-3 md:hidden [&>*]:min-w-0" />
         {pages > 1 && (
-          <nav className="mt-4 flex items-center justify-between text-sm" aria-label="Pagination">
-            <span className="text-muted">Page {page} of {pages}</span>
+          <nav className="mt-4 flex items-center justify-between text-sm" aria-label={t("catalog.pagination")}>
+            <span className="text-muted">{t("catalog.pageOf", { page, pages })}</span>
             <div className="flex gap-2">
-              {page > 1 && <LinkButton variant="outline" size="sm" href={pageHref(page - 1)}>Previous</LinkButton>}
-              {page < pages && <LinkButton variant="outline" size="sm" href={pageHref(page + 1)}>Next</LinkButton>}
+              {page > 1 && <LinkButton variant="outline" size="sm" href={pageHref(page - 1)}>{t("catalog.previous")}</LinkButton>}
+              {page < pages && <LinkButton variant="outline" size="sm" href={pageHref(page + 1)}>{t("catalog.next")}</LinkButton>}
             </div>
           </nav>
         )}
@@ -78,18 +83,18 @@ export default async function LoadsPage({ searchParams }: { searchParams: Promis
   return (
     <div className="mx-auto max-w-[1600px]">
       <PageHeader
-        title="Load board"
-        subtitle={res.truckCount ? `Ranked for your ${res.truckCount} available truck${res.truckCount === 1 ? "" : "s"} — score, deadhead and profit are calculated per truck.` : "Add a truck to see match scores and profit."}
+        title={t("nav.loadBoard")}
+        subtitle={res.truckCount ? tn("board.subtitle", res.truckCount) : t("board.subtitleNoTrucks")}
       />
       {nl && (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-brand/30 bg-brand-soft/50 px-3 py-2 text-sm">
           <Sparkles className="h-4 w-4 shrink-0 text-brand" />
-          <span className="truncate">Results for “{nl}”</span>
-          <Link href="/app/loads" className="ml-auto shrink-0 text-xs text-brand hover:underline">Clear</Link>
+          <span className="truncate">{t("board.resultsFor", { q: nl })}</span>
+          <Link href="/app/loads" className="ml-auto shrink-0 text-xs text-brand hover:underline">{t("board.clear")}</Link>
         </div>
       )}
       <div className="mb-3">
-        <SearchToolbar key={filtersToParams(filters).toString()} trucks={trucks.map((t) => ({ id: t.id, name: `${t.code} · ${(t.capacityKg / 1000).toFixed(0)} t ${t.bodyType.toLowerCase()}` }))} sources={sources} brokers={brokers} />
+        <SearchToolbar key={filtersToParams(filters).toString()} trucks={trucks.map((x) => ({ id: x.id, name: `${x.code} · ${(x.capacityKg / 1000).toFixed(0)} ${t("units.tonnes")} ${label(x.bodyType).toLowerCase()}` }))} sources={sources} brokers={brokers} />
       </div>
       <div className="flex flex-col items-start gap-3 lg:flex-row lg:gap-5">
         <div className="w-full min-w-0 flex-1">

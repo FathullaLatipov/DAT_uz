@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { Fragment } from "react";
 import { ArrowDown, ArrowUpDown, ChevronRight, Zap } from "lucide-react";
-import { label } from "@/server/domain/enums";
+import { useI18n } from "@/i18n/client";
 import type { LoadRow } from "@/server/services/freight";
 import type { LoadFilters } from "@/server/services/filters";
 import { filtersToParams } from "@/server/services/filters";
-import { cn, km, money, perKm, relativeDay, tonnes, usd } from "@/lib/format";
+import { cn } from "@/lib/format";
 import { DemoBadge, ScoreBadge } from "../ui/primitives";
 import { Freshness, QualityBadge, RouteLabel, Sources } from "./parts";
 import { FavoriteButton } from "./favorite-button";
@@ -25,6 +25,7 @@ type SortKey = "rate" | "ratePerKm" | "profit" | "deadhead" | "loading";
  * Component parent can't hand a plain function prop across to a Client Component. */
 export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: LoadFilters; view: string }) {
   const { toggle, isOpen, containerRef } = useExpandableRow();
+  const { t, label, km, money, perKm, relativeDay, tonnes, usd } = useI18n();
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
   const sort = filters.sort;
   const sortHref = (key: SortKey) => {
@@ -40,14 +41,14 @@ export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: L
           <thead className="sticky top-0 z-10">
             <tr className="border-b border-border bg-surface-2 text-left text-xs uppercase tracking-wide text-muted backdrop-blur">
               <th className="w-8 px-2 py-2.5" />
-              <th className="w-14 px-3 py-2.5 font-medium">Match</th>
-              <th className="px-3 py-2.5 font-medium">Route</th>
-              <SortableTh label="Loading" sortKey="loading" current={sort} href={sortHref} />
-              <th className="px-3 py-2.5 font-medium">Cargo</th>
-              <SortableTh label="Rate" sortKey="rate" current={sort} href={sortHref} align="right" />
-              <SortableTh label="Deadhead" sortKey="deadhead" current={sort} href={sortHref} align="right" />
-              <SortableTh label="Est. profit" sortKey="profit" current={sort} href={sortHref} align="right" />
-              <th className="px-3 py-2.5 font-medium">Source</th>
+              <th className="w-14 px-3 py-2.5 font-medium">{t("table.match")}</th>
+              <th className="px-3 py-2.5 font-medium">{t("table.route")}</th>
+              <SortableTh label={t("table.loading")} sortKey="loading" current={sort} href={sortHref} />
+              <th className="px-3 py-2.5 font-medium">{t("table.cargo")}</th>
+              <SortableTh label={t("table.rate")} sortKey="rate" current={sort} href={sortHref} align="right" />
+              <SortableTh label={t("table.deadhead")} sortKey="deadhead" current={sort} href={sortHref} align="right" />
+              <SortableTh label={t("table.estProfit")} sortKey="profit" current={sort} href={sortHref} align="right" />
+              <th className="px-3 py-2.5 font-medium">{t("table.source")}</th>
               <th className="w-20 px-2 py-2.5" />
             </tr>
           </thead>
@@ -73,7 +74,7 @@ export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: L
                         type="button"
                         aria-expanded={open}
                         aria-controls={`load-detail-${o.id}`}
-                        aria-label={open ? "Collapse details" : "Expand details"}
+                        aria-label={open ? t("table.collapse") : t("table.expand")}
                         className="flex h-6 w-6 items-center justify-center rounded text-subtle hover:bg-surface-3 hover:text-fg"
                       >
                         <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-90 text-brand")} />
@@ -99,7 +100,7 @@ export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: L
                           <div className="text-xs text-muted">{perKm(o.rateUsd / o.distanceKm)}{o.currency !== "USD" && ` · ${money(o.rate, o.currency)}`}</div>
                         </>
                       ) : (
-                        <span className="text-muted">Negotiable</span>
+                        <span className="text-muted">{t("table.negotiable")}</span>
                       )}
                     </td>
                     <td className="num whitespace-nowrap px-3 py-2.5 text-right">
@@ -125,8 +126,8 @@ export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: L
                         {m?.eligible && (
                           <Link
                             href={`/app/loads/${o.id}?truck=${m.truckId}#assign`}
-                            title="Take this load"
-                            aria-label="Take this load"
+                            title={t("table.takeLoad")}
+                            aria-label={t("table.takeLoad")}
                             className="hidden h-7 w-7 items-center justify-center rounded-md text-subtle hover:bg-brand-soft hover:text-brand group-hover:inline-flex"
                           >
                             <Zap className="h-3.5 w-3.5" />
