@@ -13,7 +13,7 @@ type Opt = { id: string; name: string };
 
 const KEYS = [
   "origin", "radiusKm", "dest", "destRadiusKm", "destCountry", "originCountry", "scope", "loadingFrom", "loadingTo", "cargo", "body", "weightMin", "weightMax", "volumeMin",
-  "rateMin", "ratePerKmMin", "currency", "payment", "source", "verifiedOnly", "hasRate", "minScore", "maxDeadhead", "truckId", "brokerId", "distanceMin", "distanceMax",
+  "rateMin", "ratePerKmMin", "currency", "payment", "source", "verifiedOnly", "minGrade", "freshHours", "hasRate", "minScore", "maxDeadhead", "truckId", "brokerId", "distanceMin", "distanceMax",
 ];
 
 const SCOPES = [
@@ -65,7 +65,7 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
     v.loadingFrom || v.loadingTo || v.unloadingTo
       ? `${v.loadingFrom || t("toolbar.any")} – ${v.loadingTo || t("toolbar.any")}${v.unloadingTo ? `, ${t("toolbar.unloadByDate", { date: v.unloadingTo })}` : ""}`
       : t("toolbar.anyDate");
-  const requirementsCount = ["cargo", "payment", "verifiedOnly", "hasRate"].filter((k) => v[k]).length;
+  const requirementsCount = ["cargo", "payment", "verifiedOnly", "minGrade", "freshHours", "hasRate"].filter((k) => v[k]).length;
   const moreCount = ["weightMin", "weightMax", "volumeMin", "rateMin", "ratePerKmMin", "minScore", "maxDeadhead", "distanceMin", "distanceMax", "currency", "source", "brokerId"].filter((k) => v[k]).length;
 
   const allFields = (
@@ -183,10 +183,25 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
             <div className="space-y-4 p-1">
               <ChipGroup title={t("toolbar.cargo")} options={CARGO_TYPES.map((b) => [b, label(b)])} value={multi("cargo")} onToggle={(x) => toggleMulti("cargo", x)} />
               <ChipGroup title={t("toolbar.payment")} options={PAYMENT_TERMS.map((b) => [b, label(b)])} value={multi("payment")} onToggle={(x) => toggleMulti("payment", x)} />
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={v.verifiedOnly === "1"} onChange={(e) => set("verifiedOnly", e.target.checked ? "1" : "")} className="h-4 w-4 accent-[var(--brand)]" />
-                {t("toolbar.verifiedOnly")}
-              </label>
+              <div className="grid grid-cols-2 gap-2">
+        <Field label={t("grade.filter")}>
+          <Select value={v.minGrade} onChange={(e) => set("minGrade", e.target.value)}>
+            <option value="">{t("grade.any")}</option>
+            <option value="A">{t("grade.a")}</option>
+            <option value="B">{t("grade.b")}</option>
+            <option value="C">{t("grade.c")}</option>
+          </Select>
+        </Field>
+        <Field label={t("grade.fresh")}>
+          <Select value={v.freshHours} onChange={(e) => set("freshHours", e.target.value)}>
+            <option value="">{t("grade.freshAny")}</option>
+            <option value="1">{t("grade.h1")}</option>
+            <option value="6">{t("grade.h6")}</option>
+            <option value="24">{t("grade.h24")}</option>
+            <option value="72">{t("grade.h72")}</option>
+          </Select>
+        </Field>
+      </div>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={v.hasRate === "1"} onChange={(e) => set("hasRate", e.target.checked ? "1" : "")} className="h-4 w-4 accent-[var(--brand)]" />
                 {t("toolbar.publishedOnly")} <span className="text-xs text-subtle">{t("toolbar.excludesNegotiable")}</span>
@@ -338,10 +353,25 @@ function FieldGroup({ trucks, sources, brokers, v, set, multi, toggleMulti }: {
         </Select>
       </Field>
       <ChipGroup title={t("toolbar.payment")} options={PAYMENT_TERMS.map((b) => [b, label(b)])} value={multi("payment")} onToggle={(x) => toggleMulti("payment", x)} />
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={v.verifiedOnly === "1"} onChange={(e) => set("verifiedOnly", e.target.checked ? "1" : "")} className="h-4 w-4 accent-[var(--brand)]" />
-        {t("toolbar.verifiedOnly")}
-      </label>
+      <div className="grid grid-cols-2 gap-2">
+        <Field label={t("grade.filter")}>
+          <Select value={v.minGrade} onChange={(e) => set("minGrade", e.target.value)}>
+            <option value="">{t("grade.any")}</option>
+            <option value="A">{t("grade.a")}</option>
+            <option value="B">{t("grade.b")}</option>
+            <option value="C">{t("grade.c")}</option>
+          </Select>
+        </Field>
+        <Field label={t("grade.fresh")}>
+          <Select value={v.freshHours} onChange={(e) => set("freshHours", e.target.value)}>
+            <option value="">{t("grade.freshAny")}</option>
+            <option value="1">{t("grade.h1")}</option>
+            <option value="6">{t("grade.h6")}</option>
+            <option value="24">{t("grade.h24")}</option>
+            <option value="72">{t("grade.h72")}</option>
+          </Select>
+        </Field>
+      </div>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={v.hasRate === "1"} onChange={(e) => set("hasRate", e.target.checked ? "1" : "")} className="h-4 w-4 accent-[var(--brand)]" />
         {t("toolbar.publishedOnly")} <span className="text-xs text-subtle">{t("toolbar.excludesNegotiable")}</span>

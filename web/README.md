@@ -107,6 +107,10 @@ The whole app is translated: the public site, sign-in/sign-up and every cabinet 
 - Still English: notifications stored in the database keep the language they were created in, and job-created ones (no user language) are English.
 - Have a native speaker review the Russian and Uzbek copy before launch.
 
+### Load grade (A–D)
+
+Every load on the board carries a DAT-style letter, computed on read in `src/server/services/grade.ts` (no stored column): freshness 30, rate 20, broker 20, sources 15, completeness 15. A ≥ 85, B ≥ 70, C ≥ 50, D below. A suspicious rate or weight, or a loading date that already passed, caps the load at D. Hover the badge to see what raised or lowered it. The board filters by minimum grade and by "confirmed within N hours" (`minGrade`, `freshHours`) and can sort by grade.
+
 ### Data sources: policy
 
 We integrate only through an official API, a licensed feed, a partner agreement, or a CSV that an operator uploads and has the right to use. The code does no scraping and does not bypass logins, CAPTCHAs or paywalls.

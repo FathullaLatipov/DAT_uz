@@ -31,12 +31,15 @@ export const loadFiltersSchema = z.object({
   brokerId: z.string().optional(),
   source: z.string().optional(),
   verifiedOnly: z.coerce.boolean().optional(),
+  // Data trust: lowest acceptable grade (A best) and "confirmed by a source within N hours".
+  minGrade: z.enum(["A", "B", "C"]).optional(),
+  freshHours: z.coerce.number().min(1).max(720).optional(),
   minScore: z.coerce.number().min(0).max(100).optional(),
   maxDeadhead: z.coerce.number().min(0).optional(),
   distanceMin: z.coerce.number().min(0).optional(),
   distanceMax: z.coerce.number().min(0).optional(),
   truckId: z.string().optional(),
-  sort: z.enum(["score", "rate", "ratePerKm", "profit", "loading", "newest", "distance", "deadhead"]).optional(),
+  sort: z.enum(["score", "rate", "ratePerKm", "profit", "loading", "grade", "newest", "distance", "deadhead"]).optional(),
   q: z.string().max(300).optional(),
 });
 export type LoadFilters = z.infer<typeof loadFiltersSchema>;
