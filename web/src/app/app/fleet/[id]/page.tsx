@@ -7,22 +7,25 @@ import { can } from "@/server/auth/permissions";
 import { truckDetail } from "@/server/services/fleet";
 import { getMatchTrucks, recommendations } from "@/server/services/freight";
 import { bestChains, findBackhaul } from "@/server/services/backhaul";
-import { label } from "@/server/domain/enums";
-import { getCity } from "@/server/domain/geo";
+import { getI18n } from "@/i18n/server";
 import { Card, CardHeader, DemoBadge, Stat } from "@/components/ui/primitives";
 import { StatusBadge } from "@/components/fleet/status-badge";
 import { TruckForm } from "@/components/fleet/truck-form";
 import { TripHistoryTable } from "@/components/fleet/trip-history-table";
 import { KmStack, ProfitBars } from "@/components/charts/lazy";
 import { RecRow } from "@/components/loads/recommendation";
-import { cityLabel, RouteLabel } from "@/components/loads/parts";
-import { dateTime, pct, usd } from "@/lib/format";
+import { RouteLabel } from "@/components/loads/parts";
+import { pct } from "@/lib/format";
 
-export const metadata: Metadata = { title: "Truck" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: t("fleet.truck") };
+}
 
 export default async function TruckPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ assigned?: string }> }) {
   const s = await requireSession();
   if (s.role === "BROKER") redirect("/app/post");
+  const { t: tr, tn, label, city, num, dateTime, usd } = await getI18n();
   const { id } = await params;
   const { assigned } = await searchParams;
   const d = await truckDetail(s.orgId, id);
@@ -40,39 +43,39 @@ export default async function TruckPage({ params, searchParams }: { params: Prom
   return (
     <div className="mx-auto max-w-[1400px]">
       <Link href="/app/fleet" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-fg">
-        <ArrowLeft className="h-4 w-4" /> Fleet
+        <ArrowLeft className="h-4 w-4" /> {tr("nav.fleet")}
       </Link>
       {assigned && (
         <div className="mb-4 flex animate-fade-up items-center gap-2 rounded-lg border border-pos/30 bg-pos-soft px-3 py-2.5 text-sm text-pos">
-          <CheckCircle2 className="h-4 w-4" /> Load assigned to {t.code}. We&apos;ve started looking for its return load.
+          <CheckCircle2 className="h-4 w-4" /> {tr("fleet.assigned", { code: t.code })}
         </div>
       )}
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">Truck {t.code}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{tr("fleet.truckTitle", { code: t.code })}</h1>
             <StatusBadge status={t.status} />
           </div>
           <p className="mt-1 text-sm text-muted">
-            {(t.capacityKg / 1000).toFixed(0)} t · {label(t.bodyType)} · {t.volumeM3} m³ · {label(t.truckType)} · {t.driver?.name ?? "no driver assigned"}
+            {(t.capacityKg / 1000).toFixed(0)} {tr("units.tonnes")} · {label(t.bodyType)} · {t.volumeM3} {tr("units.cubicMetres")} · {label(t.truckType)} · {t.driver?.name ?? tr("fleet.noDriverAssigned")}
           </p>
         </div>
         <div className="flex gap-6 text-sm">
-          <div><div className="text-xs text-muted">Current</div><div className="font-medium">{t.currentCity.name}</div></div>
-          <div><div className="text-xs text-muted">Next available</div><div className="font-medium">{busy || t.availableFrom > new Date() ? `${cityLabel(matchTruck.currentCityId)}, ${dateTime(matchTruck.availableFrom)}` : "Now"}</div></div>
+          <div><div className="text-xs text-muted">{tr("fleet.current")}</div><div className="font-medium">{city(t.currentCityId)}</div></div>
+          <div><div className="text-xs text-muted">{tr("fleet.nextAvailable")}</div><div className="font-medium">{busy || t.availableFrom > new Date() ? `${city(matchTruck.currentCityId)}, ${dateTime(matchTruck.availableFrom)}` : tr("fleet.now")}</div></div>
         </div>
       </div>
 
       {activeTrip && (
         <Card className="mb-5 flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
-            <div className="text-xs text-muted">Current trip · {label(activeTrip.status).toLowerCase()}</div>
+            <div className="text-xs text-muted">{tr("fleet.currentTrip", { status: label(activeTrip.status).toLowerCase() })}</div>
             <RouteLabel origin={activeTrip.originCityId} dest={activeTrip.destCityId} />
           </div>
           <div className="num flex gap-6 text-sm">
-            <div><div className="text-xs text-muted">Revenue</div>{usd(activeTrip.revenueUsd)}</div>
-            <div><div className="text-xs text-muted">ETA</div>{activeTrip.etaAt ? dateTime(activeTrip.etaAt) : "—"}</div>
-            {activeTrip.offerId && <Link href={`/app/loads/${activeTrip.offerId}`} className="self-end text-brand hover:underline">Load →</Link>}
+            <div><div className="text-xs text-muted">{tr("calc.revenue")}</div>{usd(activeTrip.revenueUsd)}</div>
+            <div><div className="text-xs text-muted">{tr("fleet.eta")}</div>{activeTrip.etaAt ? dateTime(activeTrip.etaAt) : "—"}</div>
+            {activeTrip.offerId && <Link href={`/app/loads/${activeTrip.offerId}`} className="self-end text-brand hover:underline">{tr("fleet.loadLink")}</Link>}
           </div>
         </Card>
       )}
@@ -80,27 +83,27 @@ export default async function TruckPage({ params, searchParams }: { params: Prom
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="min-w-0 space-y-5">
           <Card>
-            <CardHeader title="This month" action={month.isDemo || last60.isDemo ? <DemoBadge /> : undefined} />
+            <CardHeader title={tr("fleet.thisMonth")} action={month.isDemo || last60.isDemo ? <DemoBadge /> : undefined} />
             <div className="grid grid-cols-2 gap-5 px-4 pb-5 sm:grid-cols-4 sm:px-5">
-              <Stat label="Trips" value={month.trips} />
-              <Stat label="Revenue" value={usd(month.revenue)} />
-              <Stat label="Profit" value={usd(month.profit)} tone={month.profit >= 0 ? "pos" : "neg"} />
-              <Stat label="Avg rate/km" value={month.ratePerKm ? `$${month.ratePerKm.toFixed(2)}` : "—"} />
-              <Stat label="Loaded km" value={month.loadedKm.toLocaleString("en-US")} />
-              <Stat label="Empty km" value={month.emptyKm.toLocaleString("en-US")} />
-              <Stat label="Utilization" value={pct(month.utilization)} tone="brand" />
-              <Stat label="Profit/km (60 d)" value={last60.profitPerKm ? `$${last60.profitPerKm.toFixed(2)}` : "—"} />
+              <Stat label={tr("fleet.trips")} value={month.trips} />
+              <Stat label={tr("calc.revenue")} value={usd(month.revenue)} />
+              <Stat label={tr("chart.profit")} value={usd(month.profit)} tone={month.profit >= 0 ? "pos" : "neg"} />
+              <Stat label={tr("fleet.avgRateKm")} value={month.ratePerKm ? usd(month.ratePerKm, 2) : "—"} />
+              <Stat label={tr("chart.loadedKm")} value={num(month.loadedKm)} />
+              <Stat label={tr("dash.emptyKm")} value={num(month.emptyKm)} />
+              <Stat label={tr("fleet.utilization")} value={pct(month.utilization)} tone="brand" />
+              <Stat label={tr("fleet.profitKm60")} value={last60.profitPerKm ? usd(last60.profitPerKm, 2) : "—"} />
             </div>
           </Card>
           <div className="grid gap-5 lg:grid-cols-2">
             <Card>
-              <CardHeader title="Profit per week" />
+              <CardHeader title={tr("fleet.profitWeek")} />
               <div className="px-3 pb-4">
                 <ProfitBars data={weeks} />
               </div>
             </Card>
             <Card>
-              <CardHeader title="Loaded vs empty km" />
+              <CardHeader title={tr("fleet.loadedVsEmpty")} />
               <div className="px-3 pb-4">
                 <KmStack data={weeks} />
               </div>
@@ -108,16 +111,16 @@ export default async function TruckPage({ params, searchParams }: { params: Prom
           </div>
 
           <Card className="overflow-hidden">
-            <CardHeader title="Trip history" />
+            <CardHeader title={tr("fleet.tripHistory")} />
             {t.trips.length === 0 ? (
-              <p className="px-5 pb-5 text-sm text-muted">No trips yet.</p>
+              <p className="px-5 pb-5 text-sm text-muted">{tr("fleet.noTripsYet")}</p>
             ) : (
               <TripHistoryTable trips={t.trips} />
             )}
           </Card>
 
           <Card>
-            <CardHeader title="Truck profile & cost settings" />
+            <CardHeader title={tr("fleet.profile")} />
             <div className="px-4 pb-5 sm:px-5">
               {can(s, "truck:write") ? (
                 <TruckForm
@@ -130,7 +133,7 @@ export default async function TruckPage({ params, searchParams }: { params: Prom
                   }}
                 />
               ) : (
-                <p className="text-sm text-muted">Your role can view but not edit trucks.</p>
+                <p className="text-sm text-muted">{tr("fleet.readOnly")}</p>
               )}
             </div>
           </Card>
@@ -139,47 +142,47 @@ export default async function TruckPage({ params, searchParams }: { params: Prom
         <div className="space-y-5">
           {backhaul && (
             <Card className="overflow-hidden border-brand/30">
-              <CardHeader title="Return loads" subtitle={`${t.code} arrives in ${cityLabel(backhaul.arrivalCityId)} ~${dateTime(backhaul.arrivalAt)}`} action={<Repeat className="h-4 w-4 text-brand" />} />
+              <CardHeader title={tr("dash.returnLoads")} subtitle={tr("fleet.arrivesIn", { code: t.code, city: city(backhaul.arrivalCityId), when: dateTime(backhaul.arrivalAt) })} action={<Repeat className="h-4 w-4 text-brand" />} />
               {backhaul.options.length ? (
                 <>
-                  <p className="px-5 pb-2 text-sm text-muted">We found {backhaul.totalFound} return load{backhaul.totalFound === 1 ? "" : "s"}.</p>
+                  <p className="px-5 pb-2 text-sm text-muted">{tn("fleet.foundReturn", backhaul.totalFound)}</p>
                   <div className="divide-y divide-border border-t border-border">
                     {backhaul.options.map((b) => <RecRow key={b.offer.id} rec={{ offer: b.offer, match: b.match, truck: matchTruck }} />)}
                   </div>
                 </>
               ) : (
-                <p className="px-5 pb-5 text-sm text-muted">No eligible return loads near {cityLabel(backhaul.arrivalCityId)} yet. We check again with every source sync.</p>
+                <p className="px-5 pb-5 text-sm text-muted">{tr("fleet.noReturn", { city: city(backhaul.arrivalCityId) })}</p>
               )}
             </Card>
           )}
           {!busy && (
             <Card className="overflow-hidden">
-              <CardHeader title={`Best loads for ${t.code}`} action={<Link href={`/app/loads?truckId=${t.id}`} className="text-xs text-brand hover:underline">All</Link>} />
+              <CardHeader title={tr("fleet.bestFor", { code: t.code })} action={<Link href={`/app/loads?truckId=${t.id}`} className="text-xs text-brand hover:underline">{tr("fleet.all")}</Link>} />
               {recs.length ? (
                 <div className="divide-y divide-border border-t border-border">{recs.map((r) => <RecRow key={r.offer.id} rec={r} />)}</div>
               ) : (
-                <p className="px-5 pb-5 text-sm text-muted">{["MAINTENANCE", "OFFLINE"].includes(t.status) ? `Truck is ${label(t.status).toLowerCase()} — set it to Available to get recommendations.` : "No eligible loads right now. Try widening your deadhead preference."}</p>
+                <p className="px-5 pb-5 text-sm text-muted">{["MAINTENANCE", "OFFLINE"].includes(t.status) ? tr("fleet.statusNotice", { status: label(t.status).toLowerCase() }) : tr("fleet.noLoadsNow")}</p>
               )}
             </Card>
           )}
           {chains.length > 0 && (
             <Card>
-              <CardHeader title="Route chaining" subtitle="Best load + return plans, ranked by profit per day" />
+              <CardHeader title={tr("fleet.chaining")} subtitle={tr("fleet.chainingSub")} />
               <div className="space-y-3 px-4 pb-5 sm:px-5">
                 {chains.map((c, i) => (
                   <div key={i} className="rounded-lg bg-surface-2 p-3">
                     <div className="flex flex-wrap items-center gap-1 text-sm font-medium">
                       {[c.legs[0].offer.originCityId, ...c.legs.map((l) => l.offer.destCityId)].map((cid, j, arr) => (
-                        <span key={j} className="inline-flex items-center gap-1">{getCity(cid)?.name}{j < arr.length - 1 && <span className="text-subtle">→</span>}</span>
+                        <span key={j} className="inline-flex items-center gap-1">{city(cid)}{j < arr.length - 1 && <span className="text-subtle">→</span>}</span>
                       ))}
                     </div>
                     <div className="num mt-1.5 grid grid-cols-3 gap-2 text-xs">
-                      <div><div className="text-muted">Profit</div><div className="font-semibold text-pos">{usd(c.totalProfit)}</div></div>
-                      <div><div className="text-muted">Per day</div><div className="font-semibold">{usd(c.profitPerDay)}</div></div>
-                      <div><div className="text-muted">Loaded km</div><div className="font-semibold">{pct(c.utilization)}</div></div>
+                      <div><div className="text-muted">{tr("chart.profit")}</div><div className="font-semibold text-pos">{usd(c.totalProfit)}</div></div>
+                      <div><div className="text-muted">{tr("fleet.perDay")}</div><div className="font-semibold">{usd(c.profitPerDay)}</div></div>
+                      <div><div className="text-muted">{tr("chart.loadedKm")}</div><div className="font-semibold">{pct(c.utilization)}</div></div>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                      {c.legs.map((l, j) => <Link key={l.offer.id} href={`/app/loads/${l.offer.id}?truck=${t.id}`} className="text-brand hover:underline">Leg {j + 1} →</Link>)}
+                      {c.legs.map((l, j) => <Link key={l.offer.id} href={`/app/loads/${l.offer.id}?truck=${t.id}`} className="text-brand hover:underline">{tr("fleet.leg", { n: j + 1 })}</Link>)}
                     </div>
                   </div>
                 ))}

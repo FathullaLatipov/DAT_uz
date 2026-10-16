@@ -5,19 +5,22 @@ import { Plus, Truck } from "lucide-react";
 import { requireSession } from "@/server/auth/session";
 import { can } from "@/server/auth/permissions";
 import { db } from "@/server/db";
-import { label } from "@/server/domain/enums";
-import { getCity } from "@/server/domain/geo";
+import { getI18n } from "@/i18n/server";
 import { fleetSummary } from "@/server/services/fleet";
 import { Card, DemoBadge, EmptyState, LinkButton, PageHeader, Stat } from "@/components/ui/primitives";
 import { StatusBadge } from "@/components/fleet/status-badge";
 import { FleetMap } from "@/components/fleet/fleet-map";
-import { dateTime, pct, usd } from "@/lib/format";
+import { pct } from "@/lib/format";
 
-export const metadata: Metadata = { title: "Fleet" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: t("nav.fleet") };
+}
 
 export default async function FleetPage() {
   const s = await requireSession();
   if (s.role === "BROKER") redirect("/app/post");
+  const { t: tr, label, city, country, num, dateTime, usd } = await getI18n();
   const [trucks, summary, routes] = await Promise.all([
     db.truck.findMany({
       where: { orgId: s.orgId },
@@ -28,28 +31,28 @@ export default async function FleetPage() {
     db.preferredRoute.findMany({ where: { orgId: s.orgId } }),
   ]);
   const canWrite = can(s, "truck:write");
-  const routeText = routes.map((r) => `${getCity(r.originCityId)?.name} → ${r.destCityId ? getCity(r.destCityId)?.name : r.destCountry}`).join(" · ");
+  const routeText = routes.map((r) => `${city(r.originCityId)} → ${r.destCityId ? city(r.destCityId) : country(r.destCountry ?? "")}`).join(" · ");
 
   return (
     <div className="mx-auto max-w-[1400px]">
       <PageHeader
-        title="Fleet"
-        subtitle={routeText ? `Preferred routes: ${routeText}` : "Set preferred routes in Settings to boost matching loads."}
-        actions={canWrite && <LinkButton href="/app/fleet/new"><Plus className="h-4 w-4" /> Add truck</LinkButton>}
+        title={tr("nav.fleet")}
+        subtitle={routeText ? tr("fleet.preferredRoutes", { routes: routeText }) : tr("fleet.setPreferred")}
+        actions={canWrite && <LinkButton href="/app/fleet/new"><Plus className="h-4 w-4" /> {tr("dash.addTruck")}</LinkButton>}
       />
       {trucks.length === 0 ? (
         <Card>
-          <EmptyState icon={<Truck className="h-5 w-5" />} title="No trucks yet" body="Add a truck with its body type, capacity and location — recommendations start immediately." actions={canWrite && <LinkButton href="/app/fleet/new">Add truck</LinkButton>} />
+          <EmptyState icon={<Truck className="h-5 w-5" />} title={tr("fleet.noTrucks")} body={tr("fleet.noTrucksBody")} actions={canWrite && <LinkButton href="/app/fleet/new">{tr("dash.addTruck")}</LinkButton>} />
         </Card>
       ) : (
         <div className="space-y-5">
           <Card className="grid grid-cols-2 gap-5 p-4 sm:grid-cols-3 sm:p-5 lg:grid-cols-6">
-            <Stat label="Trucks" value={summary.total} />
-            <Stat label="Available" value={summary.available} tone="pos" />
-            <Stat label="On route" value={summary.onRoute} />
-            <Stat label="Maintenance" value={summary.maintenance} />
-            <Stat label="Utilization (30 d)" value={pct(summary.stats30d.utilization)} sub={summary.stats30d.isDemo ? "demo trips" : undefined} tone="brand" />
-            <Stat label="Profit (30 d)" value={usd(summary.stats30d.profit)} />
+            <Stat label={tr("fleet.trucks")} value={summary.total} />
+            <Stat label={tr("fleet.available")} value={summary.available} tone="pos" />
+            <Stat label={tr("fleet.onRoute")} value={summary.onRoute} />
+            <Stat label={tr("fleet.maintenance")} value={summary.maintenance} />
+            <Stat label={tr("fleet.utilization30")} value={pct(summary.stats30d.utilization)} sub={summary.stats30d.isDemo ? tr("fleet.demoTrips") : undefined} tone="brand" />
+            <Stat label={tr("fleet.profit30")} value={usd(summary.stats30d.profit)} />
           </Card>
 
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
@@ -59,13 +62,13 @@ export default async function FleetPage() {
                 <table className="w-full min-w-[760px] text-sm">
                   <thead>
                     <tr className="border-b border-border bg-surface-2/60 text-left text-xs uppercase tracking-wide text-muted">
-                      <th className="px-4 py-2.5 font-medium">Truck</th>
-                      <th className="px-3 py-2.5 font-medium">Driver</th>
-                      <th className="px-3 py-2.5 font-medium">Location</th>
-                      <th className="px-3 py-2.5 font-medium">Status</th>
-                      <th className="px-3 py-2.5 font-medium">Current load</th>
-                      <th className="px-3 py-2.5 font-medium">Next available</th>
-                      <th className="px-3 py-2.5 text-right font-medium">Fuel</th>
+                      <th className="px-4 py-2.5 font-medium">{tr("fleet.colTruck")}</th>
+                      <th className="px-3 py-2.5 font-medium">{tr("calc.driver")}</th>
+                      <th className="px-3 py-2.5 font-medium">{tr("fleet.colLocation")}</th>
+                      <th className="px-3 py-2.5 font-medium">{tr("fleet.colStatus")}</th>
+                      <th className="px-3 py-2.5 font-medium">{tr("fleet.colCurrentLoad")}</th>
+                      <th className="px-3 py-2.5 font-medium">{tr("fleet.nextAvailable")}</th>
+                      <th className="px-3 py-2.5 text-right font-medium">{tr("calc.fuel")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -75,14 +78,14 @@ export default async function FleetPage() {
                         <tr key={t.id} className="relative transition-colors hover:bg-surface-2/70">
                           <td className="px-4 py-3">
                             <Link href={`/app/fleet/${t.id}`} className="font-semibold after:absolute after:inset-0">{t.code}</Link>
-                            <div className="text-xs text-muted">{(t.capacityKg / 1000).toFixed(0)} t · {label(t.bodyType)} · {t.volumeM3} m³</div>
+                            <div className="text-xs text-muted">{(t.capacityKg / 1000).toFixed(0)} {tr("units.tonnes")} · {label(t.bodyType)} · {t.volumeM3} {tr("units.cubicMetres")}</div>
                           </td>
-                          <td className="px-3 py-3">{t.driver?.name ?? <span className="text-subtle">Unassigned</span>}</td>
-                          <td className="px-3 py-3">{getCity(t.currentCityId)?.name}</td>
+                          <td className="px-3 py-3">{t.driver?.name ?? <span className="text-subtle">{tr("fleet.unassigned")}</span>}</td>
+                          <td className="px-3 py-3">{city(t.currentCityId)}</td>
                           <td className="px-3 py-3"><StatusBadge status={t.status} /></td>
-                          <td className="px-3 py-3">{trip ? `${getCity(trip.originCityId)?.name} → ${getCity(trip.destCityId)?.name}` : <span className="text-subtle">—</span>}</td>
-                          <td className="whitespace-nowrap px-3 py-3">{t.availableFrom <= new Date() && t.status === "AVAILABLE" ? <span className="text-pos">Now</span> : dateTime(t.availableFrom)}</td>
-                          <td className="num px-3 py-3 text-right">{t.fuelLPer100km} L</td>
+                          <td className="px-3 py-3">{trip ? `${city(trip.originCityId)} → ${city(trip.destCityId)}` : <span className="text-subtle">—</span>}</td>
+                          <td className="whitespace-nowrap px-3 py-3">{t.availableFrom <= new Date() && t.status === "AVAILABLE" ? <span className="text-pos">{tr("fleet.now")}</span> : dateTime(t.availableFrom)}</td>
+                          <td className="num px-3 py-3 text-right">{tr("fleet.fuelVal", { n: num(t.fuelLPer100km) })}</td>
                         </tr>
                       );
                     })}
@@ -98,14 +101,14 @@ export default async function FleetPage() {
                     <span className="font-semibold">{t.code}</span>
                     <StatusBadge status={t.status} />
                   </div>
-                  <div className="mt-1 text-sm text-muted">{(t.capacityKg / 1000).toFixed(0)} t {label(t.bodyType).toLowerCase()} · {getCity(t.currentCityId)?.name}</div>
-                  <div className="mt-1 text-xs text-subtle">{t.driver?.name ?? "No driver"}</div>
+                  <div className="mt-1 text-sm text-muted">{(t.capacityKg / 1000).toFixed(0)} {tr("units.tonnes")} {label(t.bodyType).toLowerCase()} · {city(t.currentCityId)}</div>
+                  <div className="mt-1 text-xs text-subtle">{t.driver?.name ?? tr("fleet.noDriver")}</div>
                 </Link>
               ))}
             </div>
             <Card className="overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3">
-                <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Fleet map</h2>
+                <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">{tr("fleet.map")}</h2>
                 {s.org.isDemo && <DemoBadge />}
               </div>
               <div className="h-80 xl:h-[420px]">
