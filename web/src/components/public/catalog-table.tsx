@@ -3,8 +3,8 @@
 import { Fragment } from "react";
 import { ChevronRight } from "lucide-react";
 import type { OfferWithRels } from "@/server/services/freight";
-import { label } from "@/server/domain/enums";
-import { cn, km, money, perKm, relativeDay, tonnes, usd } from "@/lib/format";
+import { useI18n } from "@/i18n/client";
+import { cn } from "@/lib/format";
 import { DemoBadge } from "../ui/primitives";
 import { Freshness, QualityBadge, RouteLabel, Sources } from "../loads/parts";
 import { LoadDetailPanel } from "../loads/load-detail-panel";
@@ -15,6 +15,7 @@ import { useExpandableRow } from "../loads/use-expandable-row";
  * a row expands the same public-safe detail panel inline, no private data included. */
 export function CatalogTable({ items }: { items: OfferWithRels[] }) {
   const { toggle, isOpen, containerRef } = useExpandableRow();
+  const { t, label, km, tonnes, relativeDay, usd, perKm, money } = useI18n();
   return (
     <div className="hidden overflow-hidden rounded-xl border border-border bg-surface shadow-card md:block">
       <div ref={containerRef} className="max-h-[calc(100dvh-13rem)] overflow-auto">
@@ -22,11 +23,11 @@ export function CatalogTable({ items }: { items: OfferWithRels[] }) {
           <thead className="sticky top-0 z-10">
             <tr className="border-b border-border bg-surface-2 text-left text-xs uppercase tracking-wide text-muted">
               <th className="w-8 px-2 py-2.5" />
-              <th className="px-3 py-2.5 font-medium">Route</th>
-              <th className="px-3 py-2.5 font-medium">Loading</th>
-              <th className="px-3 py-2.5 font-medium">Equipment / Cargo</th>
-              <th className="px-3 py-2.5 text-right font-medium">Rate</th>
-              <th className="px-3 py-2.5 font-medium">Source</th>
+              <th className="px-3 py-2.5 font-medium">{t("table.route")}</th>
+              <th className="px-3 py-2.5 font-medium">{t("table.loading")}</th>
+              <th className="px-3 py-2.5 font-medium">{t("table.equipment")}</th>
+              <th className="px-3 py-2.5 text-right font-medium">{t("table.rate")}</th>
+              <th className="px-3 py-2.5 font-medium">{t("table.source")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -48,7 +49,7 @@ export function CatalogTable({ items }: { items: OfferWithRels[] }) {
                         type="button"
                         aria-expanded={open}
                         aria-controls={`catalog-detail-${o.id}`}
-                        aria-label={open ? "Collapse details" : "Expand details"}
+                        aria-label={open ? t("table.collapse") : t("table.expand")}
                         className="flex h-6 w-6 items-center justify-center rounded text-subtle hover:bg-surface-3 hover:text-fg"
                       >
                         <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-90 text-brand")} />
@@ -73,7 +74,7 @@ export function CatalogTable({ items }: { items: OfferWithRels[] }) {
                           <div className="text-xs text-muted">{perKm(o.rateUsd / o.distanceKm)}{o.currency !== "USD" && ` · ${money(o.rate, o.currency)}`}</div>
                         </>
                       ) : (
-                        <span className="text-muted">{o.rateUsd > 0 ? "Unverified" : "Negotiable"}</span>
+                        <span className="text-muted">{o.rateUsd > 0 ? t("table.unverified") : t("table.negotiable")}</span>
                       )}
                     </td>
                     <td className="px-3 py-2.5">

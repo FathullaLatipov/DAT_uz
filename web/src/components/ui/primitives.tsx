@@ -73,13 +73,8 @@ export function Badge({ tone = "neutral", className, ...p }: ComponentProps<"spa
   );
 }
 
-export function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge tone="demo" className={className} title="Generated demo data — not real marketplace information">
-      DEMO DATA
-    </Badge>
-  );
-}
+// Translated: lives in demo-badge.tsx (a client component that reads the visitor's language).
+export { DemoBadge } from "./demo-badge";
 
 // ───────── Form controls ─────────
 export const inputClass =

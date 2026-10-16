@@ -1,17 +1,21 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { I18nProvider } from "@/i18n/client";
+import { getI18n } from "@/i18n/server";
 import "./globals.css";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"], display: "swap" });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"], display: "swap" });
+const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin", "cyrillic"], display: "swap" });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin", "cyrillic"], display: "swap" });
 
-export const metadata: Metadata = {
-  title: { default: "Karvon — Freight intelligence for Uzbekistan", template: "%s · Karvon" },
-  description:
-    "AI-powered load matching, profitability and market intelligence for truck owners, fleets and dispatchers in Uzbekistan and Central Asia.",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
-  openGraph: { title: "Karvon — Find the right load for every truck", type: "website" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { m } = await getI18n();
+  return {
+    title: { default: m.meta.siteTitle, template: "%s · Karvon" },
+    description: m.meta.siteDescription,
+    metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+    openGraph: { title: m.meta.ogTitle, type: "website" },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: [
@@ -23,13 +27,16 @@ export const viewport: Viewport = {
 // Applies the saved/system theme before first paint to avoid a flash.
 const themeScript = `(function(){try{var t=localStorage.getItem('theme');if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t}catch(e){}})()`;
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const { locale, m } = await getI18n();
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} min-h-dvh antialiased`}>{children}</body>
+      <body className={`${geistSans.variable} ${geistMono.variable} min-h-dvh antialiased`}>
+        <I18nProvider locale={locale} messages={m}>{children}</I18nProvider>
+      </body>
     </html>
   );
 }

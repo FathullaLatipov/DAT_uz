@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { ArrowLeftRight, Info } from "lucide-react";
 import { getSession } from "@/server/auth/session";
 import { db } from "@/server/db";
-import { getCity, estimateRoadKm, estimateTransitDays } from "@/server/domain/geo";
+import { estimateRoadKm, estimateTransitDays } from "@/server/domain/geo";
+import { getI18n } from "@/i18n/server";
 import { offerInclude } from "@/server/services/freight";
 import { parseRouteSlug, publicWhere, rateIsTrusted, routeSlug } from "@/server/services/catalog";
 import { laneStats } from "@/server/services/market";
@@ -14,20 +15,23 @@ import { CatalogTileList } from "@/components/public/catalog-tile-list";
 import { RouteLabel } from "@/components/loads/parts";
 import { RouteMap } from "@/components/loads/route-map";
 import { DemoBadge, EmptyState, LinkButton, Trend } from "@/components/ui/primitives";
-import { km, perKm, usd } from "@/lib/format";
 
 type Params = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
+  const { t, city } = await getI18n();
   const r = parseRouteSlug((await params).slug);
-  if (!r) return { title: "Route" };
-  const t = `${getCity(r.o)?.name} → ${getCity(r.d)?.name} freight loads`;
-  return { title: t, description: `Active truck loads from ${getCity(r.o)?.name} to ${getCity(r.d)?.name}, rates per km and market trend.` };
+  if (!r) return { title: t("meta.routeFallback") };
+  return {
+    title: t("meta.routeTitle", { route: `${city(r.o)} → ${city(r.d)}` }),
+    description: t("meta.routeDescription", { origin: city(r.o), dest: city(r.d) }),
+  };
 }
 
 export default async function RoutePage({ params }: Params) {
   const r = parseRouteSlug((await params).slug);
   if (!r) notFound();
+  const { t, tn, km, perKm, usd, city } = await getI18n();
   const [session, loads, lane, reverseCount] = await Promise.all([
     getSession(),
     db.freightOffer.findMany({ where: { ...publicWhere(), originCityId: r.o, destCityId: r.d }, include: offerInclude, orderBy: { loadingDate: "asc" } }),
@@ -41,16 +45,16 @@ export default async function RoutePage({ params }: Params) {
     <div className="min-h-dvh">
       <PublicHeader signedIn={!!session} />
       <main className="mx-auto max-w-7xl px-4 pt-6 sm:px-6">
-        <nav className="text-xs text-muted" aria-label="Breadcrumb">
-          <Link href="/" className="hover:text-fg">Home</Link> / <Link href="/catalog" className="hover:text-fg">Loads</Link> / <span>Route</span>
+        <nav className="text-xs text-muted" aria-label={t("catalog.breadcrumb")}>
+          <Link href="/" className="hover:text-fg">{t("common.home")}</Link> / <Link href="/catalog" className="hover:text-fg">{t("common.loads")}</Link> / <span>{t("meta.routeFallback")}</span>
         </nav>
         <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1><RouteLabel origin={r.o} dest={r.d} size="lg" className="sm:text-3xl" /></h1>
-            <p className="mt-1 text-sm text-muted">{km(distance)} (est.) · ~{estimateTransitDays(distance)} day(s) on the road · {loads.length} active load{loads.length === 1 ? "" : "s"}</p>
+            <p className="mt-1 text-sm text-muted">{t("route.distanceLine", { km: km(distance), days: tn("route.days", estimateTransitDays(distance)), loads: tn("catalog.activeLoads", loads.length) })}</p>
           </div>
           {reverseCount > 0 && (
-            <LinkButton href={`/routes/${routeSlug(r.d, r.o)}`} variant="outline" size="sm"><ArrowLeftRight className="h-4 w-4" /> Return direction · {reverseCount}</LinkButton>
+            <LinkButton href={`/routes/${routeSlug(r.d, r.o)}`} variant="outline" size="sm"><ArrowLeftRight className="h-4 w-4" /> {t("route.returnDirection", { n: reverseCount })}</LinkButton>
           )}
         </div>
 
@@ -60,28 +64,28 @@ export default async function RoutePage({ params }: Params) {
           </div>
           <div className="rounded-xl border border-border bg-surface p-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">Rates on this route</h2>
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">{t("route.ratesTitle")}</h2>
               {lane.isDemo && <DemoBadge />}
             </div>
             {lane.sufficient ? (
               <dl className="num mt-3 grid grid-cols-2 gap-4 text-sm">
-                <div><dt className="text-xs text-muted">Median (30 d)</dt><dd className="text-lg font-semibold">{perKm(lane.median)}</dd></div>
-                <div><dt className="text-xs text-muted">7-day trend</dt><dd className="text-lg"><Trend value={lane.trendPct} /></dd></div>
-                <div><dt className="text-xs text-muted">Range</dt><dd>{perKm(lane.min)} – {lane.max?.toFixed(2)}</dd></div>
-                <div><dt className="text-xs text-muted">Typical load</dt><dd>{usd(lane.avgRateUsd)}</dd></div>
+                <div><dt className="text-xs text-muted">{t("route.median30")}</dt><dd className="text-lg font-semibold">{perKm(lane.median)}</dd></div>
+                <div><dt className="text-xs text-muted">{t("route.trend7")}</dt><dd className="text-lg"><Trend value={lane.trendPct} /></dd></div>
+                <div><dt className="text-xs text-muted">{t("route.range")}</dt><dd>{perKm(lane.min)} – {lane.max?.toFixed(2)}</dd></div>
+                <div><dt className="text-xs text-muted">{t("route.typicalLoad")}</dt><dd>{usd(lane.avgRateUsd)}</dd></div>
               </dl>
             ) : (
-              <p className="mt-3 flex gap-2 text-sm text-muted"><Info className="mt-0.5 h-4 w-4 shrink-0" />Insufficient market data for this route ({lane.samples} loads in 30 days).</p>
+              <p className="mt-3 flex gap-2 text-sm text-muted"><Info className="mt-0.5 h-4 w-4 shrink-0" />{t("route.insufficient", { n: lane.samples })}</p>
             )}
-            {priced.length > 0 && <p className="mt-4 text-sm">Active offers from <strong className="num">{usd(Math.min(...priced.map((p) => p.rateUsd)))}</strong> to <strong className="num">{usd(Math.max(...priced.map((p) => p.rateUsd)))}</strong></p>}
-            <LinkButton href={session ? `/app/loads?origin=${r.o}&dest=${r.d}` : "/signup"} className="mt-4 w-full">{session ? "Rank for my trucks" : "Get profit per truck — free"}</LinkButton>
+            {priced.length > 0 && <p className="num mt-4 text-sm">{t("route.offersRange", { min: usd(Math.min(...priced.map((p) => p.rateUsd))), max: usd(Math.max(...priced.map((p) => p.rateUsd))) })}</p>}
+            <LinkButton href={session ? `/app/loads?origin=${r.o}&dest=${r.d}` : "/signup"} className="mt-4 w-full">{session ? t("route.rankCta") : t("route.profitCta")}</LinkButton>
           </div>
         </div>
 
-        <h2 className="mt-8 text-lg font-semibold">Loads on this route</h2>
+        <h2 className="mt-8 text-lg font-semibold">{t("route.loadsOnRoute")}</h2>
         {loads.length === 0 ? (
           <div className="mt-3 rounded-xl border border-border bg-surface">
-            <EmptyState title="No active loads on this route right now" body="Check the return direction or nearby routes." actions={<LinkButton href={`/catalog?origin=${r.o}`} variant="outline">Loads from {getCity(r.o)?.name}</LinkButton>} />
+            <EmptyState title={t("route.noneTitle")} body={t("route.noneBody")} actions={<LinkButton href={`/catalog?origin=${r.o}`} variant="outline">{t("route.loadsFrom", { city: city(r.o) })}</LinkButton>} />
           </div>
         ) : (
           <div className="mt-3">

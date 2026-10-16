@@ -20,13 +20,12 @@ import {
   XCircle,
 } from "lucide-react";
 import { apiCall } from "@/lib/client";
-import { getCity, countryName } from "@/server/domain/geo";
-import { label } from "@/server/domain/enums";
+import { useI18n } from "@/i18n/client";
 import type { LaneStats } from "@/server/services/market";
 import type { BrokerReliability } from "@/server/services/broker";
 import type { ScoreComponent } from "@/server/services/matching";
 import type { CalcInput } from "./profit-calculator";
-import { ago, cn, dateTime, km, money, perKm, shortDate, tonnes, usd } from "@/lib/format";
+import { cn } from "@/lib/format";
 import { Badge, Bar, DemoBadge, ScoreBadge, Select, Skeleton, Trend } from "../ui/primitives";
 import { RouteMap } from "./route-map";
 import { ProfitCalculator } from "./profit-calculator";
@@ -66,6 +65,7 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
   const [state, setState] = useState<{ status: "loading" } | { status: "error"; message: string } | { status: "ready"; data: LoadDetailResponse }>({ status: "loading" });
   const [truckId, setTruckId] = useState<string | undefined>(undefined);
   const [copied, setCopied] = useState<"details" | "route" | null>(null);
+  const { t, tn, m: msgs, label, city, country, km, tonnes, money, perKm, usd, ago, dateTime, shortDate } = useI18n();
 
   useEffect(() => {
     let cancelled = false;
@@ -86,7 +86,7 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
 
   if (state.status === "loading") {
     return (
-      <div className="border-t border-border bg-surface-2/40 p-4 sm:p-5" role="region" aria-label="Load details, loading">
+      <div className="border-t border-border bg-surface-2/40 p-4 sm:p-5" role="region" aria-label={t("panel.loadingAria")}>
         <div className="grid gap-4 lg:grid-cols-3">
           <Skeleton className="h-48" />
           <Skeleton className="h-48" />
@@ -98,8 +98,8 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
   if (state.status === "error") {
     return (
       <div className="border-t border-border bg-surface-2/40 p-4 text-sm sm:p-5" role="alert">
-        <p className="flex items-center gap-2 text-neg"><AlertTriangle className="h-4 w-4 shrink-0" /> Couldn&apos;t load details: {state.message}</p>
-        <Link href={fullPageHref} className="mt-2 inline-block text-brand hover:underline">Open the full page instead →</Link>
+        <p className="flex items-center gap-2 text-neg"><AlertTriangle className="h-4 w-4 shrink-0" /> {t("panel.couldntLoad", { message: state.message })}</p>
+        <Link href={fullPageHref} className="mt-2 inline-block text-brand hover:underline">{t("panel.openFullInstead")}</Link>
       </div>
     );
   }
@@ -118,18 +118,18 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
   };
   const detailsText = () =>
     [
-      `${getCity(o.originCityId)?.name ?? o.originCityId} → ${getCity(o.destCityId)?.name ?? o.destCityId}`,
+      `${city(o.originCityId)} → ${city(o.destCityId)}`,
       `${km(o.distanceKm)} · ${tonnes(o.weightKg)} · ${label(o.bodyType)} · ${label(o.cargoType)}`,
-      `Loading: ${dateTime(o.loadingDate)}`,
-      o.unloadingDate ? `Unloading: ${shortDate(o.unloadingDate)}` : null,
-      o.rateUsd > 0 ? `Rate: ${usd(o.rateUsd)}${perKmRate ? ` (${perKm(perKmRate)})` : ""}` : "Rate: negotiable",
+      t("panel.copyLoading", { when: dateTime(o.loadingDate) }),
+      o.unloadingDate ? t("panel.copyUnloading", { when: shortDate(o.unloadingDate) }) : null,
+      o.rateUsd > 0 ? t("panel.copyRate", { rate: `${usd(o.rateUsd)}${perKmRate ? ` (${perKm(perKmRate)})` : ""}` }) : t("panel.copyRateNegotiable"),
       `https://karvon.latipovfathulla.uz${fullPageHref}`,
     ]
       .filter(Boolean)
       .join("\n");
 
   return (
-    <div className="animate-fade-up border-t border-border bg-surface-2/40 p-4 sm:p-5" role="region" aria-label="Load details">
+    <div className="animate-fade-up border-t border-border bg-surface-2/40 p-4 sm:p-5" role="region" aria-label={t("panel.detailsAria")}>
       <div className="grid items-start gap-5 lg:grid-cols-2 xl:grid-cols-3">
         {/* Block A — route & trip */}
         <div className="min-w-0 space-y-3">
@@ -137,24 +137,24 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
             {o.originCityId && o.destCityId ? (
               <RouteMap origin={o.originCityId} dest={o.destCityId} truckCity={m?.truckCity} truckCode={m?.truckCode} className="h-full w-full" />
             ) : (
-              <div className="flex h-full items-center justify-center text-xs text-muted">No coordinates available for this route</div>
+              <div className="flex h-full items-center justify-center text-xs text-muted">{t("panel.noCoords")}</div>
             )}
           </div>
           <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm">
-            <DetailField icon={<RouteIcon className="h-3.5 w-3.5" />} label="Distance" value={`${km(o.distanceKm)} (est.)`} />
-            <DetailField icon={<Truck className="h-3.5 w-3.5" />} label="Truck body" value={label(o.bodyType)} />
-            <DetailField icon={<Weight className="h-3.5 w-3.5" />} label="Weight" value={tonnes(o.weightKg)} />
-            <DetailField icon={<Scale className="h-3.5 w-3.5" />} label="Volume" value={o.volumeM3 ? `${o.volumeM3} m³` : "—"} />
-            <DetailField icon={<MapPinned className="h-3.5 w-3.5" />} label="Loading" value={dateTime(o.loadingDate)} />
-            <DetailField icon={<MapPinned className="h-3.5 w-3.5" />} label="Unloading" value={o.unloadingDate ? shortDate(o.unloadingDate) : "—"} />
-            <DetailField icon={<Package className="h-3.5 w-3.5" />} label="Cargo" value={label(o.cargoType)} />
-            <DetailField icon={<Wallet className="h-3.5 w-3.5" />} label="Payment" value={o.paymentTerms ? label(o.paymentTerms) : "—"} />
+            <DetailField icon={<RouteIcon className="h-3.5 w-3.5" />} label={t("panel.distance")} value={`${km(o.distanceKm)} ${msgs.units.est}`} />
+            <DetailField icon={<Truck className="h-3.5 w-3.5" />} label={t("panel.truckBody")} value={label(o.bodyType)} />
+            <DetailField icon={<Weight className="h-3.5 w-3.5" />} label={t("panel.weight")} value={tonnes(o.weightKg)} />
+            <DetailField icon={<Scale className="h-3.5 w-3.5" />} label={t("panel.volume")} value={o.volumeM3 ? `${o.volumeM3} ${msgs.units.cubicMetres}` : "—"} />
+            <DetailField icon={<MapPinned className="h-3.5 w-3.5" />} label={t("panel.loading")} value={dateTime(o.loadingDate)} />
+            <DetailField icon={<MapPinned className="h-3.5 w-3.5" />} label={t("panel.unloading")} value={o.unloadingDate ? shortDate(o.unloadingDate) : "—"} />
+            <DetailField icon={<Package className="h-3.5 w-3.5" />} label={t("panel.cargo")} value={label(o.cargoType)} />
+            <DetailField icon={<Wallet className="h-3.5 w-3.5" />} label={t("panel.payment")} value={o.paymentTerms ? label(o.paymentTerms) : "—"} />
           </dl>
           {o.requirements.length > 0 && (
-            <p className="text-xs text-muted"><span className="font-medium text-fg">Requirements:</span> {o.requirements.join(", ")}</p>
+            <p className="text-xs text-muted"><span className="font-medium text-fg">{t("panel.requirements")}</span> {o.requirements.join(", ")}</p>
           )}
           <p className="text-xs text-subtle">
-            {listings.length} listing{listings.length === 1 ? "" : "s"} · id {listings[0]?.externalId ?? o.id.slice(0, 8)} · last seen {ago(lastSeen)}
+            {t("panel.listingLine", { listings: tn("panel.listings", listings.length), id: listings[0]?.externalId ?? o.id.slice(0, 8), ago: ago(lastSeen) })}
           </p>
         </div>
 
@@ -162,24 +162,24 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
         <div className="min-w-0 space-y-3">
           <div className="rounded-lg border border-border bg-surface p-3.5">
             <div className="flex items-baseline justify-between gap-2">
-              <span className="num text-xl font-semibold">{o.rateUsd > 0 ? usd(o.rateUsd) : "Negotiable"}</span>
+              <span className="num text-xl font-semibold">{o.rateUsd > 0 ? usd(o.rateUsd) : t("panel.negotiable")}</span>
               {perKmRate && <span className="num text-sm text-muted">{perKm(perKmRate)}</span>}
             </div>
-            {o.rateUsd > 0 && o.currency !== "USD" && <div className="num mt-0.5 text-xs text-subtle">{money(o.rate, o.currency)} original</div>}
+            {o.rateUsd > 0 && o.currency !== "USD" && <div className="num mt-0.5 text-xs text-subtle">{t("panel.originalAmount", { amount: money(o.rate, o.currency) })}</div>}
             <div className="mt-2.5 border-t border-border pt-2.5 text-xs">
               {lane.sufficient ? (
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted">
-                  <span>Market median <strong className="num text-fg">{perKm(lane.median)}</strong></span>
-                  <span>range {perKm(lane.min)}–{lane.max?.toFixed(2)}</span>
+                  <span>{t("panel.marketMedian")} <strong className="num text-fg">{perKm(lane.median)}</strong></span>
+                  <span>{t("panel.rangeLine", { min: perKm(lane.min), max: lane.max?.toFixed(2) ?? "—" })}</span>
                   <Trend value={lane.trendPct} />
                   {perKmRate && lane.median && (
                     <span className={perKmRate >= lane.median ? "text-pos" : "text-warn"}>
-                      {perKmRate >= lane.median ? "+" : "−"}{Math.abs(Math.round((perKmRate / lane.median - 1) * 100))}% vs market
+                      {t(perKmRate >= lane.median ? "panel.vsMarketUp" : "panel.vsMarketDown", { pct: Math.abs(Math.round((perKmRate / lane.median - 1) * 100)) })}
                     </span>
                   )}
                 </div>
               ) : (
-                <p className="flex items-center gap-1.5 text-muted"><Info className="h-3.5 w-3.5 shrink-0" /> Insufficient market data for this lane ({lane.samples} loads/30d)</p>
+                <p className="flex items-center gap-1.5 text-muted"><Info className="h-3.5 w-3.5 shrink-0" /> {t("panel.insufficientLane", { n: lane.samples })}</p>
               )}
             </div>
           </div>
@@ -189,10 +189,10 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <ScoreBadge score={m.score} eligible={m.eligible} size="sm" />
-                  <span className="text-sm font-medium">{m.eligible ? `${m.score}% match` : "Not eligible"}</span>
+                  <span className="text-sm font-medium">{m.eligible ? t("panel.matchPct", { n: m.score }) : t("panel.notEligible")}</span>
                 </div>
                 {data.truckOptions && data.truckOptions.length > 1 && (
-                  <Select aria-label="Truck" value={data.selectedTruckId ?? ""} onChange={(e) => setTruckId(e.target.value)} className="h-7 w-40 text-xs">
+                  <Select aria-label={t("panel.truck")} value={data.selectedTruckId ?? ""} onChange={(e) => setTruckId(e.target.value)} className="h-7 w-40 text-xs">
                     {data.truckOptions.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
                   </Select>
                 )}
@@ -206,11 +206,11 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
             </>
           ) : !data.authenticated ? (
             <div className="rounded-lg bg-surface-2 p-3 text-xs">
-              <div className="flex items-center gap-1.5 font-medium"><Lock className="h-3.5 w-3.5 text-muted" /> Profit & match score</div>
-              <p className="mt-1 text-muted">Sign in and add a truck to see deadhead, estimated profit and match score for this load.</p>
+              <div className="flex items-center gap-1.5 font-medium"><Lock className="h-3.5 w-3.5 text-muted" /> {t("panel.profitLockedTitle")}</div>
+              <p className="mt-1 text-muted">{t("panel.profitLockedBody")}</p>
             </div>
           ) : (
-            <p className="text-xs text-muted">Add a truck to your fleet to see match score and profit for this load.</p>
+            <p className="text-xs text-muted">{t("panel.addTruck")}</p>
           )}
         </div>
 
@@ -222,22 +222,22 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold">{broker.name}</div>
-                    <div className="mt-0.5 text-xs text-muted">{broker.countryCode ? countryName(broker.countryCode) : "Location unknown"}</div>
+                    <div className="mt-0.5 text-xs text-muted">{broker.countryCode ? country(broker.countryCode) : t("panel.locationUnknown")}</div>
                   </div>
-                  {broker.verified ? <Badge tone="pos">Verified</Badge> : <Badge>Not verified</Badge>}
+                  {broker.verified ? <Badge tone="pos">{t("panel.verified")}</Badge> : <Badge>{t("panel.notVerified")}</Badge>}
                 </div>
                 {rel?.sufficient ? (
                   <div className="mt-2.5 grid grid-cols-3 gap-2 border-t border-border pt-2.5 text-center text-xs">
-                    <div><div className="text-muted">Rating</div><div className="font-semibold">{rel.avgRating?.toFixed(1)} ★</div></div>
-                    <div><div className="text-muted">On time</div><div className="font-semibold">{rel.paidOnTimePct ?? "—"}%</div></div>
-                    <div><div className="text-muted">Disputes</div><div className="font-semibold">{rel.disputePct ?? "—"}%</div></div>
+                    <div><div className="text-muted">{t("panel.rating")}</div><div className="font-semibold">{rel.avgRating?.toFixed(1)} ★</div></div>
+                    <div><div className="text-muted">{t("panel.onTime")}</div><div className="font-semibold">{rel.paidOnTimePct ?? "—"}%</div></div>
+                    <div><div className="text-muted">{t("panel.disputes")}</div><div className="font-semibold">{rel.disputePct ?? "—"}%</div></div>
                   </div>
                 ) : data.authenticated ? (
-                  <p className="mt-2 text-xs text-muted">No reliability history on the platform yet.</p>
+                  <p className="mt-2 text-xs text-muted">{t("panel.noHistory")}</p>
                 ) : null}
               </>
             ) : (
-              <p className="text-sm text-muted">Broker not specified by the source.</p>
+              <p className="text-sm text-muted">{t("panel.brokerUnspecified")}</p>
             )}
           </div>
 
@@ -252,12 +252,12 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
                 ))}
               </ul>
             ) : (
-              <p className="text-xs text-muted">No contact details provided by the source for this listing.</p>
+              <p className="text-xs text-muted">{t("panel.noContacts")}</p>
             )
           ) : (
             <div className="rounded-lg bg-surface-2 p-3 text-xs">
-              <div className="flex items-center gap-1.5 font-medium"><Lock className="h-3.5 w-3.5 text-muted" /> Contacts</div>
-              <p className="mt-1 text-muted">Sign in to see contact details for this load.</p>
+              <div className="flex items-center gap-1.5 font-medium"><Lock className="h-3.5 w-3.5 text-muted" /> {t("panel.contactsLockedTitle")}</div>
+              <p className="mt-1 text-muted">{t("panel.contactsLockedBody")}</p>
             </div>
           )}
 
@@ -274,18 +274,18 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
 
           <div className="flex flex-wrap gap-1.5 border-t border-border pt-3">
             <button onClick={() => copyText(detailsText(), "details")} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted hover:text-fg">
-              {copied === "details" ? <Check className="h-3 w-3 text-pos" /> : <Clipboard className="h-3 w-3" />} Copy load
+              {copied === "details" ? <Check className="h-3 w-3 text-pos" /> : <Clipboard className="h-3 w-3" />} {t("panel.copyLoad")}
             </button>
-            <button onClick={() => copyText(`${getCity(o.originCityId)?.name ?? o.originCityId} → ${getCity(o.destCityId)?.name ?? o.destCityId}`, "route")} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted hover:text-fg">
-              {copied === "route" ? <Check className="h-3 w-3 text-pos" /> : <Clipboard className="h-3 w-3" />} Copy route
+            <button onClick={() => copyText(`${city(o.originCityId)} → ${city(o.destCityId)}`, "route")} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted hover:text-fg">
+              {copied === "route" ? <Check className="h-3 w-3 text-pos" /> : <Clipboard className="h-3 w-3" />} {t("panel.copyRoute")}
             </button>
             {listings[0]?.sourceUrl && (
               <a href={listings[0].sourceUrl} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted hover:text-fg">
-                <ExternalLink className="h-3 w-3" /> Open source
+                <ExternalLink className="h-3 w-3" /> {t("panel.openSource")}
               </a>
             )}
             <Link href={fullPageHref} className="ml-auto inline-flex items-center gap-1 rounded-md bg-brand px-2.5 py-1 text-xs font-medium text-brand-fg hover:brightness-110">
-              Open full page →
+              {t("panel.openFullPage")}
             </Link>
           </div>
         </div>
@@ -296,11 +296,11 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
         <div className={cn("mt-5 grid gap-x-8 gap-y-5 border-t border-border pt-4", m.components.length > 0 && data.backhaul && "lg:grid-cols-[3fr_2fr]")}>
           {m.components.length > 0 && (
             <div className="min-w-0">
-              <div className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted">Why this score</div>
+              <div className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted">{t("panel.whyScore")}</div>
               <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2 xl:grid-cols-3">
                 {m.components.map((c) => (
                   <div key={c.key} title={c.detail}>
-                    <div className="mb-1 flex justify-between gap-2 text-xs"><span className="truncate">{c.label}</span><span className="num font-medium">{c.score}%</span></div>
+                    <div className="mb-1 flex justify-between gap-2 text-xs"><span className="truncate">{msgs.panel.components[c.key] ?? c.label}</span><span className="num font-medium">{c.score}%</span></div>
                     <Bar value={c.score} tone={c.score >= 80 ? "pos" : c.score >= 55 ? "brand" : c.score >= 35 ? "warn" : "neg"} />
                   </div>
                 ))}
@@ -309,20 +309,20 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
           )}
           {data.backhaul && (
             <div className="min-w-0">
-              <div className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted"><Repeat className="h-3.5 w-3.5" /> Return loads near destination</div>
+              <div className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted"><Repeat className="h-3.5 w-3.5" /> {t("panel.returnLoads")}</div>
               {data.backhaul.options.length ? (
                 <ul className="grid gap-1.5">
                   {data.backhaul.options.map((b) => (
                     <li key={b.offer.id}>
                       <Link href={`/app/loads/${b.offer.id}`} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-xs hover:bg-surface-3">
-                        <span className="truncate">{getCity(b.offer.originCityId)?.name} → {getCity(b.offer.destCityId)?.name}</span>
+                        <span className="truncate">{city(b.offer.originCityId)} → {city(b.offer.destCityId)}</span>
                         <span className="num shrink-0"><span className="text-pos">{usd(b.match.profit.profit)}</span> · {b.match.score}%</span>
                       </Link>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-muted">No eligible return loads found near the destination yet.</p>
+                <p className="text-xs text-muted">{t("panel.noReturn")}</p>
               )}
             </div>
           )}
