@@ -776,7 +776,8 @@ export const en = {
     nearMe: "Near me",
     nearMeTitle: "Find loads near my location (your coordinates stay in the browser)",
     locating: "Finding your location…",
-    nearCity: "Near {city} ({dist} away). Showing loads from around there.",
+    nearCity: "Your location: {city}",
+    clearLocation: "Clear location",
     locFar: "No city we cover is within {n} km of you.",
     loc: {
       unsupported: "This browser can't share your location.",

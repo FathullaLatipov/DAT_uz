@@ -765,7 +765,8 @@ export const uz: Messages = {
     nearMe: "Yaqinimda",
     nearMeTitle: "Joylashuvim yaqinidagi yuklarni topish (koordinatalar brauzerda qoladi)",
     locating: "Joylashuvingiz aniqlanmoqda…",
-    nearCity: "{city} yaqinida ({dist}). Shu atrofdagi yuklar ko'rsatildi.",
+    nearCity: "Sizning joylashuvingiz: {city}",
+    clearLocation: "Joylashuvni tozalash",
     locFar: "Sizdan {n} km atrofida bizning ro'yxatdagi shahar yo'q.",
     loc: {
       unsupported: "Bu brauzer joylashuvni aniqlay olmaydi.",

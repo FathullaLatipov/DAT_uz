@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LocateFixed, Loader2 } from "lucide-react";
+import { LocateFixed, Loader2, X } from "lucide-react";
 import { CITIES, haversineKm } from "@/server/domain/geo";
 import { useI18n } from "@/i18n/client";
 import { cn } from "@/lib/format";
@@ -45,15 +45,43 @@ export function locateNearestCity(): Promise<NearMeResult> {
 
 export type NearMeStatus = { kind: "busy" } | { kind: "ok"; cityId: string; distanceKm: number } | { kind: "error"; error: NearMeError } | null;
 
-/** Message line shown under the search bar. */
-export function NearMeNote({ status }: { status: NearMeStatus }) {
-  const { t, city, km } = useI18n();
+const STORE = "karvon.loc";
+export const saveLocation = (r: NearMeResult | null) => {
+  try {
+    if (r) localStorage.setItem(STORE, JSON.stringify(r));
+    else localStorage.removeItem(STORE);
+  } catch {}
+};
+export function loadLocation(): NearMeResult | null {
+  try {
+    const r = JSON.parse(localStorage.getItem(STORE) ?? "null");
+    return r && typeof r.cityId === "string" && CITIES.some((c) => c.id === r.cityId) ? { cityId: r.cityId, distanceKm: Number(r.distanceKm) || 0 } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Line under the search bar. Errors and "locating…" are transient; once a location is found it stays
+ * as a chip ("Your location: Tashkent · within 100 km") for as long as the origin is that city.
+ */
+export function NearMeNote({ status, originId, radiusKm, onClear }: { status: NearMeStatus; originId: string; radiusKm: string; onClear: () => void }) {
+  const { t, city } = useI18n();
   if (!status) return null;
-  const text =
-    status.kind === "busy" ? t("toolbar.locating")
-    : status.kind === "ok" ? t("toolbar.nearCity", { city: city(status.cityId), dist: km(Math.round(status.distanceKm)) })
-    : status.error === "far" ? t("toolbar.locFar", { n: NEAR_MAX_KM })
-    : t(`toolbar.loc.${status.error}`);
+  if (status.kind === "ok") {
+    if (status.cityId !== originId) return null;
+    return (
+      <p role="status" className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-brand-soft py-1 pl-2.5 pr-1.5 text-xs font-medium text-brand">
+        <LocateFixed className="h-3.5 w-3.5" />
+        {t("toolbar.nearCity", { city: city(status.cityId) })}
+        {radiusKm && <span className="font-normal text-muted">· {t("toolbar.withinOrigin", { n: radiusKm })}</span>}
+        <button type="button" onClick={onClear} title={t("toolbar.clearLocation")} aria-label={t("toolbar.clearLocation")} className="rounded-full p-0.5 hover:bg-brand/10">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </p>
+    );
+  }
+  const text = status.kind === "busy" ? t("toolbar.locating") : status.error === "far" ? t("toolbar.locFar", { n: NEAR_MAX_KM }) : t(`toolbar.loc.${status.error}`);
   return (
     <p role="status" className={cn("mt-2 text-xs", status.kind === "error" ? "text-warn" : "text-muted")}>
       {text}
@@ -87,6 +115,7 @@ export function NearMeButton({
     onStatus({ kind: "busy" });
     try {
       const r = await locateNearestCity();
+      saveLocation(r);
       onStatus({ kind: "ok", ...r });
       onFound(r);
     } catch (e) {
