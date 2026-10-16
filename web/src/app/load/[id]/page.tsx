@@ -17,15 +17,15 @@ import {
 } from "lucide-react";
 import { getSession } from "@/server/auth/session";
 import { db, parseJson } from "@/server/db";
-import { label } from "@/server/domain/enums";
-import { estimateTransitDays, getCity } from "@/server/domain/geo";
+import { estimateTransitDays } from "@/server/domain/geo";
+import { getI18n } from "@/i18n/server";
 import { routeSlug } from "@/server/services/catalog";
 import { laneStats, MIN_SAMPLES } from "@/server/services/market";
 import { PublicFooter, PublicHeader } from "@/components/public/public-header";
 import { Freshness, QualityBadge, RouteLabel } from "@/components/loads/parts";
 import { RouteMap } from "@/components/loads/route-map";
 import { Badge, Card, CardHeader, DemoBadge, LinkButton, Trend } from "@/components/ui/primitives";
-import { ago, cn, dateTime, km, money, perKm, shortDate, tonnes, usd } from "@/lib/format";
+import { cn } from "@/lib/format";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -34,15 +34,17 @@ async function load(id: string) {
 }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
+  const { t, city, label, tonnes } = await getI18n();
   const o = await load((await params).id);
-  if (!o) return { title: "Load" };
-  return { title: `${getCity(o.originCityId)?.name} → ${getCity(o.destCityId)?.name}, ${tonnes(o.weightKg)} ${label(o.bodyType).toLowerCase()}` };
+  if (!o) return { title: t("meta.loadFallback") };
+  return { title: `${city(o.originCityId)} → ${city(o.destCityId)}, ${tonnes(o.weightKg)} ${label(o.bodyType).toLowerCase()}` };
 }
 
 /** Public load page: everything except contacts and per-truck analysis, which need an account. */
 export default async function PublicLoad({ params, searchParams }: Params & { searchParams: Promise<{ posted?: string }> }) {
   const { id } = await params;
   const { posted } = await searchParams;
+  const { t, tn, label, city, ago, dateTime, km, money, perKm, shortDate, tonnes, usd, m: msgs } = await getI18n();
   const [session, o] = await Promise.all([getSession(), load(id)]);
   if (!o) notFound();
   const lane = await laneStats(o.originCityId, o.destCityId);
@@ -52,15 +54,15 @@ export default async function PublicLoad({ params, searchParams }: Params & { se
   const reqs = parseJson<string[]>(o.requirements, []);
   const transitDays = estimateTransitDays(o.distanceKm);
   const details: { icon: React.ReactNode; label: string; value: React.ReactNode }[] = [
-    { icon: <Package className="h-4 w-4" />, label: "Cargo", value: label(o.cargoType) },
-    { icon: <Weight className="h-4 w-4" />, label: "Weight", value: tonnes(o.weightKg) },
-    { icon: <Scale className="h-4 w-4" />, label: "Volume", value: o.volumeM3 ? `${o.volumeM3} m³` : "—" },
-    { icon: <Truck className="h-4 w-4" />, label: "Truck body", value: label(o.bodyType) },
-    { icon: <CalendarClock className="h-4 w-4" />, label: "Loading", value: dateTime(o.loadingDate) },
-    { icon: <CalendarCheck2 className="h-4 w-4" />, label: "Unloading", value: o.unloadingDate ? shortDate(o.unloadingDate) : "—" },
-    { icon: <RouteIcon className="h-4 w-4" />, label: "Distance", value: `${km(o.distanceKm)} (est.) · ~${transitDays} day(s)` },
-    { icon: <Wallet className="h-4 w-4" />, label: "Payment", value: label(o.paymentTerms) },
-    { icon: <ListChecks className="h-4 w-4" />, label: "Requirements", value: reqs.length ? reqs.join(", ") : "—" },
+    { icon: <Package className="h-4 w-4" />, label: t("load.cargo"), value: label(o.cargoType) },
+    { icon: <Weight className="h-4 w-4" />, label: t("load.weight"), value: tonnes(o.weightKg) },
+    { icon: <Scale className="h-4 w-4" />, label: t("load.volume"), value: o.volumeM3 ? `${o.volumeM3} ${msgs.units.cubicMetres}` : "—" },
+    { icon: <Truck className="h-4 w-4" />, label: t("load.truckBody"), value: label(o.bodyType) },
+    { icon: <CalendarClock className="h-4 w-4" />, label: t("load.loading"), value: dateTime(o.loadingDate) },
+    { icon: <CalendarCheck2 className="h-4 w-4" />, label: t("load.unloading"), value: o.unloadingDate ? shortDate(o.unloadingDate) : "—" },
+    { icon: <RouteIcon className="h-4 w-4" />, label: t("load.distance"), value: t("load.distanceValue", { km: km(o.distanceKm), days: tn("route.days", transitDays) }) },
+    { icon: <Wallet className="h-4 w-4" />, label: t("load.payment"), value: label(o.paymentTerms) },
+    { icon: <ListChecks className="h-4 w-4" />, label: t("load.requirements"), value: reqs.length ? reqs.join(", ") : "—" },
   ];
 
   return (
@@ -69,11 +71,11 @@ export default async function PublicLoad({ params, searchParams }: Params & { se
       <main className="mx-auto max-w-6xl px-4 pt-6 sm:px-6">
         {posted && (
           <div className="mb-4 rounded-lg border border-pos/30 bg-pos-soft px-3 py-2.5 text-sm text-pos">
-            Your load is published and visible in the catalog. Carriers with matching trucks will see it ranked for them.
+            {t("load.published")}
           </div>
         )}
-        <nav className="text-xs text-muted" aria-label="Breadcrumb">
-          <Link href="/" className="hover:text-fg">Home</Link> / <Link href={`/routes/${routeSlug(o.originCityId, o.destCityId)}`} className="hover:text-fg">{getCity(o.originCityId)?.name} → {getCity(o.destCityId)?.name}</Link> / <span>Load</span>
+        <nav className="text-xs text-muted" aria-label={t("catalog.breadcrumb")}>
+          <Link href="/" className="hover:text-fg">{t("common.home")}</Link> / <Link href={`/routes/${routeSlug(o.originCityId, o.destCityId)}`} className="hover:text-fg">{city(o.originCityId)} → {city(o.destCityId)}</Link> / <span>{t("load.breadcrumbLoad")}</span>
         </nav>
         <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -92,12 +94,12 @@ export default async function PublicLoad({ params, searchParams }: Params & { se
             )}
           >
             <div className={cn("num text-3xl font-bold tracking-tight", trusted ? "text-brand" : "text-fg")}>
-              {trusted ? usd(o.rateUsd) : o.rateUsd > 0 ? "Rate unverified" : "Negotiable"}
+              {trusted ? usd(o.rateUsd) : o.rateUsd > 0 ? t("load.rateUnverified") : t("load.negotiable")}
             </div>
             {trusted ? (
               <div className="num mt-0.5 text-sm text-muted">{perKm(perKmRate)}{o.currency !== "USD" && ` · ${money(o.rate, o.currency)}`}</div>
             ) : (
-              <div className="mt-0.5 text-sm text-muted">Contact to negotiate</div>
+              <div className="mt-0.5 text-sm text-muted">{t("load.contactToNegotiate")}</div>
             )}
           </div>
         </div>
@@ -108,13 +110,13 @@ export default async function PublicLoad({ params, searchParams }: Params & { se
               <div className="relative h-60 sm:h-80">
                 <RouteMap origin={o.originCityId} dest={o.destCityId} className="h-full w-full" />
                 <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-1.5 rounded-lg border border-border bg-surface/95 px-2.5 py-1.5 text-xs font-medium shadow-card backdrop-blur-sm">
-                  <RouteIcon className="h-3.5 w-3.5 text-brand" /> {km(o.distanceKm)} · ~{transitDays} day(s)
+                  <RouteIcon className="h-3.5 w-3.5 text-brand" /> {km(o.distanceKm)} · ~{tn("route.days", transitDays)}
                 </div>
               </div>
             </Card>
 
             <Card>
-              <CardHeader title="Shipment details" />
+              <CardHeader title={t("load.shipmentDetails")} />
               <div className="grid grid-cols-1 gap-x-6 gap-y-4 px-4 pb-5 text-sm sm:grid-cols-2 sm:px-5 lg:grid-cols-3">
                 {details.map((d) => (
                   <div key={d.label} className="flex items-start gap-2.5">
@@ -129,54 +131,54 @@ export default async function PublicLoad({ params, searchParams }: Params & { se
             </Card>
 
             <Card>
-              <CardHeader title="Market rate" subtitle={`${getCity(o.originCityId)?.name} → ${getCity(o.destCityId)?.name}`} action={lane.isDemo ? <DemoBadge /> : undefined} />
+              <CardHeader title={t("load.marketRate")} subtitle={`${city(o.originCityId)} → ${city(o.destCityId)}`} action={lane.isDemo ? <DemoBadge /> : undefined} />
               <div className="px-4 pb-5 sm:px-5">
                 {lane.sufficient ? (
                   <>
                     <dl className="num grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
-                      <div><dt className="text-xs text-muted">Median (30 d)</dt><dd className="text-lg font-semibold">{perKm(lane.median)}</dd></div>
-                      <div><dt className="text-xs text-muted">Range</dt><dd className="text-lg">{perKm(lane.min)} – {lane.max?.toFixed(2)}</dd></div>
-                      <div><dt className="text-xs text-muted">7-day trend</dt><dd className="text-lg"><Trend value={lane.trendPct} /></dd></div>
+                      <div><dt className="text-xs text-muted">{t("load.median30")}</dt><dd className="text-lg font-semibold">{perKm(lane.median)}</dd></div>
+                      <div><dt className="text-xs text-muted">{t("load.range")}</dt><dd className="text-lg">{perKm(lane.min)} – {lane.max?.toFixed(2)}</dd></div>
+                      <div><dt className="text-xs text-muted">{t("load.trend7")}</dt><dd className="text-lg"><Trend value={lane.trendPct} /></dd></div>
                       {trusted && (
-                        <div><dt className="text-xs text-muted">This load</dt><dd className="text-lg">{perKm(perKmRate)}</dd></div>
+                        <div><dt className="text-xs text-muted">{t("load.thisLoad")}</dt><dd className="text-lg">{perKm(perKmRate)}</dd></div>
                       )}
                     </dl>
                     {!trusted && lane.median && (
-                      <p className="mt-3 text-sm text-muted">No rate published for this load. Based on the lane median, a typical rate here is around <strong className="num text-fg">{usd(Math.round(lane.median * o.distanceKm))}</strong> ({perKm(lane.median)} × {km(o.distanceKm)}) — an estimate from recent market activity, not this load&apos;s own price.</p>
+                      <p className="num mt-3 text-sm text-muted">{t("load.noRateEstimate", { amount: usd(Math.round(lane.median * o.distanceKm)), perKm: perKm(lane.median), km: km(o.distanceKm) })}</p>
                     )}
                     {trusted && lane.median && (
-                      <p className="mt-3 text-sm text-muted">This load is {perKmRate >= lane.median ? `${Math.round((perKmRate / lane.median - 1) * 100)}% above` : `${Math.round((1 - perKmRate / lane.median) * 100)}% below`} the lane median, based on {lane.samples} loads in the last 30 days.</p>
+                      <p className="mt-3 text-sm text-muted">{perKmRate >= lane.median ? t("load.aboveMedian", { pct: Math.round((perKmRate / lane.median - 1) * 100), n: lane.samples }) : t("load.belowMedian", { pct: Math.round((1 - perKmRate / lane.median) * 100), n: lane.samples })}</p>
                     )}
                   </>
                 ) : (
-                  <p className="flex items-center gap-2 text-sm text-muted"><Info className="h-4 w-4 shrink-0" /> Insufficient market data for this lane ({lane.samples} loads in 30 days; need {MIN_SAMPLES}).</p>
+                  <p className="flex items-center gap-2 text-sm text-muted"><Info className="h-4 w-4 shrink-0" /> {t("load.insufficient", { n: lane.samples, min: MIN_SAMPLES })}</p>
                 )}
               </div>
             </Card>
           </div>
           <aside className="space-y-5">
             <Card>
-              <CardHeader title="Shipper / broker" />
+              <CardHeader title={t("load.broker")} />
               <div className="px-4 pb-5 sm:px-5">
                 {o.broker ? (
                   <>
                     <div className="font-semibold">{o.broker.name}</div>
-                    <div className="mt-1.5 flex gap-1.5">{o.broker.verified ? <Badge tone="pos"><BadgeCheck className="h-3 w-3" /> Verified</Badge> : <Badge>Not verified</Badge>}</div>
+                    <div className="mt-1.5 flex gap-1.5">{o.broker.verified ? <Badge tone="pos"><BadgeCheck className="h-3 w-3" /> {t("load.brokerVerified")}</Badge> : <Badge>{t("load.brokerNotVerified")}</Badge>}</div>
                   </>
                 ) : (
-                  <p className="text-sm text-muted">Not specified by the source.</p>
+                  <p className="text-sm text-muted">{t("load.notSpecified")}</p>
                 )}
                 <div className="mt-4 rounded-lg bg-surface-2 p-3.5 text-sm">
-                  <div className="flex items-center gap-1.5 font-medium"><Lock className="h-4 w-4 text-muted" /> Contacts & profit for your truck</div>
-                  <p className="mt-1 text-muted">Sign in to see contact details, match score, deadhead and estimated profit.</p>
+                  <div className="flex items-center gap-1.5 font-medium"><Lock className="h-4 w-4 text-muted" /> {t("load.lockedTitle")}</div>
+                  <p className="mt-1 text-muted">{t("load.lockedBody")}</p>
                 </div>
                 <LinkButton href={session ? `/app/loads/${o.id}` : `/login?next=${encodeURIComponent(`/app/loads/${o.id}`)}`} className="mt-3.5 w-full">
-                  {session ? "Analyze for my trucks" : "Sign in to contact"}
+                  {session ? t("load.analyze") : t("load.signInToContact")}
                 </LinkButton>
               </div>
             </Card>
             <Card>
-              <CardHeader title="Where this load comes from" />
+              <CardHeader title={t("load.sourcesTitle")} />
               <ul className="divide-y divide-border border-t border-border">
                 {o.listings.map((l) => (
                   <li key={l.id} className="flex items-center justify-between gap-2 px-4 py-2.5 text-sm sm:px-5">
@@ -187,7 +189,7 @@ export default async function PublicLoad({ params, searchParams }: Params & { se
                     ) : (
                       <span className="font-medium">{l.source.name}</span>
                     )}
-                    <span className="text-xs text-muted">seen {ago(l.lastSeenAt)}</span>
+                    <span className="text-xs text-muted">{t("load.seen", { ago: ago(l.lastSeenAt) })}</span>
                   </li>
                 ))}
               </ul>

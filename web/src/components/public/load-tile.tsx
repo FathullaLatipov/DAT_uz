@@ -1,8 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { CalendarDays, Package } from "lucide-react";
 import type { OfferWithRels } from "@/server/services/freight";
-import { label } from "@/server/domain/enums";
-import { cn, km, money, perKm, relativeDay, tonnes, usd } from "@/lib/format";
+import { useI18n } from "@/i18n/client";
+import { cn } from "@/lib/format";
 import { DemoBadge } from "../ui/primitives";
 import { Freshness, QualityBadge, RouteLabel } from "../loads/parts";
 
@@ -12,6 +14,7 @@ import { Freshness, QualityBadge, RouteLabel } from "../loads/parts";
  * board's mobile cards.
  */
 export function LoadTile({ o, expanded, onToggle }: { o: OfferWithRels; expanded?: boolean; onToggle?: () => void }) {
+  const { t, tn, label, km, tonnes, relativeDay, usd, perKm, money } = useI18n();
   const lastSeen = o.listings.reduce((a, l) => (l.lastSeenAt > a ? l.lastSeenAt : a), o.lastSeenAt);
   const sources = new Set(o.listings.map((l) => l.sourceId)).size;
   const className = cn(
@@ -34,12 +37,12 @@ export function LoadTile({ o, expanded, onToggle }: { o: OfferWithRels; expanded
             <span className="num text-xs text-muted">{perKm(o.rateUsd / o.distanceKm)}</span>
           </div>
         ) : (
-          <div className="text-sm font-medium text-muted">{o.rateUsd > 0 ? "Rate unverified" : "Rate negotiable"}</div>
+          <div className="text-sm font-medium text-muted">{o.rateUsd > 0 ? t("tile.rateUnverified") : t("tile.rateNegotiable")}</div>
         )}
-        {o.currency !== "USD" && o.rate > 0 && !o.qualityFlags.includes("SUSPICIOUS_RATE") && <div className="num text-xs text-subtle">{money(o.rate, o.currency)} original</div>}
+        {o.currency !== "USD" && o.rate > 0 && !o.qualityFlags.includes("SUSPICIOUS_RATE") && <div className="num text-xs text-subtle">{t("tile.original", { amount: money(o.rate, o.currency) })}</div>}
         <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-border pt-2.5">
           <QualityBadge quality={o.quality} />
-          {sources > 1 && <span className="text-xs text-info">{sources} sources</span>}
+          {sources > 1 && <span className="text-xs text-info">{tn("parts.sources", sources)}</span>}
           {o.isDemo && <DemoBadge />}
           <span className="ml-auto"><Freshness lastSeen={lastSeen} /></span>
         </div>

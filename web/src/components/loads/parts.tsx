@@ -1,77 +1,15 @@
 import Link from "next/link";
-import { ArrowRight, BadgeCheck, Clock, Layers, ShieldAlert } from "lucide-react";
-import { countryName, getCity } from "@/server/domain/geo";
+import { getCity } from "@/server/domain/geo";
 import { label } from "@/server/domain/enums";
-import { ago, cn, isStale, money, perKm, relativeDay, tonnes, usd, km } from "@/lib/format";
-import { Badge, DemoBadge, ScoreBadge } from "../ui/primitives";
+import { cn, money, perKm, relativeDay, tonnes, usd, km } from "@/lib/format";
+import { ScoreBadge } from "../ui/primitives";
 import type { LoadRow } from "@/server/services/freight";
 
 export const cityLabel = (id: string) => getCity(id)?.name ?? id;
 
-export function RouteLabel({ origin, dest, size = "md", className }: { origin: string; dest: string; size?: "sm" | "md" | "lg"; className?: string }) {
-  const o = getCity(origin);
-  const d = getCity(dest);
-  return (
-    <span className={cn("inline-flex min-w-0 items-center gap-1.5 font-semibold", size === "lg" ? "text-xl" : size === "sm" ? "text-sm" : "text-[15px]", className)}>
-      <CountryTag code={o?.country} />
-      <span className="truncate">{o?.name ?? origin}</span>
-      <ArrowRight className={cn("shrink-0 text-subtle", size === "lg" ? "h-5 w-5" : "h-3.5 w-3.5")} />
-      <CountryTag code={d?.country} />
-      <span className="truncate">{d?.name ?? dest}</span>
-    </span>
-  );
-}
-
-/** Country code chip. Emoji flags render as bare letters on Windows, so we use a consistent tag. */
-export function CountryTag({ code }: { code?: string }) {
-  if (!code) return null;
-  return (
-    <span title={countryName(code)} className="shrink-0 rounded border border-border bg-surface-2 px-1 py-px font-mono text-xs font-medium leading-none text-muted">
-      {code}
-    </span>
-  );
-}
-
-export function QualityBadge({ quality, flags }: { quality: string; flags?: string[] }) {
-  const relevant = (flags ?? []).filter((f) => f !== "EXPIRED");
-  if (quality === "VERIFIED")
-    return (
-      <Badge tone="pos" title="No data-quality issues; broker verified or confirmed by 2+ sources">
-        <BadgeCheck className="h-3 w-3" /> Verified
-      </Badge>
-    );
-  if (quality === "UNVERIFIED")
-    return (
-      <Badge tone="neg" title={relevant.join(", ")}>
-        <ShieldAlert className="h-3 w-3" /> Unverified
-      </Badge>
-    );
-  return <Badge tone="warn" title={relevant.join(", ") || "Broker not verified"}>Partially verified</Badge>;
-}
-
-export function Freshness({ lastSeen }: { lastSeen: Date | string }) {
-  const stale = isStale(lastSeen);
-  return (
-    <span className={cn("inline-flex items-center gap-1 text-xs", stale ? "text-warn" : "text-subtle")} title={`Last confirmed by a source ${ago(lastSeen)}`}>
-      <Clock className="h-3 w-3" />
-      {stale ? "Possibly outdated" : `Updated ${ago(lastSeen)}`}
-    </span>
-  );
-}
-
-export function Sources({ sources, demo }: { sources: { id: string; name: string }[]; demo?: boolean }) {
-  return (
-    <span className="inline-flex flex-wrap items-center gap-1">
-      {sources.length > 1 && (
-        <Badge tone="info" title={`Same load found on ${sources.length} sources — merged into one opportunity`}>
-          <Layers className="h-3 w-3" /> {sources.length} sources
-        </Badge>
-      )}
-      {sources.length === 1 && <Badge>{sources[0].name}</Badge>}
-      {demo && <DemoBadge />}
-    </span>
-  );
-}
+// Translated display pieces live in parts-shared.tsx (client components that read the language).
+export { CountryTag, Freshness, QualityBadge, RouteLabel, Sources } from "./parts-shared";
+import { Freshness, QualityBadge, RouteLabel, Sources } from "./parts-shared";
 
 /**
  * Mobile-first card. Designed so the key facts read in one glance. Plain link by default

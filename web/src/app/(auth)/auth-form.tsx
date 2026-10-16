@@ -5,16 +5,18 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Handshake, Loader2, Truck } from "lucide-react";
 import { apiCall } from "@/lib/client";
+import { useI18n } from "@/i18n/client";
 import { cn } from "@/lib/format";
 import { Button, Field, Input } from "@/components/ui/primitives";
 
 const KINDS = [
-  { v: "carrier", t: "I have a truck", d: "Find loads and manage your fleet", icon: Truck },
-  { v: "broker", t: "I'm a broker", d: "Post loads for carriers to find", icon: Handshake },
+  { v: "carrier", t: "auth.carrierTitle", d: "auth.carrierDesc", icon: Truck },
+  { v: "broker", t: "auth.brokerTitle", d: "auth.brokerDesc", icon: Handshake },
 ] as const;
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [kind, setKind] = useState<"carrier" | "broker">("carrier");
@@ -50,15 +52,15 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
   return (
     <div className="animate-fade-up">
-      <h1 className="text-2xl font-semibold tracking-tight">{mode === "login" ? "Welcome back" : "Create your account"}</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">{mode === "login" ? t("auth.welcomeBack") : t("auth.createYourAccount")}</h1>
       <p className="mt-1 text-sm text-muted">
-        {mode === "login" ? "Sign in to see loads ranked for your trucks." : "Takes under a minute."}
+        {mode === "login" ? t("auth.signInSub") : t("auth.signUpSub")}
       </p>
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         {mode === "signup" && (
           <>
             <fieldset>
-              <legend className="mb-2 text-xs font-medium text-muted">Which are you?</legend>
+              <legend className="mb-2 text-xs font-medium text-muted">{t("auth.whichAreYou")}</legend>
               <div className="grid grid-cols-2 gap-2.5">
                 {KINDS.map((k) => (
                   <button
@@ -70,25 +72,25 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
                   >
                     <k.icon className={cn("mt-0.5 h-4.5 w-4.5 shrink-0", kind === k.v ? "text-brand" : "text-muted")} />
                     <span>
-                      <span className="block text-sm font-medium">{k.t}</span>
-                      <span className="block text-xs text-muted">{k.d}</span>
+                      <span className="block text-sm font-medium">{t(k.t)}</span>
+                      <span className="block text-xs text-muted">{t(k.d)}</span>
                     </span>
                   </button>
                 ))}
               </div>
             </fieldset>
-            <Field label="Your name">
+            <Field label={t("auth.name")}>
               <Input name="name" required minLength={2} autoComplete="name" />
             </Field>
-            <Field label="Company (optional)">
-              <Input name="company" autoComplete="organization" placeholder="e.g. Samarkand Haulage" />
+            <Field label={t("auth.company")}>
+              <Input name="company" autoComplete="organization" placeholder={t("auth.companyPlaceholder")} />
             </Field>
           </>
         )}
-        <Field label="Email">
+        <Field label={t("auth.email")}>
           <Input name="email" type="email" required autoComplete="email" />
         </Field>
-        <Field label="Password" hint={mode === "signup" ? "At least 8 characters" : undefined}>
+        <Field label={t("auth.password")} hint={mode === "signup" ? t("auth.passwordHint") : undefined}>
           <Input name="password" type="password" required minLength={mode === "signup" ? 8 : 1} autoComplete={mode === "login" ? "current-password" : "new-password"} />
         </Field>
         {error && (
@@ -98,28 +100,28 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         )}
         <Button type="submit" size="lg" className="w-full" disabled={pending}>
           {pending && <Loader2 className="h-4 w-4 animate-spin" />}
-          {mode === "login" ? "Sign in" : "Create account"}
+          {mode === "login" ? t("auth.submitSignIn") : t("auth.submitSignUp")}
         </Button>
       </form>
       <div className="my-5 flex items-center gap-3 text-xs text-subtle">
-        <div className="h-px flex-1 bg-border" /> or <div className="h-px flex-1 bg-border" />
+        <div className="h-px flex-1 bg-border" /> {t("auth.or")} <div className="h-px flex-1 bg-border" />
       </div>
       <Button variant="outline" size="lg" className="w-full" onClick={demo} disabled={pending}>
-        Explore the demo workspace
+        {t("auth.demo")}
       </Button>
       <p className="mt-6 text-center text-sm text-muted">
         {mode === "login" ? (
           <>
-            New to Karvon?{" "}
+            {t("auth.newTo")}{" "}
             <Link href="/signup" className="font-medium text-brand hover:underline">
-              Create an account
+              {t("auth.createLink")}
             </Link>
           </>
         ) : (
           <>
-            Already have an account?{" "}
+            {t("auth.already")}{" "}
             <Link href="/login" className="font-medium text-brand hover:underline">
-              Sign in
+              {t("auth.signInLink")}
             </Link>
           </>
         )}
