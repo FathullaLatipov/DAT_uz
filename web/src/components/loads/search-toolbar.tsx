@@ -246,20 +246,20 @@ function FieldGroup({ trucks, sources, brokers, v, set, multi, toggleMulti }: {
   const { t, label, city, country, m } = useI18n();
   return (
     <div className="space-y-4">
-      <Field label="Score for truck">
+      <Field label={t("toolbar.scoreForTruck")}>
         <Select value={v.truckId} onChange={(e) => set("truckId", e.target.value)}>
           <option value="">{t("toolbar.bestTruck")}</option>
           {trucks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </Select>
       </Field>
       <div className="grid grid-cols-[1fr_96px] gap-2">
-        <Field label="Origin">
+        <Field label={t("toolbar.origin")}>
           <Select value={v.origin} onChange={(e) => set("origin", e.target.value)}>
             <option value="">{t("toolbar.any")}</option>
             {CITIES.map((c) => <option key={c.id} value={c.id}>{city(c.id)}</option>)}
           </Select>
         </Field>
-        <Field label="DH-O">
+        <Field label={t("toolbar.dhO")}>
           <Select value={v.radiusKm} onChange={(e) => set("radiusKm", e.target.value)} disabled={!v.origin}>
             <option value="">{t("toolbar.exact")}</option>
             {[50, 100, 200, 300].map((r) => <option key={r} value={r}>{r} {m.units.km}</option>)}
@@ -267,13 +267,13 @@ function FieldGroup({ trucks, sources, brokers, v, set, multi, toggleMulti }: {
         </Field>
       </div>
       <div className="grid grid-cols-[1fr_96px] gap-2">
-        <Field label="Destination">
+        <Field label={t("toolbar.dest")}>
           <Select value={v.dest} onChange={(e) => set("dest", e.target.value)}>
             <option value="">{t("toolbar.any")}</option>
             {CITIES.map((c) => <option key={c.id} value={c.id}>{city(c.id)}</option>)}
           </Select>
         </Field>
-        <Field label="DH-D">
+        <Field label={t("toolbar.dhD")}>
           <Select value={v.destRadiusKm} onChange={(e) => set("destRadiusKm", e.target.value)} disabled={!v.dest}>
             <option value="">{t("toolbar.exact")}</option>
             {[50, 100, 200, 300].map((r) => <option key={r} value={r}>{r} {m.units.km}</option>)}
@@ -281,20 +281,20 @@ function FieldGroup({ trucks, sources, brokers, v, set, multi, toggleMulti }: {
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Origin country">
+        <Field label={t("toolbar.originCountry")}>
           <Select value={v.originCountry} onChange={(e) => set("originCountry", e.target.value)}>
             <option value="">{t("toolbar.any")}</option>
             {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{country(c.code)}</option>)}
           </Select>
         </Field>
-        <Field label="Dest. country">
+        <Field label={t("toolbar.destCountry")}>
           <Select value={v.destCountry} onChange={(e) => set("destCountry", e.target.value)}>
             <option value="">{t("toolbar.any")}</option>
             {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{country(c.code)}</option>)}
           </Select>
         </Field>
       </div>
-      <Field label="Route type">
+      <Field label={t("toolbar.routeType")}>
         <Select value={v.scope} onChange={(e) => set("scope", e.target.value)}>
           {SCOPES.map(([k, l]) => <option key={k} value={k}>{t(`toolbar.${l}`)}</option>)}
         </Select>

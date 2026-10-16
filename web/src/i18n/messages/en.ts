@@ -1293,6 +1293,7 @@ export const en = {
     open: "Open →",
     pickup: "Pickup · {city}",
     delivery: "Delivery · {city}",
+    showRoute: "Show route on map",
   },
 
   ob: {

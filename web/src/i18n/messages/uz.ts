@@ -1279,6 +1279,7 @@ export const uz: Messages = {
     open: "Ochish →",
     pickup: "Yuklash · {city}",
     delivery: "Tushirish · {city}",
+    showRoute: "Yo'nalishni xaritada ko'rsatish",
   },
 
   ob: {

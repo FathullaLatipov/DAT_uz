@@ -5,6 +5,7 @@ import { useState, type ComponentProps } from "react";
 import { MapPinned } from "lucide-react";
 import { Skeleton } from "../ui/primitives";
 import { DeferUntilIdle } from "../ui/defer";
+import { useI18n } from "@/i18n/client";
 
 /** MapLibre is ~800 KB — loaded only on pages that show a map, never during SSR. */
 const FreightMap = dynamic(() => import("./freight-map"), {
@@ -17,6 +18,7 @@ const FreightMap = dynamic(() => import("./freight-map"), {
  * nice-to-have and shouldn't cost first-visit performance.
  */
 export function LazyMap({ onDemand, ...props }: ComponentProps<typeof FreightMap> & { onDemand?: boolean }) {
+  const { t } = useI18n();
   const [requested, setRequested] = useState(false);
   if (onDemand && !requested)
     return (
@@ -26,7 +28,7 @@ export function LazyMap({ onDemand, ...props }: ComponentProps<typeof FreightMap
         className={`${props.className ?? ""} flex flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_30%_40%,var(--brand-soft),transparent_60%),var(--surface-2)] text-sm text-muted transition hover:text-fg`}
       >
         <MapPinned className="h-6 w-6 text-brand" />
-        Show route on map
+        {t("map.showRoute")}
       </button>
     );
   return (

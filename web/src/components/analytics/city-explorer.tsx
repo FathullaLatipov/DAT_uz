@@ -23,8 +23,8 @@ export function CityExplorer({ cities }: { cities: CityStats[] }) {
   const [sel, setSel] = useState(ranked[0]?.cityId);
   const city = cities.find((c) => c.cityId === sel);
   const points = useMemo<MapPoint[]>(
-    () => cities.map((c) => ({ id: c.cityId, lng: c.lng, lat: c.lat, kind: "city", label: cityName(c.cityId), sub: t("an.mapSub", { out: c.outbound, trucks: c.trucks, level: level(c.demand).toLowerCase() }), weight: c.outbound, tone: DEMAND[c.demand].map })),
-    [cities, t, m],
+    () => cities.map((c) => ({ id: c.cityId, lng: c.lng, lat: c.lat, kind: "city", label: cityName(c.cityId), sub: t("an.mapSub", { out: c.outbound, trucks: c.trucks, level: (m.an.demand[c.demand] ?? c.demand).toLowerCase() }), weight: c.outbound, tone: DEMAND[c.demand].map })),
+    [cities, t, m, cityName],
   );
 
   return (

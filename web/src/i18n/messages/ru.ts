@@ -1320,6 +1320,7 @@ export const ru: Messages = {
     open: "Открыть →",
     pickup: "Погрузка · {city}",
     delivery: "Выгрузка · {city}",
+    showRoute: "Показать маршрут на карте",
   },
 
   ob: {
