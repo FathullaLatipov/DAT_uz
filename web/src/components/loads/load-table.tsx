@@ -9,7 +9,7 @@ import type { LoadFilters } from "@/server/services/filters";
 import { filtersToParams } from "@/server/services/filters";
 import { cn } from "@/lib/format";
 import { DemoBadge, ScoreBadge } from "../ui/primitives";
-import { Freshness, QualityBadge, RouteLabel, Sources } from "./parts";
+import { Freshness, GradeBadge, RouteLabel, Sources } from "./parts";
 import { FavoriteButton } from "./favorite-button";
 import { LoadDetailPanel } from "./load-detail-panel";
 import { useExpandableRow } from "./use-expandable-row";
@@ -116,7 +116,7 @@ export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: L
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="flex flex-wrap gap-1">
-                        <QualityBadge quality={o.quality} flags={r.flags} />
+                        <GradeBadge grade={r.grade} />
                         <Sources sources={r.sources} />
                         {o.isDemo && <DemoBadge />}
                       </div>

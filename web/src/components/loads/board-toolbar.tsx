@@ -8,7 +8,7 @@ import { useI18n } from "@/i18n/client";
 import { cn } from "@/lib/format";
 import { Button, Select } from "../ui/primitives";
 
-const SORTS = ["score", "profit", "ratePerKm", "rate", "deadhead", "loading", "newest", "distance"] as const;
+const SORTS = ["score", "profit", "ratePerKm", "rate", "deadhead", "loading", "grade", "newest", "distance"] as const;
 const VIEWS = [["list", List, "viewList"], ["split", Columns2, "viewSplit"], ["map", MapIcon, "viewMap"]] as const;
 
 export function BoardToolbar({ total, view }: { total: number; view: string }) {
