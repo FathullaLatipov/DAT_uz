@@ -689,6 +689,7 @@ export const uz: Messages = {
 
   errors: {
     signInRequired: "Davom etish uchun kiring.",
+    telegramOff: "Bu serverda Telegram bot hali sozlanmagan.",
     roleForbidden: "Sizning rolingiz bu amalga ruxsat bermaydi.",
     tooManyRequests: "So'rovlar juda ko'p — sekinroq.",
     tooManySignIn: "Kirishga urinishlar juda ko'p. Bir daqiqadan keyin urinib ko'ring.",
@@ -854,6 +855,7 @@ export const uz: Messages = {
     channelEmail: "Pochta",
     channelTelegram: "Telegram",
     channelSoonTitle: "«{channel}» orqali yetkazish bu serverda hali sozlanmagan — xabarlar ilovada chiqadi",
+    channelTgLinkTitle: "Bildirishnomalarni Telegram'da olish uchun sozlamalarda Telegram'ni ulang",
     soon: "(tez orada)",
     deleteSaved: "Saqlangan qidiruvni o'chirish",
     unsaveLoad: "Saqlanganlardan olib tashlash",
@@ -1219,6 +1221,12 @@ export const uz: Messages = {
     tgText: "Telegram'da yangi foydali yuklar, AI tavsiyalari, saqlangan qidiruvlar xabarlari va mashinalar holatini tezkor amallar bilan oling.",
     tgConfigured: "Bot sozlangan. Hisobingizni ulash — keyingi qadam.",
     tgNot: "Telegram-bot bu serverda hali sozlanmagan (TELEGRAM_BOT_TOKEN ni kiriting). Hozircha xabarlar ilovada keladi.",
+    tgConnect: "Telegram'ni ulash",
+    tgConnected: "Ulandi. Saqlangan qidiruvlar bo'yicha bildirishnomalar Telegram'ga keladi.",
+    tgWaiting: "Telegram'da Start tugmasini bosishingizni kutmoqdamiz…",
+    tgDisconnect: "Uzish",
+    tgReopen: "Telegram'ni qayta ochish",
+    tgHow: "Bildirishnomalarni shu yerda olish uchun istalgan saqlangan qidiruvda Telegram kanalini yoqing.",
     team: "Jamoa",
     plan: "Tarif",
     planSub: "Beta davrida to'lov yoqilmagan — tariflar har bir daraja nimani o'z ichiga olishini ko'rsatadi.",
@@ -1444,6 +1452,27 @@ export const uz: Messages = {
     hint: "Bu sahifani kabinadagi telefonda oching va tugmani bosing. Koordinatalar faqat yuklargacha masofani hisoblash uchun kerak.",
     saved: "Joylashuv saqlandi.",
     moved: "Joylashuv saqlandi. Mashina endi {city} shahrida.",
+  },
+
+  tg: {
+    welcomeTitle: "Karvon bildirishnomalari",
+    howToLink: "Hisobni ulash uchun Karvon'da «Sozlamalar»ni oching va «Telegram'ni ulash» tugmasini bosing.",
+    alreadyLinked: "Hisob ulangan. Saqlangan qidiruvlaringiz bo'yicha yangi yuklar shu yerga keladi. Uzish uchun /stop yuboring.",
+    help: "Bu yerda saqlangan qidiruvlaringiz bo'yicha bildirishnomalar olasiz. Uzish uchun /stop yuboring.",
+    linkExpired: "Havola eskirgan. Karvon'ga qaytib, «Telegram'ni ulash» tugmasini qayta bosing.",
+    linkedTitle: "Ulandi ✅",
+    linkedBody: "Salom, {name}! Saqlangan qidiruvlaringiz bo'yicha yangi yuklar shu yerga keladi.",
+    openSaved: "Saqlangan qidiruvlar",
+    unlinked: "Uzildi. Endi bu yerga bildirishnoma kelmaydi.",
+  },
+
+  alerts: {
+    title: p({ one: "«{name}» bo'yicha {n} ta yangi yuk", other: "«{name}» bo'yicha {n} ta yangi yuk" }),
+    top: "Eng yaxshisi: {route}, {rate}{match}",
+    matchPct: " · moslik {n}%",
+    line: "{route} · {rate}{match}",
+    more: p({ one: "…va yana {n} ta", other: "…va yana {n} ta" }),
+    open: "Yuklarni ochish",
   },
 
   enums: {

@@ -46,12 +46,27 @@ model User {
   platformRole String    @default("USER") // USER | ADMIN
   createdAt    DateTime  @default(now())
   lastLoginAt  DateTime?
+  // Language for text the platform sends without a request (alerts): last used on sign-in.
+  locale       String?
+  // Telegram alerts: set when the user taps Start on the bot via a one-time link (see services/telegram.ts).
+  telegramChatId   String?   @unique
+  telegramLinkedAt DateTime?
 
   memberships   Membership[]
   favorites     Favorite[]
   savedSearches SavedSearch[]
   notifications Notification[]
   conversations AIConversation[]
+}
+
+/// One-time token for linking a Telegram chat to a user: /start <token> on the bot.
+model TelegramLink {
+  token     String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Membership {

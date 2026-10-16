@@ -54,7 +54,7 @@ test("i18n: Latin-script languages contain no Cyrillic look-alikes (a Cyrillic '
 test("i18n ru: Russian text is actually Russian (no untranslated English left behind)", () => {
   // Brand names, units and codes legitimately stay Latin; flag strings with long English-only words.
   const allowed = /^(Karvon|DIIP\.UZ|Telegram|CSV|\$\/км|—)/;
-  const suspicious = [...flatten(MESSAGES.ru)].filter(([k, v]) => !/[Ѐ-ӿ]/.test(v) && !allowed.test(v) && v.length > 12 && !k.startsWith("geo.") && !/Placeholder$/.test(k));
+  const suspicious = [...flatten(MESSAGES.ru)].filter(([k, v]) => !/[Ѐ-ӿ]/.test(v) && !allowed.test(v) && /[A-Za-z]{3}/.test(v.replace(/\{\w+\}/g, "")) && v.length > 12 && !k.startsWith("geo.") && !/Placeholder$/.test(k));
   assert.deepEqual(suspicious, []);
 });
 

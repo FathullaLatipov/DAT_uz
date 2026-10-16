@@ -697,6 +697,7 @@ export const en = {
 
   errors: {
     signInRequired: "Please sign in to continue.",
+    telegramOff: "The Telegram bot isn't set up on this server yet.",
     roleForbidden: "Your role doesn't allow this action.",
     tooManyRequests: "Too many requests — please slow down.",
     tooManySignIn: "Too many sign-in attempts. Try again in a minute.",
@@ -868,6 +869,7 @@ export const en = {
     channelEmail: "Email",
     channelTelegram: "Telegram",
     channelSoonTitle: "{channel} delivery is not configured on this server yet — alerts will appear in-app",
+    channelTgLinkTitle: "Connect Telegram in Settings to receive these alerts there",
     soon: "(soon)",
     deleteSaved: "Delete saved search",
     unsaveLoad: "Remove from saved",
@@ -1233,6 +1235,12 @@ export const en = {
     tgText: "Get new high-value loads, AI recommendations, saved-search alerts and truck status in Telegram — with quick actions.",
     tgConfigured: "Bot is configured. Linking your account is coming next.",
     tgNot: "The Telegram bot isn't configured on this server yet (set TELEGRAM_BOT_TOKEN). Alerts are delivered in-app meanwhile.",
+    tgConnect: "Connect Telegram",
+    tgConnected: "Connected. Saved-search alerts will arrive in Telegram.",
+    tgWaiting: "Waiting for you to tap Start in Telegram…",
+    tgDisconnect: "Disconnect",
+    tgReopen: "Open Telegram again",
+    tgHow: "Turn on the Telegram channel on any saved search to receive its alerts here.",
     team: "Team",
     plan: "Plan",
     planSub: "Billing isn't enabled during the beta — plans show what each tier will include.",
@@ -1458,6 +1466,27 @@ export const en = {
     hint: "Open this page on the phone in the cab and tap the button. Your coordinates are used only to measure distance to loads.",
     saved: "Position saved.",
     moved: "Position saved. The truck is now in {city}.",
+  },
+
+  tg: {
+    welcomeTitle: "Karvon alerts",
+    howToLink: "To connect your account, open Settings on Karvon and tap “Connect Telegram”.",
+    alreadyLinked: "Your account is connected. New loads for your saved searches will arrive here. Send /stop to disconnect.",
+    help: "You get alerts for your saved searches here. Send /stop to disconnect.",
+    linkExpired: "This link has expired. Go back to Karvon and tap “Connect Telegram” again.",
+    linkedTitle: "Connected ✅",
+    linkedBody: "Hi, {name}! New loads for your saved searches will arrive here.",
+    openSaved: "Saved searches",
+    unlinked: "Disconnected. You will no longer get alerts here.",
+  },
+
+  alerts: {
+    title: p({ one: "{n} new load for “{name}”", other: "{n} new loads for “{name}”" }),
+    top: "Top: {route}, {rate}{match}",
+    matchPct: " · {n}% match",
+    line: "{route} · {rate}{match}",
+    more: p({ one: "…and {n} more", other: "…and {n} more" }),
+    open: "Open loads",
   },
 
   enums: {

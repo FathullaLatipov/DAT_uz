@@ -5,6 +5,7 @@ import { requireSession } from "@/server/auth/session";
 import { db, parseJson } from "@/server/db";
 import { filtersToParams, type LoadFilters } from "@/server/services/filters";
 import { notifierStatus } from "@/server/services/alerts";
+import { telegramConfigured } from "@/server/services/telegram";
 import { getI18n } from "@/i18n/server";
 import type { I18n } from "@/i18n/create";
 import { Card, CardHeader, EmptyState, LinkButton, PageHeader } from "@/components/ui/primitives";
@@ -37,11 +38,12 @@ export default async function SavedPage() {
   const s = await requireSession();
   const i18n = await getI18n();
   const { t, ago, relativeDay, usd, label } = i18n;
-  const [searches, favorites] = await Promise.all([
+  const [me, searches, favorites] = await Promise.all([
+    db.user.findUnique({ where: { id: s.userId }, select: { telegramChatId: true } }),
     db.savedSearch.findMany({ where: { userId: s.userId }, orderBy: { createdAt: "desc" } }),
     db.favorite.findMany({ where: { userId: s.userId }, include: { offer: true }, orderBy: { createdAt: "desc" } }),
   ]);
-  const channels = notifierStatus();
+  const channels = notifierStatus({ telegramLinked: !!me?.telegramChatId }).map((c) => (c.channel === "TELEGRAM" && telegramConfigured() && !me?.telegramChatId ? { ...c, needsLink: true } : c));
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
