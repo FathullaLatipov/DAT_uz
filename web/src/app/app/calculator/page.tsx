@@ -5,11 +5,16 @@ import { DEFAULT_COST_PROFILE, estimateTollsUsd } from "@/server/services/profit
 import { Card, PageHeader } from "@/components/ui/primitives";
 import { ProfitCalculator } from "@/components/loads/profit-calculator";
 import { TruckPicker } from "@/components/fleet/truck-picker";
+import { getI18n } from "@/i18n/server";
 
-export const metadata: Metadata = { title: "Profitability calculator" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: t("cp.title") };
+}
 
 export default async function CalculatorPage({ searchParams }: { searchParams: Promise<{ truck?: string }> }) {
   const s = await requireSession();
+  const { t: tr } = await getI18n();
   const { truck } = await searchParams;
   const trucks = await db.truck.findMany({ where: { orgId: s.orgId }, orderBy: { code: "asc" } });
   const t = trucks.find((x) => x.id === truck) ?? trucks[0];
@@ -17,8 +22,8 @@ export default async function CalculatorPage({ searchParams }: { searchParams: P
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeader
-        title="Profitability calculator"
-        subtitle="Deterministic: the same formula ranks every load. Example: Tashkent → Almaty."
+        title={tr("cp.title")}
+        subtitle={tr("cp.subtitle")}
         actions={trucks.length > 0 && <TruckPicker trucks={trucks.map((x) => ({ id: x.id, code: x.code }))} value={t?.id} />}
       />
       <Card className="p-4 sm:p-6">

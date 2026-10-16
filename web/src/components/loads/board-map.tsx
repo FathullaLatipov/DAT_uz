@@ -2,9 +2,11 @@
 
 import { useMemo } from "react";
 import { getCity } from "@/server/domain/geo";
+import { useI18n } from "@/i18n/client";
 import { LazyMap, type MapPoint, type MapRoute } from "../map/lazy-map";
 
 export function BoardMap({ items, className }: { items: { id: string; o: string; d: string; rateUsd: number; score: number | null }[]; className?: string }) {
+  const { t, city, usd } = useI18n();
   const { points, routes } = useMemo(() => {
     const points: MapPoint[] = [];
     const routes: MapRoute[] = [];
@@ -20,8 +22,8 @@ export function BoardMap({ items, className }: { items: { id: string; o: string;
         lng: o.lng + j,
         lat: o.lat - j,
         kind: "load",
-        label: `${o.name} → ${d.name}`,
-        sub: `$${Math.round(it.rateUsd).toLocaleString("en-US")}${it.score != null ? ` · ${it.score}% match` : ""}`,
+        label: `${city(o.id)} → ${city(d.id)}`,
+        sub: `${usd(it.rateUsd)}${it.score != null ? ` · ${t("rec.matchPct", { n: it.score })}` : ""}`,
         href: `/app/loads/${it.id}`,
         tone: it.score == null ? "muted" : it.score >= 80 ? "pos" : it.score >= 60 ? "brand" : "warn",
       });
@@ -32,7 +34,7 @@ export function BoardMap({ items, className }: { items: { id: string; o: string;
       }
     }
     return { points, routes };
-  }, [items]);
+  }, [items, t, city, usd]);
 
   return <LazyMap points={points} routes={routes} className={className} />;
 }

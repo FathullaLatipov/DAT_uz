@@ -40,6 +40,7 @@ export const en = {
     demoDataTitle: "Generated demo data — not real marketplace information",
     notAvailable: "—",
     siteName: "Karvon · Tashkent",
+    loadingAria: "Loading",
   },
 
   units: {
@@ -1191,6 +1192,107 @@ export const en = {
     submitting: "Submitting…",
     submit: "Submit review",
     cancel: "Cancel",
+  },
+
+  bk: {
+    title: "Broker",
+    back: "Back",
+    score: "Reliability score",
+    noScore: "No score yet.",
+    howCalculated: "How this is calculated:",
+    activeLoads: "Active loads from this broker",
+    noActive: "No active loads right now.",
+    avgRating: "Avg rating",
+    loadsSeen: "Loads seen",
+    completed: "Completed via platform",
+    response: "Avg response time",
+    notTracked: "not tracked yet",
+    seenOn: "Seen on sources",
+    listings: p({ one: "{n} listing", other: "{n} listings" }),
+    verification: "Verification: {method}. We only show metrics computed from data on this platform and never publish unverified claims about a company.",
+    notPerformed: "not performed",
+  },
+
+  st: {
+    subtitle: "{org} · your role: {role}",
+    prefTitle: "Matching preferences",
+    prefSub: "These power the AI ranking for every truck in your fleet.",
+    tgText: "Get new high-value loads, AI recommendations, saved-search alerts and truck status in Telegram — with quick actions.",
+    tgConfigured: "Bot is configured. Linking your account is coming next.",
+    tgNot: "The Telegram bot isn't configured on this server yet (set TELEGRAM_BOT_TOKEN). Alerts are delivered in-app meanwhile.",
+    team: "Team",
+    plan: "Plan",
+    planSub: "Billing isn't enabled during the beta — plans show what each tier will include.",
+    current: "Current",
+    planNames: { FREE: "Free", PRO: "Pro", FLEET: "Fleet", ENTERPRISE: "Enterprise" } as Record<string, string>,
+    planFeatures: {
+      FREE: ["Basic load search", "1 truck"],
+      PRO: ["AI matching & explanations", "Advanced filters", "Alerts", "Profit calculator", "Up to 3 trucks"],
+      FLEET: ["Everything in Pro", "Fleet analytics", "Dispatcher tools", "Team members", "Up to 100 trucks"],
+      ENTERPRISE: ["API access", "Advanced analytics", "Integrations", "Dedicated support"],
+    } as Record<string, string[]>,
+  },
+
+  pf: {
+    minRate: "Minimum rate ($/km)",
+    minRateHint: "Loads below this are ranked lower and flagged.",
+    maxDeadhead: "Maximum deadhead: {n} km",
+    maxDeadheadHint: "Empty driving to pickup you're willing to accept.",
+    routes: "Preferred routes",
+    removeRoute: "Remove route",
+    addRoute: "Add route",
+    cargo: "Preferred cargo",
+    countries: "Preferred countries",
+    save: "Save preferences",
+    saved: "Saved — recommendations updated",
+  },
+
+  as: {
+    couldnt: "I couldn't complete that: {message}",
+    badgeTitle: "Language understanding engine. Money, distance and scores are always computed deterministically.",
+    badgeLlm: "LLM + deterministic engine",
+    badgeRules: "Rule parser + deterministic engine",
+    newChat: "New chat",
+    emptyTitle: "Ask for loads the way you'd ask a dispatcher",
+    emptySub: "I check your truck, its location, deadhead and costs, then rank and explain the options.",
+    suggestions: [
+      "Find me a profitable load from Tashkent tomorrow for truck T-1024",
+      "20 ton refrigerated load from Samarkand to Russia this week",
+      "Find a return load for T-1031",
+      "Plan a round trip for T-1024",
+    ],
+    pending: "Checking trucks, searching loads, calculating profit…",
+    message: "Message",
+    placeholder: "e.g. Best load from Fergana this week for T-1032",
+    send: "Send",
+    emptyKm: "{n} km empty",
+    altPlan: "Alt plan: {legs} — {profit} ({perDay}/day)",
+    openBoard: "Open in load board →",
+    how: "How I got this",
+  },
+
+  nt: {
+    emptyTitle: "You're all caught up",
+    emptyBody: "Alerts for saved searches and return loads will appear here.",
+  },
+
+  cp: {
+    title: "Profitability calculator",
+    subtitle: "Deterministic: the same formula ranks every load. Example: Tashkent → Almaty.",
+  },
+
+  layout: {
+    demoFleetPre: "Demo workspace — the",
+    demoFleetStrong: "fleet, trips and driver data",
+    demoFleetPost: "are generated demo data. Loads and market figures come from real sources.",
+    demoAllPre: "Demo workspace — all freight, brokers, reviews and market figures are generated",
+    demoAllPost: ", not real marketplace information.",
+  },
+
+  map: {
+    open: "Open →",
+    pickup: "Pickup · {city}",
+    delivery: "Delivery · {city}",
   },
 
   enums: {

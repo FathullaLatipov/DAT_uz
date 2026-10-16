@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp, ChevronDown, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import { apiCall } from "@/lib/client";
-import { cn, relativeDay, usd } from "@/lib/format";
+import { useI18n } from "@/i18n/client";
+import { cn } from "@/lib/format";
 import { Badge } from "../ui/primitives";
 import type { DispatcherReply } from "@/server/ai/dispatcher";
 
@@ -16,14 +17,8 @@ export interface ChatMessage {
   data?: Data | null;
 }
 
-const SUGGESTIONS = [
-  "Find me a profitable load from Tashkent tomorrow for truck T-1024",
-  "20 ton refrigerated load from Samarkand to Russia this week",
-  "Find a return load for T-1031",
-  "Plan a round trip for T-1024",
-];
-
 export function Chat({ initial, conversationId: initialConv, provider }: { initial: ChatMessage[]; conversationId: string | null; provider: string }) {
+  const { t, m } = useI18n();
   const [messages, setMessages] = useState(initial);
   const [conversationId, setConversationId] = useState(initialConv);
   const [input, setInput] = useState("");
@@ -42,7 +37,7 @@ export function Chat({ initial, conversationId: initialConv, provider }: { initi
       setConversationId(r.conversationId);
       setMessages((m) => [...m, r.message]);
     } catch (e) {
-      setMessages((m) => [...m, { id: `e${Date.now()}`, role: "assistant", content: `I couldn't complete that: ${(e as Error).message}` }]);
+      setMessages((m) => [...m, { id: `e${Date.now()}`, role: "assistant", content: t("as.couldnt", { message: (e as Error).message }) }]);
     } finally {
       setPending(false);
     }
@@ -59,14 +54,14 @@ export function Chat({ initial, conversationId: initialConv, provider }: { initi
       <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
         <div className="flex items-center gap-2 text-sm">
           <Sparkles className="h-4 w-4 text-brand" />
-          <span className="font-medium">AI dispatcher</span>
-          <Badge tone="neutral" title="Language understanding engine. Money, distance and scores are always computed deterministically.">
-            {provider === "anthropic" ? "LLM + deterministic engine" : "Rule parser + deterministic engine"}
+          <span className="font-medium">{t("nav.aiDispatcher")}</span>
+          <Badge tone="neutral" title={t("as.badgeTitle")}>
+            {provider === "anthropic" ? t("as.badgeLlm") : t("as.badgeRules")}
           </Badge>
         </div>
         {messages.length > 0 && (
           <button onClick={reset} className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
-            <RotateCcw className="h-3 w-3" /> New chat
+            <RotateCcw className="h-3 w-3" /> {t("as.newChat")}
           </button>
         )}
       </div>
@@ -75,10 +70,10 @@ export function Chat({ initial, conversationId: initialConv, provider }: { initi
         {messages.length === 0 && (
           <div className="mx-auto max-w-lg py-8 text-center">
             <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-brand-soft text-brand"><Sparkles className="h-5 w-5" /></div>
-            <h2 className="mt-3 font-semibold">Ask for loads the way you&apos;d ask a dispatcher</h2>
-            <p className="mt-1 text-sm text-muted">I check your truck, its location, deadhead and costs, then rank and explain the options.</p>
+            <h2 className="mt-3 font-semibold">{t("as.emptyTitle")}</h2>
+            <p className="mt-1 text-sm text-muted">{t("as.emptySub")}</p>
             <div className="mt-5 grid gap-2">
-              {SUGGESTIONS.map((s) => (
+              {m.as.suggestions.map((s) => (
                 <button key={s} onClick={() => send(s)} className="rounded-lg border border-border px-3 py-2 text-left text-sm transition hover:border-brand hover:bg-brand-soft/40">{s}</button>
               ))}
             </div>
@@ -87,7 +82,7 @@ export function Chat({ initial, conversationId: initialConv, provider }: { initi
         {messages.map((m) => (m.role === "user" ? <UserBubble key={m.id} text={m.content} /> : <AssistantBubble key={m.id} m={m} />))}
         {pending && (
           <div className="flex items-center gap-2 text-sm text-muted">
-            <Loader2 className="h-4 w-4 animate-spin" /> Checking trucks, searching loads, calculating profit…
+            <Loader2 className="h-4 w-4 animate-spin" /> {t("as.pending")}
           </div>
         )}
         <div ref={end} />
@@ -95,7 +90,7 @@ export function Chat({ initial, conversationId: initialConv, provider }: { initi
 
       <form onSubmit={(e) => (e.preventDefault(), send(input))} className="border-t border-border p-3">
         <div className="flex items-end gap-2 rounded-xl border border-border bg-bg px-3 py-2 focus-within:border-brand focus-within:ring-2 focus-within:ring-[var(--ring)]">
-          <label htmlFor="chat-input" className="sr-only">Message</label>
+          <label htmlFor="chat-input" className="sr-only">{t("as.message")}</label>
           <textarea
             id="chat-input"
             value={input}
@@ -108,10 +103,10 @@ export function Chat({ initial, conversationId: initialConv, provider }: { initi
             }}
             rows={1}
             maxLength={500}
-            placeholder="e.g. Best load from Fergana this week for T-1032"
+            placeholder={t("as.placeholder")}
             className="max-h-32 flex-1 resize-none bg-transparent py-1 text-sm outline-none placeholder:text-subtle"
           />
-          <button type="submit" disabled={!input.trim() || pending} className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-brand-fg disabled:opacity-40" aria-label="Send">
+          <button type="submit" disabled={!input.trim() || pending} className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-brand-fg disabled:opacity-40" aria-label={t("as.send")}>
             <ArrowUp className="h-4 w-4" />
           </button>
         </div>
@@ -129,6 +124,7 @@ function UserBubble({ text }: { text: string }) {
 }
 
 function AssistantBubble({ m }: { m: ChatMessage }) {
+  const { t, relativeDay, usd } = useI18n();
   const [open, setOpen] = useState(false);
   const d = m.data;
   return (
@@ -145,9 +141,9 @@ function AssistantBubble({ m }: { m: ChatMessage }) {
               <div className="mt-1 truncate text-sm font-semibold">{c.route}</div>
               <div className="num mt-1 flex justify-between text-xs">
                 <span>{usd(c.rateUsd)}</span>
-                <span className={c.profit >= 0 ? "text-pos" : "text-neg"}>{usd(c.profit)} profit</span>
+                <span className={c.profit >= 0 ? "text-pos" : "text-neg"}>{t("rec.profit", { amount: usd(c.profit) })}</span>
               </div>
-              <div className="num mt-0.5 text-xs text-subtle">{relativeDay(c.loadingDate)} · {c.deadheadKm} km empty</div>
+              <div className="num mt-0.5 text-xs text-subtle">{relativeDay(c.loadingDate)} · {t("as.emptyKm", { n: c.deadheadKm })}</div>
             </Link>
           ))}
         </div>
@@ -155,15 +151,15 @@ function AssistantBubble({ m }: { m: ChatMessage }) {
       {d?.chains && d.chains.length > 1 && (
         <div className="mt-2 space-y-1 text-xs text-muted">
           {d.chains.slice(1).map((c, i) => (
-            <div key={i}>Alt plan: {c.legs.map((l) => l.route).join(" + ")} — {usd(c.totalProfit)} ({usd(c.profitPerDay)}/day)</div>
+            <div key={i}>{t("as.altPlan", { legs: c.legs.map((l) => l.route).join(" + "), profit: usd(c.totalProfit), perDay: usd(c.profitPerDay) })}</div>
           ))}
         </div>
       )}
       <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs">
-        {d?.searchUrl && <Link href={d.searchUrl} className="text-brand hover:underline">Open in load board →</Link>}
+        {d?.searchUrl && <Link href={d.searchUrl} className="text-brand hover:underline">{t("as.openBoard")}</Link>}
         {d?.steps && (
           <button onClick={() => setOpen(!open)} className="inline-flex items-center gap-0.5 text-muted hover:text-fg" aria-expanded={open}>
-            How I got this <ChevronDown className={cn("h-3 w-3 transition", open && "rotate-180")} />
+            {t("as.how")} <ChevronDown className={cn("h-3 w-3 transition", open && "rotate-180")} />
           </button>
         )}
       </div>

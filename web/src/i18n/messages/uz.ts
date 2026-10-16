@@ -36,6 +36,7 @@ export const uz: Messages = {
     demoDataTitle: "Yaratilgan demo ma'lumot — bozorning haqiqiy ma'lumoti emas",
     notAvailable: "—",
     siteName: "Karvon · Toshkent",
+    loadingAria: "Yuklanmoqda",
   },
 
   units: {
@@ -1177,6 +1178,107 @@ export const uz: Messages = {
     submitting: "Yuborilmoqda…",
     submit: "Sharhni yuborish",
     cancel: "Bekor qilish",
+  },
+
+  bk: {
+    title: "Broker",
+    back: "Orqaga",
+    score: "Ishonchlilik bahosi",
+    noScore: "Baho hali yo'q.",
+    howCalculated: "Bu qanday hisoblanadi:",
+    activeLoads: "Bu brokerning faol yuklari",
+    noActive: "Hozir faol yuklar yo'q.",
+    avgRating: "O'rtacha baho",
+    loadsSeen: "Ko'rilgan yuklar",
+    completed: "Platforma orqali yakunlangan",
+    response: "O'rtacha javob vaqti",
+    notTracked: "hali kuzatilmaydi",
+    seenOn: "Manbalarda ko'rilgan",
+    listings: p({ other: "{n} ta e'lon" }),
+    verification: "Tekshiruv: {method}. Biz faqat shu platformadagi ma'lumotlardan hisoblangan ko'rsatkichlarni ko'rsatamiz va kompaniya haqida tekshirilmagan da'volarni hech qachon e'lon qilmaymiz.",
+    notPerformed: "o'tkazilmagan",
+  },
+
+  st: {
+    subtitle: "{org} · sizning rolingiz: {role}",
+    prefTitle: "Tanlash afzalliklari",
+    prefSub: "Ular avtoparkdagi har bir mashina uchun AI saralashini belgilaydi.",
+    tgText: "Telegram'da yangi foydali yuklar, AI tavsiyalari, saqlangan qidiruvlar xabarlari va mashinalar holatini tezkor amallar bilan oling.",
+    tgConfigured: "Bot sozlangan. Hisobingizni ulash — keyingi qadam.",
+    tgNot: "Telegram-bot bu serverda hali sozlanmagan (TELEGRAM_BOT_TOKEN ni kiriting). Hozircha xabarlar ilovada keladi.",
+    team: "Jamoa",
+    plan: "Tarif",
+    planSub: "Beta davrida to'lov yoqilmagan — tariflar har bir daraja nimani o'z ichiga olishini ko'rsatadi.",
+    current: "Joriy",
+    planNames: { FREE: "Bepul", PRO: "Pro", FLEET: "Avtopark", ENTERPRISE: "Korporativ" },
+    planFeatures: {
+      FREE: ["Oddiy yuk qidirish", "1 ta mashina"],
+      PRO: ["AI tanlovi va izohlar", "Kengaytirilgan filtrlar", "Bildirishnomalar", "Foyda kalkulyatori", "3 tagacha mashina"],
+      FLEET: ["Pro'dagi hamma narsa", "Avtopark tahlili", "Dispetcher vositalari", "Jamoa a'zolari", "100 tagacha mashina"],
+      ENTERPRISE: ["API'ga kirish", "Kengaytirilgan tahlil", "Integratsiyalar", "Alohida qo'llab-quvvatlash"],
+    },
+  },
+
+  pf: {
+    minRate: "Minimal narx ($/km)",
+    minRateHint: "Bundan past narxdagi yuklar pastroq saralanadi va belgilanadi.",
+    maxDeadhead: "Eng ko'p bo'sh yurish: {n} km",
+    maxDeadheadHint: "Yuklash joyigacha qabul qilishga tayyor bo'lgan bo'sh yurish.",
+    routes: "Afzal yo'nalishlar",
+    removeRoute: "Yo'nalishni o'chirish",
+    addRoute: "Yo'nalish qo'shish",
+    cargo: "Afzal yuklar",
+    countries: "Afzal davlatlar",
+    save: "Afzalliklarni saqlash",
+    saved: "Saqlandi — tavsiyalar yangilandi",
+  },
+
+  as: {
+    couldnt: "So'rovni bajarib bo'lmadi: {message}",
+    badgeTitle: "Tilni tushunish dvigateli. Pul, masofa va baholar doim aniq hisoblanadi.",
+    badgeLlm: "AI + aniq hisoblash dvigateli",
+    badgeRules: "Qoidalar bo'yicha tahlil + aniq hisoblash dvigateli",
+    newChat: "Yangi suhbat",
+    emptyTitle: "Yuklarni dispetcherdan so'raganingizdek so'rang",
+    emptySub: "Mashinangizni, uning joylashuvi, bo'sh yurish va xarajatlarini tekshiraman, so'ng variantlarni saralab, izohlab beraman.",
+    suggestions: [
+      "Ertaga Toshkentdan T-1024 mashinasi uchun foydali yuk top",
+      "Shu hafta Samarqanddan Rossiyaga 20 tonnalik refrijerator yuk",
+      "T-1031 uchun qaytish yukini top",
+      "T-1024 uchun aylanma reys rejalashtir",
+    ],
+    pending: "Mashinalarni tekshiryapman, yuklarni qidiryapman, foydani hisoblayapman…",
+    message: "Xabar",
+    placeholder: "masalan: shu hafta Farg'onadan T-1032 uchun eng yaxshi yuk",
+    send: "Yuborish",
+    emptyKm: "bo'sh yurish {n} km",
+    altPlan: "Muqobil reja: {legs} — {profit} (kuniga {perDay})",
+    openBoard: "Yuk birjasida ochish →",
+    how: "Buni qanday topdim",
+  },
+
+  nt: {
+    emptyTitle: "Hammasi o'qilgan",
+    emptyBody: "Bu yerda saqlangan qidiruvlar va qaytish yuklari haqidagi xabarlar paydo bo'ladi.",
+  },
+
+  cp: {
+    title: "Daromadlilik kalkulyatori",
+    subtitle: "Aniq hisob: har bir yuk bir xil formula bo'yicha saralanadi. Misol: Toshkent → Almati.",
+  },
+
+  layout: {
+    demoFleetPre: "Demo kabinet —",
+    demoFleetStrong: "avtopark, reyslar va haydovchilar ma'lumoti",
+    demoFleetPost: "yaratilgan. Yuklar va bozor ko'rsatkichlari haqiqiy manbalardan olingan.",
+    demoAllPre: "Demo kabinet — barcha yuklar, brokerlar, sharhlar va bozor ko'rsatkichlari yaratilgan:",
+    demoAllPost: ", bozorning haqiqiy ma'lumoti emas.",
+  },
+
+  map: {
+    open: "Ochish →",
+    pickup: "Yuklash · {city}",
+    delivery: "Tushirish · {city}",
   },
 
   enums: {

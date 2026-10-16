@@ -3,8 +3,12 @@ import { requireSession } from "@/server/auth/session";
 import { db, parseJson } from "@/server/db";
 import { getProvider } from "@/server/ai/provider";
 import { Chat, type ChatMessage } from "@/components/assistant/chat";
+import { getI18n } from "@/i18n/server";
 
-export const metadata: Metadata = { title: "AI dispatcher" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: t("nav.aiDispatcher") };
+}
 
 export default async function AssistantPage() {
   const s = await requireSession();

@@ -6,7 +6,8 @@ import { ArrowRight, Loader2, Plus, X } from "lucide-react";
 import { apiCall } from "@/lib/client";
 import { cn } from "@/lib/format";
 import { CITIES, COUNTRIES } from "@/server/domain/geo";
-import { CARGO_TYPES, PAYMENT_TERMS, label } from "@/server/domain/enums";
+import { CARGO_TYPES, PAYMENT_TERMS } from "@/server/domain/enums";
+import { useI18n } from "@/i18n/client";
 import { Button, Field, Input, Select } from "../ui/primitives";
 
 export interface Prefs {
@@ -19,6 +20,7 @@ export interface Prefs {
 }
 
 export function PreferencesForm({ initial, readOnly }: { initial: Prefs; readOnly: boolean }) {
+  const { t, label, city, country } = useI18n();
   const router = useRouter();
   const [p, setP] = useState(initial);
   const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
@@ -42,39 +44,39 @@ export function PreferencesForm({ initial, readOnly }: { initial: Prefs; readOnl
   return (
     <fieldset disabled={readOnly} className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Minimum rate ($/km)" hint="Loads below this are ranked lower and flagged.">
+        <Field label={t("pf.minRate")} hint={t("pf.minRateHint")}>
           <Input type="number" step="0.05" min={0} value={p.minRatePerKmUsd} onChange={(e) => setP({ ...p, minRatePerKmUsd: e.target.value })} />
         </Field>
-        <Field label={`Maximum deadhead: ${p.maxDeadheadKm} km`} hint="Empty driving to pickup you're willing to accept.">
+        <Field label={t("pf.maxDeadhead", { n: p.maxDeadheadKm })} hint={t("pf.maxDeadheadHint")}>
           <input type="range" min={0} max={600} step={10} value={p.maxDeadheadKm} onChange={(e) => setP({ ...p, maxDeadheadKm: Number(e.target.value) })} className="mt-2 w-full accent-[var(--brand)]" />
         </Field>
       </div>
       <div>
-        <div className="mb-2 text-xs font-medium text-muted">Preferred routes</div>
+        <div className="mb-2 text-xs font-medium text-muted">{t("pf.routes")}</div>
         <div className="space-y-2">
           {p.routes.map((r, i) => (
             <div key={i} className="flex items-center gap-2">
-              <Select aria-label="From" value={r.originCityId} onChange={(e) => setP({ ...p, routes: p.routes.map((x, j) => (j === i ? { ...x, originCityId: e.target.value } : x)) })}>
-                {CITIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <Select aria-label={t("search.from")} value={r.originCityId} onChange={(e) => setP({ ...p, routes: p.routes.map((x, j) => (j === i ? { ...x, originCityId: e.target.value } : x)) })}>
+                {CITIES.map((c) => <option key={c.id} value={c.id}>{city(c.id)}</option>)}
               </Select>
               <ArrowRight className="h-4 w-4 shrink-0 text-subtle" />
-              <Select aria-label="To" value={r.destCityId} onChange={(e) => setP({ ...p, routes: p.routes.map((x, j) => (j === i ? { ...x, destCityId: e.target.value } : x)) })}>
-                {CITIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <Select aria-label={t("search.to")} value={r.destCityId} onChange={(e) => setP({ ...p, routes: p.routes.map((x, j) => (j === i ? { ...x, destCityId: e.target.value } : x)) })}>
+                {CITIES.map((c) => <option key={c.id} value={c.id}>{city(c.id)}</option>)}
               </Select>
-              <Button variant="ghost" size="icon" aria-label="Remove route" onClick={() => setP({ ...p, routes: p.routes.filter((_, j) => j !== i) })}><X className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" aria-label={t("pf.removeRoute")} onClick={() => setP({ ...p, routes: p.routes.filter((_, j) => j !== i) })}><X className="h-4 w-4" /></Button>
             </div>
           ))}
-          <Button variant="outline" size="sm" onClick={() => setP({ ...p, routes: [...p.routes, { originCityId: "tashkent", destCityId: "almaty" }] })}><Plus className="h-4 w-4" /> Add route</Button>
+          <Button variant="outline" size="sm" onClick={() => setP({ ...p, routes: [...p.routes, { originCityId: "tashkent", destCityId: "almaty" }] })}><Plus className="h-4 w-4" /> {t("pf.addRoute")}</Button>
         </div>
       </div>
-      <ChipRow title="Preferred cargo" opts={CARGO_TYPES.map((c) => [c, label(c)])} value={p.preferredCargo} onToggle={(v) => toggle("preferredCargo", v)} />
-      <ChipRow title="Preferred countries" opts={COUNTRIES.map((c) => [c.code, c.name])} value={p.preferredCountries} onToggle={(v) => toggle("preferredCountries", v)} />
-      <ChipRow title="Payment terms" opts={PAYMENT_TERMS.map((c) => [c, label(c)])} value={p.paymentTerms} onToggle={(v) => toggle("paymentTerms", v)} />
+      <ChipRow title={t("pf.cargo")} opts={CARGO_TYPES.map((c) => [c, label(c)])} value={p.preferredCargo} onToggle={(v) => toggle("preferredCargo", v)} />
+      <ChipRow title={t("pf.countries")} opts={COUNTRIES.map((c) => [c.code, country(c.code)])} value={p.preferredCountries} onToggle={(v) => toggle("preferredCountries", v)} />
+      <ChipRow title={t("toolbar.payment")} opts={PAYMENT_TERMS.map((c) => [c, label(c)])} value={p.paymentTerms} onToggle={(v) => toggle("paymentTerms", v)} />
       {error && <p role="alert" className="text-sm text-neg">{error}</p>}
       {!readOnly && (
         <div className="flex items-center gap-3">
-          <Button onClick={save} disabled={state === "saving"}>{state === "saving" && <Loader2 className="h-4 w-4 animate-spin" />}Save preferences</Button>
-          {state === "saved" && <span className="text-sm text-pos">Saved — recommendations updated</span>}
+          <Button onClick={save} disabled={state === "saving"}>{state === "saving" && <Loader2 className="h-4 w-4 animate-spin" />}{t("pf.save")}</Button>
+          {state === "saved" && <span className="text-sm text-pos">{t("pf.saved")}</span>}
         </div>
       )}
     </fieldset>
