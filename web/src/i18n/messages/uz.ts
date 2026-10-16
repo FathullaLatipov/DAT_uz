@@ -1293,6 +1293,8 @@ export const uz: Messages = {
     pickup: "Yuklash · {city}",
     delivery: "Tushirish · {city}",
     showRoute: "Yo'nalishni xaritada ko'rsatish",
+    you: "Siz shu yerdasiz",
+    toPickup: "yuklashgacha {dist}",
   },
 
   ob: {
@@ -1429,6 +1431,19 @@ export const uz: Messages = {
       noContact: "Aloqa ma'lumoti yo'q",
       flagged: "E'londa ma'lumot muammolari topildi",
     },
+  },
+
+  gps: {
+    title: "GPS joylashuvi",
+    set: "Mening joylashuvimni shu mashina uchun olish",
+    clear: "GPS'ni tozalash",
+    fix: "GPS: {ago}",
+    used: "Bo'sh yurish masofasini hisoblashda ishlatiladi.",
+    old: "12 soatdan eski, shuning uchun masofa yana shahardan hisoblanadi.",
+    none: "GPS joylashuvi yo'q. Masofalar {city} shahridan hisoblanadi.",
+    hint: "Bu sahifani kabinadagi telefonda oching va tugmani bosing. Koordinatalar faqat yuklargacha masofani hisoblash uchun kerak.",
+    saved: "Joylashuv saqlandi.",
+    moved: "Joylashuv saqlandi. Mashina endi {city} shahrida.",
   },
 
   enums: {

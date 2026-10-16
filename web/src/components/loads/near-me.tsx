@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { LocateFixed, Loader2, X } from "lucide-react";
-import { CITIES, haversineKm } from "@/server/domain/geo";
+import { CITIES, nearestCityTo } from "@/server/domain/geo";
 import { useI18n } from "@/i18n/client";
 import { cn } from "@/lib/format";
 
@@ -11,36 +11,47 @@ export const NEAR_MAX_KM = 300;
 /** Search radius applied around the detected city when none was chosen. */
 export const NEAR_DEFAULT_RADIUS = 100;
 
-export type NearMeResult = { cityId: string; distanceKm: number };
+export type NearMeResult = { cityId: string; distanceKm: number; lat?: number; lng?: number; at?: number };
 export type NearMeError = "unsupported" | "denied" | "unavailable" | "timeout" | "far";
 
 export function nearestCity(lat: number, lng: number): NearMeResult {
-  let best: NearMeResult = { cityId: CITIES[0].id, distanceKm: Infinity };
-  for (const c of CITIES) {
-    const d = haversineKm({ lat, lng }, c);
-    if (d < best.distanceKm) best = { cityId: c.id, distanceKm: d };
-  }
-  return best;
+  const n = nearestCityTo(lat, lng);
+  return { cityId: n.city.id, distanceKm: n.distanceKm };
 }
 
-/**
- * Asks the browser for the position once (the browser shows its own permission prompt) and maps it
- * to the nearest city we model. Coordinates never leave the device — only the city id is used in the
- * search URL. Geolocation needs HTTPS (localhost is exempt), which production has.
- */
-export function locateNearestCity(): Promise<NearMeResult> {
+export type Position = { lat: number; lng: number };
+
+/** One-shot browser position (the browser shows its own permission prompt). Rejects with a NearMeError code. */
+export function getPosition(): Promise<Position> {
   return new Promise((resolve, reject) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) return reject("unsupported" satisfies NearMeError);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const r = nearestCity(pos.coords.latitude, pos.coords.longitude);
-        if (r.distanceKm > NEAR_MAX_KM) reject("far" satisfies NearMeError);
-        else resolve(r);
-      },
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
       (err) => reject((err.code === 1 ? "denied" : err.code === 3 ? "timeout" : "unavailable") satisfies NearMeError),
       { enableHighAccuracy: false, timeout: 10_000, maximumAge: 5 * 60_000 },
     );
   });
+}
+
+/**
+ * Maps the position to the nearest city we model. Coordinates never leave the device here — only the
+ * city id is used in the search URL. Geolocation needs HTTPS (localhost is exempt), which production has.
+ */
+export async function locateNearestCity(): Promise<NearMeResult> {
+  const p = await getPosition();
+  const r = nearestCity(p.lat, p.lng);
+  if (r.distanceKm > NEAR_MAX_KM) throw "far" satisfies NearMeError;
+  return { ...r, ...p, at: Date.now() };
+}
+
+/** The viewer's own position, remembered in this browser for 24 h so maps can mark "you" without asking again. */
+export function useSavedPosition(): Position | null {
+  const [pos, setPos] = useState<Position | null>(null);
+  useEffect(() => {
+    const s = loadLocation();
+    if (s?.lat != null && s.lng != null && s.at && Date.now() - s.at < 24 * 3_600_000) setPos({ lat: s.lat, lng: s.lng });
+  }, []);
+  return pos;
 }
 
 export type NearMeStatus = { kind: "busy" } | { kind: "ok"; cityId: string; distanceKm: number } | { kind: "error"; error: NearMeError } | null;
@@ -55,7 +66,9 @@ export const saveLocation = (r: NearMeResult | null) => {
 export function loadLocation(): NearMeResult | null {
   try {
     const r = JSON.parse(localStorage.getItem(STORE) ?? "null");
-    return r && typeof r.cityId === "string" && CITIES.some((c) => c.id === r.cityId) ? { cityId: r.cityId, distanceKm: Number(r.distanceKm) || 0 } : null;
+    return r && typeof r.cityId === "string" && CITIES.some((c) => c.id === r.cityId)
+      ? { cityId: r.cityId, distanceKm: Number(r.distanceKm) || 0, lat: typeof r.lat === "number" ? r.lat : undefined, lng: typeof r.lng === "number" ? r.lng : undefined, at: typeof r.at === "number" ? r.at : undefined }
+      : null;
   } catch {
     return null;
   }

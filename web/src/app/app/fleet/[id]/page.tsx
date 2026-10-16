@@ -11,6 +11,7 @@ import { getI18n } from "@/i18n/server";
 import { Card, CardHeader, DemoBadge, Stat } from "@/components/ui/primitives";
 import { StatusBadge } from "@/components/fleet/status-badge";
 import { TruckForm } from "@/components/fleet/truck-form";
+import { TruckPosition } from "@/components/fleet/truck-position";
 import { TripHistoryTable } from "@/components/fleet/trip-history-table";
 import { KmStack, ProfitBars } from "@/components/charts/lazy";
 import { RecRow } from "@/components/loads/recommendation";
@@ -65,6 +66,11 @@ export default async function TruckPage({ params, searchParams }: { params: Prom
           <div><div className="text-xs text-muted">{tr("fleet.nextAvailable")}</div><div className="font-medium">{busy || t.availableFrom > new Date() ? `${city(matchTruck.currentCityId)}, ${dateTime(matchTruck.availableFrom)}` : tr("fleet.now")}</div></div>
         </div>
       </div>
+
+      <Card className="mb-5 p-4 sm:p-5">
+        <div className="mb-2 text-sm font-semibold">{tr("gps.title")}</div>
+        <TruckPosition truckId={t.id} cityId={t.currentCityId} positionAt={t.positionAt?.toISOString() ?? null} canEdit={can(s, "truck:write")} />
+      </Card>
 
       {activeTrip && (
         <Card className="mb-5 flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">

@@ -107,6 +107,11 @@ The whole app is translated: the public site, sign-in/sign-up and every cabinet 
 - Still English: notifications stored in the database keep the language they were created in, and job-created ones (no user language) are English.
 - Have a native speaker review the Russian and Uzbek copy before launch.
 
+### Location
+
+- **Near me** (load board): the browser position is mapped to the nearest modelled city and used as the search origin. Coordinates stay in the browser (remembered 24 h in `localStorage` so maps can mark "You").
+- **Truck GPS** (truck page → "GPS position"): the phone in the cab sends one fix (`POST /api/trucks/:id/position`). While it is under 12 h old and the truck is not mid-trip, deadhead is measured from the fix (`roadKmFromPoint`) instead of the truck's city, and an idle truck snaps to the nearest city. Editing the city by hand clears the fix. Migration `truck_position` adds `lat`, `lng`, `positionAt`.
+
 ### Load grade (A–D)
 
 Every load on the board carries a DAT-style letter, computed on read in `src/server/services/grade.ts` (no stored column): freshness 30, rate 20, broker 20, sources 15, completeness 15. A ≥ 85, B ≥ 70, C ≥ 50, D below. A suspicious rate or weight, or a loading date that already passed, caps the load at D. Hover the badge to see what raised or lowered it. The board filters by minimum grade and by "confirmed within N hours" (`minGrade`, `freshHours`) and can sort by grade.

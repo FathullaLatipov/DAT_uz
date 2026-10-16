@@ -147,6 +147,11 @@ model Truck {
   currentCityId    String
   status           String    @default("AVAILABLE") // AVAILABLE | LOADING | IN_TRANSIT | UNLOADING | MAINTENANCE | OFFLINE
   availableFrom    DateTime  @default(now())
+  // Precise position from the phone in the cab (optional). `currentCityId` stays the source of truth
+  // for planning; a fresh GPS fix only sharpens deadhead distances.
+  lat              Float?
+  lng              Float?
+  positionAt       DateTime?
   driverId         String?
   // Cost profile — powers the deterministic profitability calculator.
   fuelLPer100km    Float     @default(32)

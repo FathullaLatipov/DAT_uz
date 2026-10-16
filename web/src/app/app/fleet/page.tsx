@@ -112,7 +112,7 @@ export default async function FleetPage() {
                 {s.org.isDemo && <DemoBadge />}
               </div>
               <div className="h-80 xl:h-[420px]">
-                <FleetMap trucks={trucks.map((t) => ({ id: t.id, code: t.code, city: t.trips[0] && t.status !== "AVAILABLE" ? t.trips[0].destCityId : t.currentCityId, from: t.trips[0]?.originCityId, status: t.status }))} />
+                <FleetMap trucks={trucks.map((t) => ({ id: t.id, code: t.code, city: t.trips[0] && t.status !== "AVAILABLE" ? t.trips[0].destCityId : t.currentCityId, from: t.trips[0]?.originCityId, status: t.status, lat: t.status === "AVAILABLE" ? t.lat : null, lng: t.status === "AVAILABLE" ? t.lng : null }))} />
               </div>
             </Card>
           </div>

@@ -67,6 +67,8 @@ export async function getMatchTrucks(orgId: string, opts?: { includeBusy?: boole
         ...t,
         currentCityId: busy ? trip.destCityId : t.currentCityId,
         availableFrom: busy && trip.etaAt ? trip.etaAt : t.availableFrom,
+        // A GPS fix says where the truck is now, not where it will be after its trip.
+        ...(busy ? { lat: null, lng: null, positionAt: null } : {}),
       };
     });
 }
