@@ -8,7 +8,7 @@ import { BODY_TYPES, CARGO_TYPES, CURRENCIES, PAYMENT_TERMS } from "@/server/dom
 import { useI18n } from "@/i18n/client";
 import { Button, Field, Input, Select } from "../ui/primitives";
 import { cn } from "@/lib/format";
-import { NEAR_DEFAULT_RADIUS, NearMeButton, NearMeNote, type NearMeStatus } from "./near-me";
+import { NEAR_DEFAULT_RADIUS, NearMeButton, NearMeNote, loadLocation, saveLocation, type NearMeStatus } from "./near-me";
 
 type Opt = { id: string; name: string };
 
@@ -40,6 +40,15 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
   const [mobileOpen, setMobileOpen] = useState(false);
   const [near, setNear] = useState<NearMeStatus>(null);
   const [v, setV] = useState<Record<string, string>>(() => Object.fromEntries(KEYS.map((k) => [k, sp.get(k) ?? ""])));
+  useEffect(() => {
+    const saved = loadLocation();
+    if (saved && saved.cityId === sp.get("origin")) setNear({ kind: "ok", ...saved });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const clearNear = () => {
+    saveLocation(null);
+    setNear(null);
+  };
   const set = (k: string, val: string) => setV((s) => ({ ...s, [k]: val }));
   const multi = (k: string) => (v[k] ? v[k].split(",") : []);
   const toggleMulti = (k: string, item: string) => {
@@ -89,6 +98,7 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
       near={near}
       setNear={setNear}
       searchNear={searchNear}
+      clearNear={clearNear}
       layout="stacked"
     />
   );
@@ -128,7 +138,7 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
             </Select>
           </Field>
           <NearMeButton onFound={(r) => searchNear(r.cityId)} onStatus={setNear} status={near} />
-          <Field label={t("toolbar.dhO")} hint={v.radiusKm ? t("toolbar.withinOrigin", { n: v.radiusKm }) : undefined} className="w-24">
+          <Field label={t("toolbar.dhO")} className="w-28">
             <Select value={v.radiusKm} onChange={(e) => set("radiusKm", e.target.value)} disabled={!v.origin}>
               <option value="">{t("toolbar.exact")}</option>
               {[50, 100, 200, 300].map((r) => <option key={r} value={r}>{r} {m.units.km}</option>)}
@@ -149,7 +159,7 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
               {CITIES.map((c) => <option key={c.id} value={c.id}>{city(c.id)}</option>)}
             </Select>
           </Field>
-          <Field label={t("toolbar.dhD")} hint={v.destRadiusKm ? t("toolbar.withinDest", { n: v.destRadiusKm }) : undefined} className="w-24">
+          <Field label={t("toolbar.dhD")} className="w-28">
             <Select value={v.destRadiusKm} onChange={(e) => set("destRadiusKm", e.target.value)} disabled={!v.dest}>
               <option value="">{t("toolbar.exact")}</option>
               {[50, 100, 200, 300].map((r) => <option key={r} value={r}>{r} {m.units.km}</option>)}
@@ -188,7 +198,7 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
               {trucks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </Select>
           </Field>
-          <Button onClick={apply} className="h-9"><Search className="h-4 w-4" /> {t("toolbar.search")}</Button>
+          <Button onClick={apply} className="ml-auto h-9 shrink-0"><Search className="h-4 w-4" /> {t("toolbar.search")}</Button>
         </div>
 
         <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-border pt-2.5">
@@ -261,16 +271,16 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
             <Truck className="h-3.5 w-3.5" /> {t("toolbar.footnote")}
           </span>
         </div>
-        <NearMeNote status={near} />
+        <NearMeNote status={near} originId={v.origin} radiusKm={v.radiusKm} onClear={clearNear} />
       </div>
     </>
   );
 }
 
-function FieldGroup({ trucks, sources, brokers, v, set, multi, toggleMulti, near, setNear, searchNear }: {
+function FieldGroup({ trucks, sources, brokers, v, set, multi, toggleMulti, near, setNear, searchNear, clearNear }: {
   trucks: Opt[]; sources: Opt[]; brokers: Opt[];
   v: Record<string, string>; set: (k: string, val: string) => void; multi: (k: string) => string[]; toggleMulti: (k: string, item: string) => void;
-  near: NearMeStatus; setNear: (s: NearMeStatus) => void; searchNear: (cityId: string) => void;
+  near: NearMeStatus; setNear: (s: NearMeStatus) => void; searchNear: (cityId: string) => void; clearNear: () => void;
   layout: "stacked";
 }) {
   const { t, label, city, country, m } = useI18n();
@@ -297,7 +307,7 @@ function FieldGroup({ trucks, sources, brokers, v, set, multi, toggleMulti, near
         </Field>
       </div>
       <NearMeButton withLabel className="w-full" onFound={(r) => searchNear(r.cityId)} onStatus={setNear} status={near} />
-      <NearMeNote status={near} />
+      <NearMeNote status={near} originId={v.origin} radiusKm={v.radiusKm} onClear={clearNear} />
       <div className="grid grid-cols-[1fr_96px] gap-2">
         <Field label={t("toolbar.dest")}>
           <Select value={v.dest} onChange={(e) => set("dest", e.target.value)}>
