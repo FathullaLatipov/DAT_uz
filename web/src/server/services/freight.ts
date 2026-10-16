@@ -7,6 +7,7 @@ import { laneBenchmarks, outboundCounts } from "./market";
 import { bestTruckFor, scoreMatch, type MatchContext, type MatchOffer, type MatchResult, type MatchTruck } from "./matching";
 import type { LoadFilters } from "./filters";
 import { demoOfferFilter } from "../domain/demo";
+import { gradeAtLeast, gradeOffer, type GradeResult } from "./grade";
 import type { I18n } from "../../i18n/create";
 
 /**
@@ -83,7 +84,8 @@ export const toMatchOffer = (o: {
 // every row of a list query (up to ~2000 for the load board, ~11k pre-fix for the dashboard)
 // were pure waste — confirmed by grepping every consumer of `OfferWithRels` before removing them.
 export const offerInclude = {
-  listings: { select: { sourceId: true, lastSeenAt: true, source: { select: { name: true, isDemo: true } } } },
+  listings: { select: { sourceId: true, lastSeenAt: true, contactPhone: true, source: { select: { name: true, isDemo: true, kind: true } } } },
+  broker: { select: { verified: true } },
 } satisfies Prisma.FreightOfferInclude;
 
 export type OfferWithRels = Prisma.FreightOfferGetPayload<{ include: typeof offerInclude }>;
@@ -94,6 +96,7 @@ export interface LoadRow {
   truckCode: string | null;
   sources: { id: string; name: string }[];
   flags: string[];
+  grade: GradeResult;
   favorite: boolean;
 }
 
@@ -142,6 +145,8 @@ export interface SearchResult {
   truckCount: number;
 }
 
+const lastSeenMs = (r: LoadRow) => Math.max(r.offer.lastSeenAt.getTime(), ...r.offer.listings.map((l) => l.lastSeenAt.getTime()));
+
 export async function searchLoads(orgId: string, userId: string, f: LoadFilters, page = 1, pageSize = 25): Promise<SearchResult> {
   const [offers, ctx, allTrucks, favs] = await Promise.all([
     db.freightOffer.findMany({ where: buildWhere(f), include: offerInclude, take: 2000 }),
@@ -162,12 +167,20 @@ export async function searchLoads(orgId: string, userId: string, f: LoadFilters,
       truckCode: match ? (codeById.get(match.truckId) ?? null) : null,
       sources: [...srcMap].map(([id, name]) => ({ id, name })),
       flags: parseJson<string[]>(o.qualityFlags, []),
+      grade: gradeOffer({
+        loadingDate: o.loadingDate, rateUsd: o.rateUsd, qualityFlags: parseJson<string[]>(o.qualityFlags, []), lastSeenAt: o.lastSeenAt,
+        brokerId: o.brokerId, brokerVerified: o.broker?.verified, brokerScore: ctx.brokerScore(o.brokerId),
+        cargoKnown: o.cargoType !== "GENERAL",
+        listings: o.listings.map((l) => ({ sourceId: l.sourceId, sourceKind: l.source.kind, contactPhone: l.contactPhone, lastSeenAt: l.lastSeenAt })),
+      }),
       favorite: favSet.has(o.id),
     };
   });
 
   if (f.ratePerKmMin != null) rows = rows.filter((r) => r.offer.rateUsd / r.offer.distanceKm >= f.ratePerKmMin!);
   if (f.minScore != null) rows = rows.filter((r) => r.match && r.match.eligible && r.match.score >= f.minScore!);
+  if (f.minGrade) rows = rows.filter((r) => gradeAtLeast(r.grade.grade, f.minGrade!));
+  if (f.freshHours != null) rows = rows.filter((r) => Date.now() - lastSeenMs(r) <= f.freshHours! * 3_600_000);
   if (f.maxDeadhead != null) rows = rows.filter((r) => r.match && r.match.deadheadKm <= f.maxDeadhead!);
 
   const sort = f.sort ?? (trucks.length ? "score" : "newest");
@@ -177,6 +190,7 @@ export async function searchLoads(orgId: string, userId: string, f: LoadFilters,
     ratePerKm: (r) => r.offer.rateUsd / r.offer.distanceKm,
     profit: (r) => r.match?.profit.profit ?? -1e9,
     loading: (r) => -r.offer.loadingDate.getTime(),
+    grade: (r) => r.grade.score,
     newest: (r) => (r.offer.sourceCreatedAt ?? r.offer.createdAt).getTime(),
     distance: (r) => -r.offer.distanceKm,
     deadhead: (r) => -(r.match?.deadheadKm ?? 1e9),
