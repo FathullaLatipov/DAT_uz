@@ -45,7 +45,8 @@ for (const l of others) {
 
 test("i18n: Latin-script languages contain no Cyrillic look-alikes (a Cyrillic 'о' inside Latin text breaks search and sorting)", () => {
   for (const l of ["en", "uz"] as const) {
-    const hits = [...flatten(MESSAGES[l])].filter(([, v]) => /[Ѐ-ӿ]/.test(v)).map(([k]) => k);
+    // `parse.*` quotes Russian sample input ("20 т", "завтра") on purpose — it shows what the parser accepts.
+    const hits = [...flatten(MESSAGES[l])].filter(([k, v]) => !k.startsWith("parse.") && /[Ѐ-ӿ]/.test(v)).map(([k]) => k);
     assert.deepEqual(hits, [], `${l} has Cyrillic characters`);
   }
 });
