@@ -1,6 +1,7 @@
 "use client";
 
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useI18n } from "@/i18n/client";
 
 /**
  * Chart conventions: one y-axis, thin marks, recessive grid, tooltip on hover, text in ink
@@ -27,19 +28,18 @@ function Tip({ active, payload, label, fmt }: { active?: boolean; payload?: { na
   );
 }
 
-const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
-const kmFmt = (n: number) => `${Math.round(n).toLocaleString("en-US")} km`;
 
 export function ProfitBars({ data }: { data: { week: string; profit: number }[] }) {
+  const { t, usd } = useI18n();
   return (
-    <div className="h-48" role="img" aria-label="Weekly profit, last 8 weeks">
+    <div className="h-48" role="img" aria-label={t("chart.weeklyProfit")}>
       <ResponsiveContainer>
         <BarChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
           {grid}
           <XAxis dataKey="week" {...axis} />
           <YAxis {...axis} width={48} tickFormatter={(v) => `$${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}`} />
           <Tooltip cursor={{ fill: "var(--surface-2)" }} content={<Tip fmt={usd} />} />
-          <Bar dataKey="profit" name="Profit" fill="var(--brand)" radius={[4, 4, 0, 0]} maxBarSize={28} />
+          <Bar dataKey="profit" name={t("chart.profit")} fill="var(--brand)" radius={[4, 4, 0, 0]} maxBarSize={28} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -47,21 +47,22 @@ export function ProfitBars({ data }: { data: { week: string; profit: number }[] 
 }
 
 export function KmStack({ data }: { data: { week: string; loadedKm: number; emptyKm: number }[] }) {
+  const { t, km: kmFmt } = useI18n();
   return (
     <div>
       <div className="mb-2 flex gap-4 text-xs text-muted">
-        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-brand" />Loaded km</span>
-        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-subtle" />Empty km</span>
+        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-brand" />{t("chart.loadedKm")}</span>
+        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-subtle" />{t("chart.emptyKm")}</span>
       </div>
-      <div className="h-44" role="img" aria-label="Loaded vs empty kilometres per week">
+      <div className="h-44" role="img" aria-label={t("chart.loadedVsEmpty")}>
         <ResponsiveContainer>
           <BarChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
             {grid}
             <XAxis dataKey="week" {...axis} />
             <YAxis {...axis} width={48} tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v))} />
             <Tooltip cursor={{ fill: "var(--surface-2)" }} content={<Tip fmt={kmFmt} />} />
-            <Bar dataKey="loadedKm" name="Loaded" stackId="km" fill="var(--brand)" maxBarSize={28} stroke="var(--surface)" strokeWidth={2} />
-            <Bar dataKey="emptyKm" name="Empty" stackId="km" fill="var(--subtle)" radius={[4, 4, 0, 0]} maxBarSize={28} stroke="var(--surface)" strokeWidth={2} />
+            <Bar dataKey="loadedKm" name={t("chart.loaded")} stackId="km" fill="var(--brand)" maxBarSize={28} stroke="var(--surface)" strokeWidth={2} />
+            <Bar dataKey="emptyKm" name={t("chart.empty")} stackId="km" fill="var(--subtle)" radius={[4, 4, 0, 0]} maxBarSize={28} stroke="var(--surface)" strokeWidth={2} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -70,8 +71,9 @@ export function KmStack({ data }: { data: { week: string; loadedKm: number; empt
 }
 
 export function RateTrend({ data, height = 160 }: { data: { date: string; perKm: number | null; loads: number }[]; height?: number }) {
+  const { t, perKm } = useI18n();
   return (
-    <div style={{ height }} role="img" aria-label="Median rate per km by week">
+    <div style={{ height }} role="img" aria-label={t("chart.rateByWeek")}>
       <ResponsiveContainer>
         <AreaChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
           <defs>
@@ -83,8 +85,8 @@ export function RateTrend({ data, height = 160 }: { data: { date: string; perKm:
           {grid}
           <XAxis dataKey="date" {...axis} tickFormatter={(d: string) => d.slice(5)} />
           <YAxis {...axis} width={44} domain={["auto", "auto"]} tickFormatter={(v: number) => `$${v.toFixed(2)}`} />
-          <Tooltip cursor={{ stroke: "var(--border-strong)" }} content={<Tip fmt={(n) => `$${n.toFixed(2)}/km`} />} />
-          <Area type="monotone" dataKey="perKm" name="Median $/km" stroke="var(--brand)" strokeWidth={2} fill="url(#rateFill)" connectNulls dot={{ r: 3, fill: "var(--brand)", stroke: "var(--surface)", strokeWidth: 2 }} />
+          <Tooltip cursor={{ stroke: "var(--border-strong)" }} content={<Tip fmt={perKm} />} />
+          <Area type="monotone" dataKey="perKm" name={t("chart.medianKm")} stroke="var(--brand)" strokeWidth={2} fill="url(#rateFill)" connectNulls dot={{ r: 3, fill: "var(--brand)", stroke: "var(--surface)", strokeWidth: 2 }} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
