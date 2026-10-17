@@ -200,7 +200,7 @@ test("buildWhere: destination radius, published-rate-only, and domestic/export/i
   const importScope = buildWhere({ scope: "import" });
   assert.ok((importScope.AND as { destCountry?: string }[]).some((c) => c.destCountry === "UZ"));
   const transit = buildWhere({ scope: "transit" });
-  assert.equal((transit.AND as unknown[]).length, 4); // status + demo + 2 NOT clauses, no plain originCountry/destCountry equality
+  assert.equal((transit.AND as unknown[]).length, 5); // status + not-yet-expired + demo + 2 NOT clauses, no plain originCountry/destCountry equality
 
   // Combined filters compose via AND rather than one silently overriding another.
   const combined = buildWhere({ scope: "export", hasRate: true, dest: "almaty", destRadiusKm: 200 });
