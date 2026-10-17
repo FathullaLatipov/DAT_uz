@@ -12,6 +12,7 @@ import { brokerReliability } from "@/server/services/broker";
 import { findBackhaul } from "@/server/services/backhaul";
 import { estimateTollsUsd } from "@/server/services/profitability";
 import { estimateTransitDays, freshGps } from "@/server/domain/geo";
+import { uniqueContacts } from "@/server/services/contacts";
 
 const DAY = 86_400_000;
 
@@ -43,7 +44,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         broker: offer.broker ? { id: offer.broker.id, name: offer.broker.name, verified: offer.broker.verified, isDemo: offer.broker.isDemo, countryCode: offer.broker.countryCode, taxId: offer.broker.taxId } : null,
         brokerReliability: null,
         lane,
-        listings: offer.listings.map((l) => listingDto(l, false)),
+        listings: offer.listings.slice(0, 25).map((l) => listingDto(l, false)),
+        listingsTotal: offer.listings.length,
+        contacts: [],
+        viewer: null,
         favorite: null,
         canAssign: false,
         truckOptions: null,
@@ -75,7 +79,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       broker: offer.broker ? { id: offer.broker.id, name: offer.broker.name, verified: offer.broker.verified, isDemo: offer.broker.isDemo, countryCode: offer.broker.countryCode, taxId: offer.broker.taxId } : null,
       brokerReliability: broker,
       lane,
-      listings: offer.listings.map((l) => listingDto(l, !l.source.isDemo)),
+      // A load reposted hundreds of times has hundreds of listings: show the best 25 and the real total,
+      // and one row per distinct contact.
+      listings: offer.listings.slice(0, 25).map((l) => listingDto(l, !l.source.isDemo)),
+      listingsTotal: offer.listings.length,
+      contacts: uniqueContacts(offer.listings),
+      viewer: { name: session.user.name, org: session.org.name },
       favorite: d.favorite,
       canAssign: can(session, "trip:assign") && offer.status === "ACTIVE",
       truckOptions: matches.map((x) => ({ id: x.truck.id, label: `${x.truck.code} — ${x.match.eligible ? `${x.match.score}% · match` : "not eligible"}`, eligible: x.match.eligible })),
@@ -91,6 +100,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             deadheadKm: m.deadheadKm,
             benchmarkPerKm: m.benchmarkPerKm,
             truckCode: t.code,
+            truckBody: t.bodyType,
+            truckCapacityKg: t.capacityKg,
             truckCity: t.currentCityId,
             truckPos: freshGps(t),
             calc: {
@@ -147,7 +158,7 @@ function offerDto(o: {
   };
 }
 
-function listingDto(l: { id: string; sourceId: string; source: { name: string; isDemo: boolean }; sourceUrl: string | null; lastSeenAt: Date; rate: number; currency: string; externalId: string; contactName?: string | null; contactPhone?: string | null }, includeContact: boolean) {
+function listingDto(l: { id: string; sourceId: string; source: { name: string; isDemo: boolean }; sourceUrl: string | null; lastSeenAt: Date; rate: number; currency: string; externalId: string; contactName?: string | null; contactPhone?: string | null; contactEmail?: string | null }, includeContact: boolean) {
   return {
     id: l.id,
     sourceId: l.sourceId,
@@ -159,6 +170,7 @@ function listingDto(l: { id: string; sourceId: string; source: { name: string; i
     externalId: l.externalId,
     contactName: includeContact ? (l.contactName ?? null) : null,
     contactPhone: includeContact ? (l.contactPhone ?? null) : null,
+    contactEmail: includeContact ? (l.contactEmail ?? null) : null,
   };
 }
 

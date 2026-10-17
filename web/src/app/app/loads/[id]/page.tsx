@@ -20,6 +20,8 @@ import { FavoriteButton } from "@/components/loads/favorite-button";
 import { ProfitCalculator } from "@/components/loads/profit-calculator";
 import { AssignPanel } from "@/components/loads/assign-panel";
 import { RouteMap } from "@/components/loads/route-map";
+import { ContactList } from "@/components/loads/contact-list";
+import { uniqueContacts } from "@/server/services/contacts";
 import { cn, pct } from "@/lib/format";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -40,6 +42,7 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
   const selected = matches.find((m) => m.truck.id === truckParam) ?? matches[0];
   const m = selected?.match;
   const t = selected?.truck;
+  const contacts = uniqueContacts(o.listings);
   const [broker, lane, backhaul] = await Promise.all([
     o.brokerId ? brokerReliability(o.brokerId, i18n) : null,
     laneStats(o.originCityId, o.destCityId),
@@ -316,19 +319,32 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
             </div>
           </Card>
 
+          {contacts.length > 0 && (
+            <Card>
+              <CardHeader title={tr("detail.contacts")} />
+              <div className="px-4 pb-4 sm:px-5">
+                <ContactList
+                  contacts={contacts}
+                  ctx={{
+                    originId: o.originCityId, destId: o.destCityId, weightKg: o.weightKg, bodyType: o.bodyType, loadingDate: o.loadingDate.toISOString(), rateUsd: o.rateUsd,
+                    truck: t ? { code: t.code, bodyType: t.bodyType, capacityKg: t.capacityKg } : null,
+                    viewer: { name: s.user.name, org: s.org.name },
+                  }}
+                />
+              </div>
+            </Card>
+          )}
+
           <Card>
             <CardHeader title={tr("detail.sources")} subtitle={tr("detail.lastSync", { ago: ago(lastSynced) })} />
             <ul className="divide-y divide-border border-t border-border">
-              {o.listings.map((l, i) => (
+              {o.listings.slice(0, 20).map((l, i) => (
                 <li key={l.id} className="flex items-center justify-between gap-2 px-4 py-2.5 text-sm sm:px-5">
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 font-medium">
                       {l.source.name} {i === 0 && o.listings.length > 1 && <Badge tone="pos">{tr("detail.bestRate")}</Badge>}
                     </div>
                     <div className="text-xs text-muted">{tr("detail.idSeen", { id: l.externalId, ago: ago(l.lastSeenAt) })}</div>
-                    {!l.source.isDemo && (l.contactName || l.contactPhone) && (
-                      <div className="mt-1 text-sm">{l.contactName}{l.contactPhone && <a href={`tel:${l.contactPhone.replace(/[^+\d]/g, "")}`} className="ml-2 font-medium text-brand hover:underline">{l.contactPhone}</a>}</div>
-                    )}
                   </div>
                   <div className="num shrink-0 text-right">
                     <div>{l.rate > 0 ? money(l.rate, l.currency) : "—"}</div>
@@ -341,6 +357,7 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
                 </li>
               ))}
             </ul>
+            {o.listings.length > 20 && <div className="border-t border-border px-4 py-2 text-xs text-muted sm:px-5">{tr("detail.moreSources", { n: o.listings.length - 20 })}</div>}
             <div className="border-t border-border px-4 py-3 text-xs text-muted sm:px-5">
               {tr("detail.contactsNote")}{" "}
               {o.isDemo && tr("detail.demoNote")}

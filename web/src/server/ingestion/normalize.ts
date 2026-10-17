@@ -174,6 +174,12 @@ export function brokerKey(raw?: string | null): string | null {
   return s.length >= 2 ? s : null;
 }
 
+/** A usable e-mail address in lower case, or null. */
+export function normalizeEmail(e?: string | null): string | null {
+  const v = (e ?? "").trim().toLowerCase();
+  return /^[^\s@<>()]+@[^\s@<>()]+\.[a-z]{2,}$/.test(v) && v.length <= 120 ? v : null;
+}
+
 /** Light phone masking for display — full numbers are only shown on explicit "Contact". */
 export const maskPhone = (p?: string | null) => (p ? p.replace(/(\+?\d{3,5})\d+(\d{2})$/, "$1•••••$2") : null);
 
@@ -250,6 +256,7 @@ export function normalizeListing(l: ParsedListing, now = new Date()): NormalizeR
     brokerKey: brokerKey(l.broker),
     contactName: l.contactName ?? null,
     contactPhone: l.contactPhone ?? null,
+    contactEmail: normalizeEmail(l.contactEmail),
     packaging: l.packaging ?? null,
     requirements: l.requirements ?? [],
     postedAt: parseDate(l.postedAt),

@@ -139,6 +139,7 @@ async function upsertListing(
     brokerNameRaw: o.brokerName,
     contactName: o.contactName,
     contactPhone: o.contactPhone,
+    contactEmail: o.contactEmail,
     rawPayload: JSON.stringify(raw),
     sourceCreatedAt: o.postedAt,
     lastSeenAt: now,

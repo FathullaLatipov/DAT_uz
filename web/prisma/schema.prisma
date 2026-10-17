@@ -350,6 +350,7 @@ model FreightListing {
   brokerNameRaw   String?
   contactName     String?
   contactPhone    String?
+  contactEmail    String?
   rawPayload      String // JSON as received
   sourceCreatedAt DateTime?
   firstSeenAt     DateTime  @default(now())
