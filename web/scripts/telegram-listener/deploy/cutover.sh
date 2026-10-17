@@ -43,14 +43,18 @@ elif [ -n "${KARVON_SSH_PW:-}" ] || [ -t 0 ]; then
   # The helper reads it from the environment only. Any SSH_ASKPASS already set by Git Bash is replaced.
   if [ -z "${KARVON_SSH_PW:-}" ]; then
     read -r -s -p "SSH password for $TARGET (typing is hidden, press Enter): " KARVON_SSH_PW; echo
-    [ -n "$KARVON_SSH_PW" ] || { echo "empty password — aborted"; exit 1; }
   fi
+  # A pasted password can carry an invisible carriage return / newline at the end — drop them.
+  KARVON_SSH_PW="$(printf '%s' "$KARVON_SSH_PW" | tr -d '\r\n')"
+  [ -n "$KARVON_SSH_PW" ] || { echo "empty password — aborted"; exit 1; }
+  echo "  (${#KARVON_SSH_PW} characters received)"
   export KARVON_SSH_PW
   ASKPASS_FILE="$(mktemp)"
-  printf '#!/bin/sh\necho "$KARVON_SSH_PW"\n' > "$ASKPASS_FILE"; chmod +x "$ASKPASS_FILE"
+  printf '#!/bin/sh\nprintf "%%s\\n" "$KARVON_SSH_PW"\n' > "$ASKPASS_FILE"; chmod +x "$ASKPASS_FILE"
   cleanup() { rm -f "${ASKPASS_FILE:-}"; unset KARVON_SSH_PW; }
   export SSH_ASKPASS="$ASKPASS_FILE" SSH_ASKPASS_REQUIRE=force DISPLAY="${DISPLAY:-none}"
-  SSH_OPTS+=(-o PreferredAuthentications=password -o PubkeyAuthentication=no)
+  # One attempt only: a wrong password must not be retried (repeated failures get an address blocked).
+  SSH_OPTS+=(-o PreferredAuthentications=password -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1)
 else
   SSH_OPTS+=(-o BatchMode=yes)
 fi
