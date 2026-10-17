@@ -13,6 +13,8 @@
 #      usual account (a login prompt would mean the session did not transfer — it must not continue)
 #
 # The ssh user needs root or passwordless sudo. Nothing secret is printed.
+# Non-interactive: CONFIRM_STOPPED=STOPPED CONFIRM_COPY=COPY ./deploy/cutover.sh ...
+# Password login: point SSH_ASKPASS at a script that prints the password and set SSH_ASKPASS_REQUIRE=force.
 set -euo pipefail
 
 TARGET="${1:?usage: $0 <ssh-user>@<host> [ssh-key]}"
@@ -20,9 +22,18 @@ KEY="${2:-}"
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$HERE"
 
-SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=15)
-[ -n "$KEY" ] && SSH_OPTS+=(-i "$KEY" -o IdentitiesOnly=yes)
-remote() { ssh "${SSH_OPTS[@]}" "$TARGET" "$@"; }
+SSH_OPTS=(-o ConnectTimeout=15)
+if [ -n "$KEY" ]; then
+  SSH_OPTS+=(-o BatchMode=yes -i "$KEY" -o IdentitiesOnly=yes)
+elif [ -n "${SSH_ASKPASS:-}" ]; then
+  # password login through an askpass helper (SSH_ASKPASS_REQUIRE=force); never stored by this script
+  SSH_OPTS+=(-o PreferredAuthentications=password -o PubkeyAuthentication=no)
+else
+  SSH_OPTS+=(-o BatchMode=yes)
+fi
+# `remote` never reads our stdin (so it cannot swallow the confirmation answers); `upload` is the one that pipes.
+remote() { ssh -n "${SSH_OPTS[@]}" "$TARGET" "$@"; }
+upload() { ssh "${SSH_OPTS[@]}" "$TARGET" "$@"; }
 
 need=(listener.py requirements.txt deploy/karvon-listener@.service ../../data/telegram_groups.csv .env .env.2 .env.3
       karvon_listener_main.session karvon_listener_2.session karvon_listener_3.session)
@@ -30,9 +41,11 @@ for f in "${need[@]}"; do [ -f "$f" ] || { echo "missing $f — run this from sc
 
 echo "Server: $TARGET"
 remote 'echo "connected as $(whoami) on $(hostname)"; id -u'
-read -r -p "Type STOPPED to confirm the listeners on this Windows machine are stopped (run stop-all.bat first): " a
+a="${CONFIRM_STOPPED:-}"
+[ -n "$a" ] || read -r -p "Type STOPPED to confirm the listeners on this Windows machine are stopped (run stop-all.bat first): " a
 [ "$a" = "STOPPED" ] || { echo "aborted"; exit 1; }
-read -r -p "This copies 3 live Telegram sessions to the server. Type COPY to continue: " a
+a="${CONFIRM_COPY:-}"
+[ -n "$a" ] || read -r -p "This copies 3 live Telegram sessions to the server. Type COPY to continue: " a
 [ "$a" = "COPY" ] || { echo "aborted"; exit 1; }
 
 echo "[1/5] preparing the server"
@@ -49,7 +62,7 @@ tar czf - listener.py requirements.txt deploy/karvon-listener@.service .env .env
   karvon_listener_main.session karvon_listener_2.session karvon_listener_3.session \
   $( [ -f state.json ] && echo state.json ) $( [ -f state_2.json ] && echo state_2.json ) $( [ -f state_3.json ] && echo state_3.json ) \
   -C ../../data telegram_groups.csv 2>/dev/null \
-  | remote 'SUDO=""; [ "$(id -u)" = 0 ] || SUDO="sudo -n"; $SUDO tar xzf - -C /opt/karvon-listener-stage'
+  | upload 'SUDO=""; [ "$(id -u)" = 0 ] || SUDO="sudo -n"; $SUDO tar xzf - -C /opt/karvon-listener-stage'
 
 echo "[3/5] installing"
 remote 'set -e
