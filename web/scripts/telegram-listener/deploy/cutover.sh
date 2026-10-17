@@ -25,13 +25,14 @@ cd "$HERE"
 SSH_OPTS=(-o ConnectTimeout=15)
 if [ -n "$KEY" ]; then
   SSH_OPTS+=(-o BatchMode=yes -i "$KEY" -o IdentitiesOnly=yes)
-elif [ -n "${SSH_ASKPASS:-}" ]; then
-  # password login through an askpass helper (SSH_ASKPASS_REQUIRE=force); never stored by this script
-  SSH_OPTS+=(-o PreferredAuthentications=password -o PubkeyAuthentication=no)
-elif [ -t 0 ]; then
-  # No key given: ask for the password once and feed it to every ssh call through a throw-away askpass
-  # helper (so you are not prompted a dozen times). The helper reads it from the environment only.
-  read -r -s -p "SSH password for $TARGET: " KARVON_SSH_PW; echo
+elif [ -n "${KARVON_SSH_PW:-}" ] || [ -t 0 ]; then
+  # No key given: ask for the password once (or take KARVON_SSH_PW when run non-interactively) and feed
+  # it to every ssh call through a throw-away askpass helper, so you are not prompted a dozen times.
+  # The helper reads it from the environment only. Any SSH_ASKPASS already set by Git Bash is replaced.
+  if [ -z "${KARVON_SSH_PW:-}" ]; then
+    read -r -s -p "SSH password for $TARGET (typing is hidden, press Enter): " KARVON_SSH_PW; echo
+    [ -n "$KARVON_SSH_PW" ] || { echo "empty password — aborted"; exit 1; }
+  fi
   export KARVON_SSH_PW
   ASKPASS_FILE="$(mktemp)"
   printf '#!/bin/sh\necho "$KARVON_SSH_PW"\n' > "$ASKPASS_FILE"; chmod +x "$ASKPASS_FILE"
