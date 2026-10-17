@@ -1,4 +1,8 @@
-# Moving the listener to Ubuntu — prepared plan, not yet executed
+# Moving the listener to Ubuntu
+
+**Scripted:** `./deploy/cutover.sh <user>@<host> [ssh-key]` (Git Bash, from `scripts/telegram-listener`) does the steps below end to end and stops at the first instance that does not log in with its transferred session. The manual procedure follows for reference.
+
+(Original status: prepared plan, not yet executed.)
 
 Today the listener runs as 3 processes on a Windows machine (`supervisor.ps1`), which means
 ingestion stops whenever that machine is off or asleep. This makes it a systemd-managed service
