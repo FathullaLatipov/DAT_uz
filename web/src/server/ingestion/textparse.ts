@@ -17,6 +17,10 @@ const PHONE = /(?<![\d.,/])(\+?\d[\d ()-]{8,}\d)/g;
 function findPhone(text: string): string | undefined {
   return [...text.matchAll(PHONE)].map((m) => m[1].trim()).find((p) => p.replace(/\D/g, "").length >= 9);
 }
+/** First e-mail address in an ad, if any (trailing punctuation from the sentence is dropped). */
+export function findEmail(text: string): string | undefined {
+  return text.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/)?.[0].replace(/[.,;:]+$/, "");
+}
 const stripPhone = (text: string) => {
   const p = findPhone(text);
   return p ? text.replace(p, " ") : text;
@@ -110,6 +114,7 @@ export function parseAd(text: string, idx: number, batch: string, now = new Date
       currency: rate?.currency,
       paymentTerms: pay,
       contactPhone: phone,
+      contactEmail: findEmail(text),
       postedAt: now,
       raw: { text },
     },

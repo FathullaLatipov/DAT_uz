@@ -24,6 +24,7 @@ const schema = z
     paymentTerms: z.enum(PAYMENT_TERMS).optional().nullable(),
     contactName: z.string().trim().min(2).max(80),
     contactPhone: z.string().trim().regex(/^\+?[\d\s()-]{7,20}$/, "Enter a valid phone number"),
+    contactEmail: z.union([z.literal(""), z.string().trim().email("Enter a valid email address").max(120)]).optional(),
     requirements: z.string().trim().max(300).optional(),
   })
   .refine((v) => v.originCityId !== v.destCityId, { message: "Origin and destination must differ", path: ["destCityId"] });
@@ -51,6 +52,7 @@ export const POST = api(
       broker: session.org.name,
       contactName: b.contactName,
       contactPhone: b.contactPhone,
+      contactEmail: b.contactEmail || undefined,
       requirements: b.requirements ? b.requirements.split(",").map((s) => s.trim()).filter(Boolean) : [],
       postedAt: new Date(),
       expiresAt: new Date(loading.getTime() + 86_400_000),

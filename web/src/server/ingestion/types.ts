@@ -25,6 +25,7 @@ export interface ParsedListing {
   broker?: string;
   contactName?: string;
   contactPhone?: string;
+  contactEmail?: string;
   packaging?: string;
   requirements?: string[];
   postedAt?: string | Date;
@@ -55,6 +56,7 @@ export interface NormalizedOffer {
   brokerKey: string | null;
   contactName: string | null;
   contactPhone: string | null;
+  contactEmail: string | null;
   packaging: string | null;
   requirements: string[];
   postedAt: Date | null;

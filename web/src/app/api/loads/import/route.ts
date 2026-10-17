@@ -27,7 +27,7 @@ export const POST = api(
         continue;
       }
       const l = a.listing;
-      const summary = { origin: l.origin, destination: l.destination, weightKg: l.weight, body: l.bodyType ?? null, loading: new Date(l.loadingDate).toISOString().slice(0, 10), rate: l.rate ?? null, currency: l.currency ?? null, phone: l.contactPhone ?? null };
+      const summary = { origin: l.origin, destination: l.destination, weightKg: l.weight, body: l.bodyType ?? null, loading: new Date(l.loadingDate).toISOString().slice(0, 10), rate: l.rate ?? null, currency: l.currency ?? null, phone: l.contactPhone ?? null, email: l.contactEmail ?? null };
       if (!commit) {
         results.push({ text: a.text, ok: true as const, summary });
         continue;

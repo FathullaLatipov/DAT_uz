@@ -27,6 +27,8 @@ import type { ScoreComponent } from "@/server/services/matching";
 import type { CalcInput } from "./profit-calculator";
 import { cn } from "@/lib/format";
 import { Badge, Bar, DemoBadge, ScoreBadge, Select, Skeleton, Trend } from "../ui/primitives";
+import { ContactList } from "./contact-list";
+import type { Contact } from "@/server/services/contacts";
 import { RouteMap } from "./route-map";
 import { ProfitCalculator } from "./profit-calculator";
 import { AssignPanel } from "./assign-panel";
@@ -43,14 +45,17 @@ export interface LoadDetailResponse {
   broker: { id: string; name: string; verified: boolean; isDemo: boolean; countryCode: string | null; taxId: string | null } | null;
   brokerReliability: BrokerReliability | null;
   lane: LaneStats;
-  listings: { id: string; sourceId: string; sourceName: string; sourceUrl: string | null; lastSeenAt: string; rate: number; currency: string; externalId: string; contactName: string | null; contactPhone: string | null }[];
+  listings: { id: string; sourceId: string; sourceName: string; sourceUrl: string | null; lastSeenAt: string; rate: number; currency: string; externalId: string; contactName: string | null; contactPhone: string | null; contactEmail: string | null }[];
+  listingsTotal: number;
+  contacts: Contact[];
+  viewer: { name: string; org: string } | null;
   favorite: boolean | null;
   canAssign: boolean;
   truckOptions: { id: string; label: string; eligible: boolean }[] | null;
   selectedTruckId: string | null;
   match: {
     score: number; eligible: boolean; blockers: string[]; components: ScoreComponent[]; reasons: string[]; warnings: string[];
-    deadheadKm: number; benchmarkPerKm: number | null; truckCode: string; truckCity: string; truckPos?: { lat: number; lng: number } | null; calc: CalcInput;
+    deadheadKm: number; benchmarkPerKm: number | null; truckCode: string; truckBody: string; truckCapacityKg: number; truckCity: string; truckPos?: { lat: number; lng: number } | null; calc: CalcInput;
   } | null;
   backhaul: { options: { offer: { id: string; originCityId: string; destCityId: string }; match: { score: number; profit: { profit: number } } }[] } | null;
 }
@@ -108,7 +113,7 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
   const { offer: o, broker, brokerReliability: rel, lane, listings, match: m } = data;
   const perKmRate = o.rateUsd > 0 && o.distanceKm > 0 ? o.rateUsd / o.distanceKm : null;
   const lastSeen = listings.reduce((a, l) => (l.lastSeenAt > a ? l.lastSeenAt : a), listings[0]?.lastSeenAt ?? o.expiresAt);
-  const anyContact = listings.some((l) => l.contactName || l.contactPhone);
+  const anyContact = data.contacts.length > 0;
 
   const copyText = (text: string, which: "details" | "route") => {
     navigator.clipboard?.writeText(text).then(() => {
@@ -154,7 +159,7 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
             <p className="text-xs text-muted"><span className="font-medium text-fg">{t("panel.requirements")}</span> {o.requirements.join(", ")}</p>
           )}
           <p className="text-xs text-subtle">
-            {t("panel.listingLine", { listings: tn("panel.listings", listings.length), id: listings[0]?.externalId ?? o.id.slice(0, 8), ago: ago(lastSeen) })}
+            {t("panel.listingLine", { listings: tn("panel.listings", data.listingsTotal ?? listings.length), id: listings[0]?.externalId ?? o.id.slice(0, 8), ago: ago(lastSeen) })}
           </p>
         </div>
 
@@ -243,14 +248,14 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
 
           {data.authenticated ? (
             anyContact ? (
-              <ul className="space-y-1.5 text-sm">
-                {listings.filter((l) => l.contactName || l.contactPhone).map((l) => (
-                  <li key={l.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-2">
-                    <span className="truncate">{l.contactName ?? l.sourceName}</span>
-                    {l.contactPhone && <a href={`tel:${l.contactPhone.replace(/[^+\d]/g, "")}`} className="shrink-0 font-medium text-brand hover:underline">{l.contactPhone}</a>}
-                  </li>
-                ))}
-              </ul>
+              <ContactList
+                contacts={data.contacts}
+                ctx={{
+                  originId: o.originCityId, destId: o.destCityId, weightKg: o.weightKg, bodyType: o.bodyType, loadingDate: o.loadingDate, rateUsd: o.rateUsd,
+                  truck: m ? { code: m.truckCode, bodyType: m.truckBody, capacityKg: m.truckCapacityKg } : null,
+                  viewer: data.viewer,
+                }}
+              />
             ) : (
               <p className="text-xs text-muted">{t("panel.noContacts")}</p>
             )

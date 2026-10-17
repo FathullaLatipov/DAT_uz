@@ -29,7 +29,7 @@ export function PostLoadForm({ defaultContact }: { defaultContact: string }) {
   const router = useRouter();
   const [v, setV] = useState({
     originCityId: "tashkent", destCityId: "almaty", loadingDate: tomorrow(), unloadingDate: "", cargoType: "GENERAL", weightKg: "20000",
-    volumeM3: "", bodyType: "CURTAINSIDER", rate: "", currency: "USD", paymentTerms: "ON_UNLOADING", contactName: defaultContact, contactPhone: "", requirements: "",
+    volumeM3: "", bodyType: "CURTAINSIDER", rate: "", currency: "USD", paymentTerms: "ON_UNLOADING", contactName: defaultContact, contactPhone: "", contactEmail: "", requirements: "",
   });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +91,7 @@ export function PostLoadForm({ defaultContact }: { defaultContact: string }) {
           <Field label={t("load.payment")}><Select value={v.paymentTerms} onChange={set("paymentTerms")}>{PAYMENT_TERMS.map((c) => <option key={c} value={c}>{label(c)}</option>)}</Select></Field>
           <Field label={t("post.contact")}><Input required minLength={2} value={v.contactName} onChange={set("contactName")} autoComplete="name" /></Field>
           <Field label={t("post.phone")} hint={t("post.phoneHint")}><Input required type="tel" inputMode="tel" placeholder="+998 90 123 45 67" value={v.contactPhone} onChange={set("contactPhone")} autoComplete="tel" /></Field>
+          <Field label={t("post.email")} hint={t("post.emailHint")}><Input type="email" inputMode="email" placeholder="name@company.com" value={v.contactEmail} onChange={set("contactEmail")} autoComplete="email" /></Field>
         </div>
       </section>
       {error && <p role="alert" className="rounded-lg bg-neg-soft px-3 py-2 text-sm text-neg">{error}</p>}
