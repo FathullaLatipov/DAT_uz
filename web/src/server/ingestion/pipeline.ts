@@ -157,21 +157,30 @@ async function upsertListing(
   const phone = phoneKey(o.contactPhone);
   const text = textKey((raw as { text?: string } | null)?.text);
   if (phone || text) {
+    // Kept light on purpose (this runs for every incoming ad): only phone numbers are pulled for the
+    // lane/day, and the text is compared inside the database as an exact match on the stored payload —
+    // loading every listing's payload for a busy lane cost far too much memory.
+    const lane = {
+      originCityId: o.originCityId,
+      destCityId: o.destCityId,
+      loadingDate: { gte: new Date(o.loadingDate.getTime() - DAY / 2), lte: new Date(o.loadingDate.getTime() + DAY / 2) },
+      isDemo,
+      status: "ACTIVE",
+    };
     const sameDay = await db.freightOffer.findMany({
-      where: {
-        originCityId: o.originCityId,
-        destCityId: o.destCityId,
-        loadingDate: { gte: new Date(o.loadingDate.getTime() - DAY / 2), lte: new Date(o.loadingDate.getTime() + DAY / 2) },
-        isDemo,
-        status: "ACTIVE",
-      },
-      select: { id: true, weightKg: true, bodyType: true, listings: { select: { contactPhone: true, rawPayload: true } } },
+      where: lane,
+      select: { id: true, weightKg: true, bodyType: true, listings: { select: { contactPhone: true } } },
+      take: 1500,
     });
+    const sameText = text ? new Set((await db.freightListing.findMany({ where: { rawPayload: JSON.stringify(raw), offer: lane }, select: { offerId: true }, take: 50 })).map((l) => l.offerId)) : new Set<string>();
     const cands: RepostCandidate[] = sameDay.map((c) => ({
       id: c.id,
       weightKg: c.weightKg,
       bodyType: c.bodyType,
-      listings: c.listings.map((l) => ({ phone: phoneKey(l.contactPhone), text: textKey(rawText(l.rawPayload)) })),
+      listings: [
+        ...c.listings.map((l) => ({ phone: phoneKey(l.contactPhone), text: null as string | null })),
+        ...(sameText.has(c.id) ? [{ phone: null as string | null, text }] : []),
+      ],
     }));
     const repostOf = findRepost({ weightKg: o.weightKg, bodyType: o.bodyType, phone, text }, cands);
     if (repostOf) {
@@ -317,28 +326,40 @@ export async function ingestPlatformListing(db: PrismaClient, listing: ParsedLis
  * kept offer shows every source) and are expired. Safe to run repeatedly — it is the backstop for
  * anything the ingest-time check missed (older rows, or a repost that arrived before its twin).
  */
-export async function mergeReposts(db: PrismaClient, opts: { sinceDays?: number; now?: Date } = {}) {
+export async function mergeReposts(db: PrismaClient, opts: { sinceDays?: number; now?: Date; maxGroups?: number; budgetMs?: number } = {}) {
   const now = opts.now ?? new Date();
-  const offers = await db.freightOffer.findMany({
-    where: { status: "ACTIVE", isDemo: false, createdAt: { gte: new Date(now.getTime() - (opts.sinceDays ?? 14) * DAY) } },
-    select: {
-      id: true, originCityId: true, destCityId: true, loadingDate: true, weightKg: true, bodyType: true,
-      listings: { select: { id: true, contactPhone: true, rawPayload: true } },
-    },
-    orderBy: { createdAt: "asc" },
-    take: 20_000,
-  });
-  const groups = new Map<string, typeof offers>();
-  for (const o of offers) {
-    const k = `${o.originCityId}|${o.destCityId}|${o.loadingDate.toISOString().slice(0, 10)}`;
-    (groups.get(k) ?? groups.set(k, []).get(k)!).push(o);
-  }
+  const started = Date.now();
+  const budgetMs = opts.budgetMs ?? 120_000;
+  // Work one lane-and-day at a time, biggest first: only that group's offers are in memory, never the whole
+  // table (an earlier version loaded every active offer with its payloads and ran the server out of memory).
+  const groups = await db.$queryRaw<{ o: string; d: string; day: string }[]>`
+    SELECT "originCityId" AS o, "destCityId" AS d, to_char("loadingDate", 'YYYY-MM-DD') AS day
+    FROM "FreightOffer"
+    WHERE status = 'ACTIVE' AND "isDemo" = false AND "createdAt" >= ${new Date(now.getTime() - (opts.sinceDays ?? 14) * DAY)}
+    GROUP BY 1, 2, 3
+    HAVING count(*) > 1
+    ORDER BY count(*) DESC
+    LIMIT ${opts.maxGroups ?? 300}`;
   let merged = 0;
+  let scanned = 0;
+  let groupsDone = 0;
   const touched = new Set<string>();
-  for (const group of groups.values()) {
-    if (group.length < 2) continue;
+  for (const g of groups) {
+    if (Date.now() - started > budgetMs) break;
+    groupsDone++;
+    await new Promise((r) => setTimeout(r, 20)); // leave room for the site itself on a one-CPU container
+    const offers = await db.freightOffer.findMany({
+      where: {
+        originCityId: g.o, destCityId: g.d, status: "ACTIVE", isDemo: false,
+        loadingDate: { gte: new Date(`${g.day}T00:00:00Z`), lt: new Date(new Date(`${g.day}T00:00:00Z`).getTime() + DAY) },
+      },
+      select: { id: true, weightKg: true, bodyType: true, listings: { select: { contactPhone: true, rawPayload: true } } },
+      orderBy: { createdAt: "asc" },
+      take: 1500,
+    });
+    scanned += offers.length;
     const keepers: RepostCandidate[] = [];
-    for (const o of group) {
+    for (const o of offers) {
       const sigs = o.listings.map((l) => ({ phone: phoneKey(l.contactPhone), text: textKey(rawText(l.rawPayload)) }));
       let keeperId: string | null = null;
       for (const sig of sigs) {
@@ -359,5 +380,5 @@ export async function mergeReposts(db: PrismaClient, opts: { sinceDays?: number;
     }
   }
   for (const id of touched) await refreshOffer(db, id, now);
-  return { scanned: offers.length, merged, keptOffersUpdated: touched.size };
+  return { groups: groups.length, groupsDone, scanned, merged, keptOffersUpdated: touched.size };
 }

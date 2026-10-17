@@ -50,7 +50,7 @@ export const JOBS = {
     },
   },
   "merge-reposts": {
-    everyMin: 60,
+    everyMin: 10, // works through the backlog in bounded slices, then finds little to do
     startDelayS: 240,
     async run() {
       // Backstop for the ingest-time repost check: the same ad posted again and again becomes one offer.
