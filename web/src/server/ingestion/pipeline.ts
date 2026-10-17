@@ -248,7 +248,8 @@ async function upsertListing(
       rateUsd: o.rateUsd ?? 0,
       paymentTerms: o.paymentTerms,
       brokerId: broker?.id,
-      status: o.expiresAt < now ? "EXPIRED" : "ACTIVE",
+      // Already finished, or a date so far ahead it can only be a parsing slip (not for loads posted on Karvon).
+      status: o.expiresAt < now || (sourceId !== PLATFORM_SOURCE.id && o.loadingDate.getTime() > now.getTime() + MAX_DAYS_AHEAD * DAY) ? "EXPIRED" : "ACTIVE",
       quality: qualityLevel(issues, { brokerVerified: broker?.verified }),
       qualityFlags: JSON.stringify(issues.map((i) => i.code)),
       isDemo,
@@ -281,9 +282,37 @@ export async function refreshOffer(db: PrismaClient, offerId: string, now: Date)
   });
 }
 
+/**
+ * A load further ahead than this is almost certainly a mis-read date, not a real booking: posters publish
+ * loads for the next days. Loads posted on Karvon itself are exempt (a shipper may plan weeks ahead).
+ */
+export const MAX_DAYS_AHEAD = 21;
+
+/** Takes finished loads, and loads with an implausible far-future date, off the board (status EXPIRED). */
 export async function expireStaleOffers(db: PrismaClient, now = new Date()) {
-  const r = await db.freightOffer.updateMany({ where: { status: "ACTIVE", expiresAt: { lt: now } }, data: { status: "EXPIRED" } });
-  return r.count;
+  const past = await db.freightOffer.updateMany({ where: { status: "ACTIVE", expiresAt: { lt: now } }, data: { status: "EXPIRED" } });
+  const far = await db.freightOffer.updateMany({
+    where: { status: "ACTIVE", loadingDate: { gt: new Date(now.getTime() + MAX_DAYS_AHEAD * DAY) }, listings: { none: { sourceId: PLATFORM_SOURCE.id } } },
+    data: { status: "EXPIRED" },
+  });
+  return past.count + far.count;
+}
+
+/**
+ * Deletes offers that left the board at least `olderThanDays` ago, so the tables the board reads stay
+ * small. Listings, favourites and recommendations go with them (cascade); an offer that has a trip is
+ * kept, because the trip history refers to it. Works in slices so one run never holds a big transaction.
+ */
+export async function purgeOldOffers(db: PrismaClient, opts: { now?: Date; olderThanDays?: number; batch?: number } = {}) {
+  const cutoff = new Date((opts.now ?? new Date()).getTime() - (opts.olderThanDays ?? 14) * DAY);
+  const ids = await db.freightOffer.findMany({
+    where: { status: "EXPIRED", updatedAt: { lt: cutoff }, trips: { none: {} } },
+    select: { id: true },
+    take: opts.batch ?? 2000,
+  });
+  if (!ids.length) return { purged: 0 };
+  const r = await db.freightOffer.deleteMany({ where: { id: { in: ids.map((o) => o.id) } } });
+  return { purged: r.count };
 }
 
 export const PLATFORM_SOURCE = {

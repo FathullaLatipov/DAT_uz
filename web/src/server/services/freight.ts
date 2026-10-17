@@ -109,7 +109,8 @@ function citiesWithin(cityId: string, radiusKm: number) {
 }
 
 export function buildWhere(f: LoadFilters): Prisma.FreightOfferWhereInput {
-  const and: Prisma.FreightOfferWhereInput[] = [{ status: "ACTIVE" }, demoOfferFilter()];
+  // `expiresAt` too, so a load that finished a minute ago never shows while the expiry job is between runs.
+  const and: Prisma.FreightOfferWhereInput[] = [{ status: "ACTIVE" }, { expiresAt: { gt: new Date() } }, demoOfferFilter()];
   if (f.origin) and.push({ originCityId: { in: f.radiusKm ? citiesWithin(f.origin, f.radiusKm) : [f.origin] } });
   if (f.originCountry) and.push({ originCountry: f.originCountry });
   if (f.dest) and.push({ destCityId: { in: f.destRadiusKm ? citiesWithin(f.dest, f.destRadiusKm) : [f.dest] } });
@@ -151,7 +152,8 @@ const lastSeenMs = (r: LoadRow) => Math.max(r.offer.lastSeenAt.getTime(), ...r.o
 
 export async function searchLoads(orgId: string, userId: string, f: LoadFilters, page = 1, pageSize = 25): Promise<SearchResult> {
   const [offers, ctx, allTrucks, favs] = await Promise.all([
-    db.freightOffer.findMany({ where: buildWhere(f), include: offerInclude, take: 2000 }),
+    // Newest first: when a search matches more than the cap, the freshest postings are the ones kept.
+    db.freightOffer.findMany({ where: buildWhere(f), include: offerInclude, orderBy: { createdAt: "desc" }, take: 2000 }),
     getMatchContext(orgId),
     getMatchTrucks(orgId),
     db.favorite.findMany({ where: { userId }, select: { offerId: true } }),
