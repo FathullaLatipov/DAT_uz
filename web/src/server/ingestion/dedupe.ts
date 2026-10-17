@@ -88,3 +88,42 @@ export function findDuplicate(n: NormalizedOffer, candidates: DedupCandidate[]) 
   }
   return best;
 }
+
+// ───────────── Reposts ─────────────
+// The same ad is posted again and again — in one Telegram group and across many — each time as a new
+// message with a new id. The fingerprint above can't catch that (it includes the broker, and for
+// Telegram the "broker" is the group's name), so these two signals decide it instead: the same phone
+// number, or the same text, on the same lane, day, weight and body.
+
+/** Last 9 digits of a phone number (country code and formatting dropped); null if too short to mean anything. */
+export function phoneKey(p?: string | null): string | null {
+  const d = (p ?? "").replace(/\D/g, "");
+  return d.length >= 7 ? d.slice(-9) : null;
+}
+
+/** Ad text reduced to letters and digits, so reposts that differ in spacing, emoji or case still match. */
+export function textKey(t?: string | null): string | null {
+  const k = (t ?? "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  return k.length >= 30 ? k : null;
+}
+
+export interface RepostCandidate {
+  id: string;
+  weightKg: number;
+  bodyType: string;
+  listings: { phone: string | null; text: string | null }[];
+}
+
+/** The existing offer (same lane and day, already filtered by the caller) this posting repeats, if any. */
+export function findRepost(
+  n: { weightKg: number; bodyType: string; phone: string | null; text: string | null },
+  candidates: RepostCandidate[],
+): string | null {
+  for (const c of candidates) {
+    if (family(n.bodyType) !== family(c.bodyType)) continue;
+    if (Math.abs(n.weightKg - c.weightKg) / Math.max(n.weightKg, c.weightKg, 1) > 0.05) continue;
+    const same = c.listings.some((l) => (n.phone && l.phone === n.phone) || (n.text && l.text === n.text));
+    if (same) return c.id;
+  }
+  return null;
+}

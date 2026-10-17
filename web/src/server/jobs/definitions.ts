@@ -1,6 +1,6 @@
 import { db, parseJson } from "../db";
 import { liveAdapters } from "../ingestion/registry";
-import { expireStaleOffers, runIngestion } from "../ingestion/pipeline";
+import { expireStaleOffers, mergeReposts, runIngestion } from "../ingestion/pipeline";
 import { checkAllSavedSearches } from "../services/alerts";
 import { rateAgeHours, refreshRatesFromCbu } from "../services/fx";
 import { invalidateMarketCache } from "../services/market";
@@ -47,6 +47,16 @@ export const JOBS = {
       const expired = await expireStaleOffers(db);
       if (expired) bust();
       return { expired };
+    },
+  },
+  "merge-reposts": {
+    everyMin: 60,
+    startDelayS: 240,
+    async run() {
+      // Backstop for the ingest-time repost check: the same ad posted again and again becomes one offer.
+      const r = await mergeReposts(db);
+      if (r.merged) bust();
+      return r;
     },
   },
   "saved-search-alerts": {
