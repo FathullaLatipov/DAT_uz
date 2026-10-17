@@ -28,6 +28,16 @@ if [ -n "$KEY" ]; then
 elif [ -n "${SSH_ASKPASS:-}" ]; then
   # password login through an askpass helper (SSH_ASKPASS_REQUIRE=force); never stored by this script
   SSH_OPTS+=(-o PreferredAuthentications=password -o PubkeyAuthentication=no)
+elif [ -t 0 ]; then
+  # No key given: ask for the password once and feed it to every ssh call through a throw-away askpass
+  # helper (so you are not prompted a dozen times). The helper reads it from the environment only.
+  read -r -s -p "SSH password for $TARGET: " KARVON_SSH_PW; echo
+  export KARVON_SSH_PW
+  ASKPASS_FILE="$(mktemp)"
+  printf '#!/bin/sh\necho "$KARVON_SSH_PW"\n' > "$ASKPASS_FILE"; chmod +x "$ASKPASS_FILE"
+  trap 'rm -f "$ASKPASS_FILE"; unset KARVON_SSH_PW' EXIT
+  export SSH_ASKPASS="$ASKPASS_FILE" SSH_ASKPASS_REQUIRE=force DISPLAY="${DISPLAY:-none}"
+  SSH_OPTS+=(-o PreferredAuthentications=password -o PubkeyAuthentication=no)
 else
   SSH_OPTS+=(-o BatchMode=yes)
 fi
