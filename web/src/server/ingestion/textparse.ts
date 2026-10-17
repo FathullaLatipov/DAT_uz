@@ -25,11 +25,24 @@ const stripPhone = (text: string) => {
   const p = findPhone(text);
   return p ? text.replace(p, " ") : text;
 };
-const DATE = /(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?/;
-// Number = digits with optional thousands groups ("5 000 000", "1,300", "1300.50"); no nested
+// A date never starts right after a digit, dot, comma or slash ("20.5 т" is a weight, not 20 May).
+const DATE = /(?<![\d.,/])(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?(?!\d)/g;
+/** Ads that give no date but say the cargo is ready or urgent (Russian, Uzbek Latin and Cyrillic). */
+const READY_NOW = /готов|срочн|сегодня|сейчас|hozir|tayyor|тайёр|тайер|шошил|shoshil/iu;
+/** What follows "20.5" when it is a quantity or a price rather than a date. */
+const UNIT_AFTER = /^\s?(?:т(?!\p{L})|тонн|кг|kg|t(?!\p{L})|м3|м³|куб|[$€₽](?!\s?\d)|usd|eur|долл|у\.?\s?е|сум|so['’]?m)/iu;
+// Number = digits with optional thousands groups ("5 000 000", "1,300", "1.200", "1300.50"); no nested
 // quantifiers over the same characters, so pasted input can't trigger catastrophic backtracking.
-const NUM = String.raw`\d{1,3}(?:[ ,]\d{3}){1,3}(?:[.,]\d{1,2})?|\d{1,9}(?:[.,]\d{1,2})?`;
-const RATE = new RegExp(String.raw`(${NUM})\s?(\$|usd|долл\w*|у\.?\s?е\.?|eur|€|евро|rub|руб\w*|₽|kzt|тенге|₸|cny|юан\w*|uzs|сум\w*|so['’]?m)|(\$|€|₽)\s?(${NUM})`, "i");
+// A group is exactly three digits, so "19.10 900" is not read as "10 900".
+const NUM = String.raw`\d{1,3}(?:[ ,.]\d{3}(?!\d)){1,3}(?:[.,]\d{1,2})?|\d{1,9}(?:[.,]\d{1,2})?`;
+// The amount must not start inside another number or a date ("19.10 900$", "19.10.2026 900$"), and
+// per-km / per-tonne quotes are not the load's price. ("19.10 $900" — a date, then a prefixed price — is
+// handled in parseRate.)
+const PER = String.raw`(?!\s?/\s?(?:км|km|т(?!\p{L})|t(?!\p{L})))`;
+const RATE = new RegExp(
+  String.raw`(?<![\d.,/])(${NUM})\s?(\$|usd|долл\w*|у\.?\s?е\.?|eur|€|евро|rub|руб\w*|₽|kzt|тенге|₸|cny|юан\w*|uzs|сум\w*|so['’]?m)${PER}|(\$|€|₽)\s?(${NUM})${PER}`,
+  "iug",
+);
 
 /** Splits a pasted blob into individual ads: blank lines, or lines starting with a bullet/number. */
 export function splitAds(text: string): string[] {
@@ -45,22 +58,36 @@ export function splitAds(text: string): string[] {
 }
 
 function parseRate(ad: string): { rate: number; currency: string } | null {
-  const m = ad.match(RATE);
-  if (!m) return null;
-  const raw = (m[1] ?? m[4] ?? "").replace(/[ ,](?=\d{3}\b)/g, "").replace(",", ".");
-  const unit = m[2] ?? m[3] ?? "";
-  const rate = parseFloat(raw);
-  if (!Number.isFinite(rate) || rate <= 0) return null;
-  const cur = /^(у\.?\s?е\.?)$/i.test(unit) ? "USD" : normalizeCurrency(unit);
-  return cur ? { rate, currency: cur } : null;
+  // First quote that parses; an amount in an unknown currency is skipped rather than ending the search.
+  RATE.lastIndex = 0;
+  for (let m = RATE.exec(ad); m; m = RATE.exec(ad)) {
+    const amount = m[1] ?? m[4] ?? "";
+    const unit = m[2] ?? m[3] ?? "";
+    // "19.10 $900": a date followed by a prefixed price. The "$" belongs to the next number, so look again from there.
+    if (m[1] && /^\d{1,2}[.,]\d{1,2}$/.test(amount) && /^[$€₽]$/.test(unit) && /^\s?\d/.test(ad.slice(m.index + m[0].length))) {
+      RATE.lastIndex = m.index + amount.length;
+      continue;
+    }
+    // thousands separators (space, comma, dot before exactly three digits) out, decimal comma to a dot
+    const raw = amount.replace(/[ ,.](?=\d{3}(?!\d))/g, "").replace(",", ".");
+    const rate = parseFloat(raw);
+    if (!Number.isFinite(rate) || rate <= 0) continue;
+    const cur = /^(у\.?\s?е\.?)$/i.test(unit) ? "USD" : normalizeCurrency(unit);
+    if (cur) return { rate, currency: cur };
+  }
+  return null;
 }
 
 function parseLoadingDate(ad: string, now: Date): Date | null {
-  const m = ad.match(DATE);
+  // The first candidate that is a real calendar day and not a weight or a price ("20.5 т", "1.200$").
+  const m = [...ad.matchAll(DATE)].find((c) => {
+    const d = Number(c[1]);
+    const mo = Number(c[2]);
+    return d >= 1 && d <= 31 && mo >= 1 && mo <= 12 && !UNIT_AFTER.test(ad.slice(c.index + c[0].length));
+  });
   if (!m) return null;
   const d = Number(m[1]);
   const mo = Number(m[2]);
-  if (d < 1 || d > 31 || mo < 1 || mo > 12) return null;
   let y = m[3] ? Number(m[3]) : now.getUTCFullYear();
   if (y < 100) y += 2000;
   let date = new Date(Date.UTC(y, mo - 1, d, 8));
@@ -90,6 +117,8 @@ export function parseAd(text: string, idx: number, batch: string, now = new Date
   if (!weight) problems.push(t("parse.noWeight"));
 
   let loading = f.loadingFrom ? new Date(`${f.loadingFrom}T08:00:00Z`) : parseLoadingDate(stripPhone(text), now);
+  // "Cargo ready" / "urgent" with no date means it can load now — the day the ad was posted.
+  if (!loading && READY_NOW.test(text)) loading = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 8));
   if (!loading) loading = null;
   if (!loading) problems.push(t("parse.noDate"));
 
