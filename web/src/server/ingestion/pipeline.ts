@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { CITIES, COUNTRIES } from "../domain/geo";
 import { normalizeListing, qualityLevel } from "./normalize";
-import { findDuplicate, fingerprint, type DedupCandidate } from "./dedupe";
+import { findDuplicate, findRepost, fingerprint, phoneKey, textKey, type DedupCandidate, type RepostCandidate } from "./dedupe";
 import { loadRates } from "../services/fx";
 import type { FreightSourceAdapter, NormalizedOffer, ParsedListing, QualityIssue, SourceDescriptor } from "./types";
 
@@ -105,6 +105,16 @@ const pick = (s: IngestionStats) => ({
   fetched: s.fetched, created: s.created, updated: s.updated, duplicates: s.duplicates, rejected: s.rejected, errors: s.errors,
 });
 
+/** The ad text a listing was parsed from (Telegram and pasted ads keep it as `raw.text`). */
+export function rawText(rawPayload: string): string | null {
+  try {
+    const t = (JSON.parse(rawPayload) as { text?: unknown } | null)?.text;
+    return typeof t === "string" ? t : null;
+  } catch {
+    return null;
+  }
+}
+
 async function resolveBroker(db: PrismaClient, o: NormalizedOffer, isDemo: boolean) {
   if (!o.brokerKey || !o.brokerName) return null;
   const existing = await db.broker.findUnique({ where: { normalizedName: o.brokerKey } });
@@ -140,6 +150,35 @@ async function upsertListing(
     await db.freightListing.update({ where: { id: existing.id }, data: listingData });
     await refreshOffer(db, existing.offerId, now);
     return "updated";
+  }
+
+  // 1b. A repost: the same phone or the same text on the same lane, day, weight and body — from this
+  // source or any other. It joins the offer it repeats instead of becoming a second row.
+  const phone = phoneKey(o.contactPhone);
+  const text = textKey((raw as { text?: string } | null)?.text);
+  if (phone || text) {
+    const sameDay = await db.freightOffer.findMany({
+      where: {
+        originCityId: o.originCityId,
+        destCityId: o.destCityId,
+        loadingDate: { gte: new Date(o.loadingDate.getTime() - DAY / 2), lte: new Date(o.loadingDate.getTime() + DAY / 2) },
+        isDemo,
+        status: "ACTIVE",
+      },
+      select: { id: true, weightKg: true, bodyType: true, listings: { select: { contactPhone: true, rawPayload: true } } },
+    });
+    const cands: RepostCandidate[] = sameDay.map((c) => ({
+      id: c.id,
+      weightKg: c.weightKg,
+      bodyType: c.bodyType,
+      listings: c.listings.map((l) => ({ phone: phoneKey(l.contactPhone), text: textKey(rawText(l.rawPayload)) })),
+    }));
+    const repostOf = findRepost({ weightKg: o.weightKg, bodyType: o.bodyType, phone, text }, cands);
+    if (repostOf) {
+      await db.freightListing.create({ data: { ...listingData, offerId: repostOf, sourceId, externalId: o.externalId, firstSeenAt: now } });
+      await refreshOffer(db, repostOf, now);
+      return "duplicates";
+    }
   }
 
   const broker = await resolveBroker(db, o, isDemo);
@@ -215,7 +254,7 @@ async function upsertListing(
 }
 
 /** Re-derive best rate, freshness and quality from all listings of an offer. */
-async function refreshOffer(db: PrismaClient, offerId: string, now: Date) {
+export async function refreshOffer(db: PrismaClient, offerId: string, now: Date) {
   const offer = await db.freightOffer.findUnique({ where: { id: offerId }, include: { listings: true, broker: true } });
   if (!offer) return;
   // Best source for a carrier = highest published rate.
@@ -270,4 +309,55 @@ export async function ingestSingleListing(db: PrismaClient, source: SourceDescri
 /** Back-compat wrapper: ingest against the fixed first-party PLATFORM_SOURCE. */
 export async function ingestPlatformListing(db: PrismaClient, listing: ParsedListing, now = new Date()) {
   return ingestSingleListing(db, PLATFORM_SOURCE, listing, now);
+}
+
+/**
+ * Folds reposts that are already in the database into one offer: same lane, day, weight and body,
+ * and the same phone or text. The oldest posting stays; the rest hand over their listings (so the
+ * kept offer shows every source) and are expired. Safe to run repeatedly — it is the backstop for
+ * anything the ingest-time check missed (older rows, or a repost that arrived before its twin).
+ */
+export async function mergeReposts(db: PrismaClient, opts: { sinceDays?: number; now?: Date } = {}) {
+  const now = opts.now ?? new Date();
+  const offers = await db.freightOffer.findMany({
+    where: { status: "ACTIVE", isDemo: false, createdAt: { gte: new Date(now.getTime() - (opts.sinceDays ?? 14) * DAY) } },
+    select: {
+      id: true, originCityId: true, destCityId: true, loadingDate: true, weightKg: true, bodyType: true,
+      listings: { select: { id: true, contactPhone: true, rawPayload: true } },
+    },
+    orderBy: { createdAt: "asc" },
+    take: 20_000,
+  });
+  const groups = new Map<string, typeof offers>();
+  for (const o of offers) {
+    const k = `${o.originCityId}|${o.destCityId}|${o.loadingDate.toISOString().slice(0, 10)}`;
+    (groups.get(k) ?? groups.set(k, []).get(k)!).push(o);
+  }
+  let merged = 0;
+  const touched = new Set<string>();
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const keepers: RepostCandidate[] = [];
+    for (const o of group) {
+      const sigs = o.listings.map((l) => ({ phone: phoneKey(l.contactPhone), text: textKey(rawText(l.rawPayload)) }));
+      let keeperId: string | null = null;
+      for (const sig of sigs) {
+        keeperId = findRepost({ weightKg: o.weightKg, bodyType: o.bodyType, ...sig }, keepers);
+        if (keeperId) break;
+      }
+      if (!keeperId) {
+        keepers.push({ id: o.id, weightKg: o.weightKg, bodyType: o.bodyType, listings: sigs });
+        continue;
+      }
+      await db.freightListing.updateMany({ where: { offerId: o.id }, data: { offerId: keeperId } });
+      const favs = await db.favorite.findMany({ where: { offerId: o.id }, select: { id: true } });
+      for (const f of favs) await db.favorite.update({ where: { id: f.id }, data: { offerId: keeperId } }).catch(() => {}); // the user already saved the kept one
+      await db.freightOffer.update({ where: { id: o.id }, data: { status: "EXPIRED" } });
+      keepers.find((k) => k.id === keeperId)!.listings.push(...sigs);
+      touched.add(keeperId);
+      merged++;
+    }
+  }
+  for (const id of touched) await refreshOffer(db, id, now);
+  return { scanned: offers.length, merged, keptOffersUpdated: touched.size };
 }
