@@ -1,6 +1,6 @@
 import { db, parseJson } from "../db";
 import { liveAdapters } from "../ingestion/registry";
-import { expireStaleOffers, mergeReposts, runIngestion } from "../ingestion/pipeline";
+import { expireStaleOffers, mergeReposts, purgeOldOffers, runIngestion } from "../ingestion/pipeline";
 import { checkAllSavedSearches } from "../services/alerts";
 import { rateAgeHours, refreshRatesFromCbu } from "../services/fx";
 import { invalidateMarketCache } from "../services/market";
@@ -47,6 +47,21 @@ export const JOBS = {
       const expired = await expireStaleOffers(db);
       if (expired) bust();
       return { expired };
+    },
+  },
+  "purge-old-offers": {
+    everyMin: 6 * 60,
+    startDelayS: 420,
+    async run() {
+      // Expired offers older than two weeks are deleted so the board's tables stay small and fast.
+      let total = 0;
+      for (let i = 0; i < 10; i++) {
+        const { purged } = await purgeOldOffers(db);
+        total += purged;
+        if (purged < 2000) break;
+      }
+      if (total) bust();
+      return { purged: total };
     },
   },
   "merge-reposts": {
