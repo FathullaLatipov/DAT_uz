@@ -17,6 +17,18 @@
 # Password login: point SSH_ASKPASS at a script that prints the password and set SSH_ASKPASS_REQUIRE=force.
 set -euo pipefail
 
+# Runs however the script ends: removes the temporary password helper and, in a terminal window that
+# would otherwise vanish (Git Bash opened by double-click), waits so the output can still be read.
+cleanup() { :; }
+finish() {
+  code=$?
+  cleanup
+  if [ -t 0 ]; then
+    echo; echo "(exit code $code)"; read -r -p "Press Enter to close this window… " _ || true
+  fi
+}
+trap finish EXIT
+
 TARGET="${1:?usage: $0 <ssh-user>@<host> [ssh-key]}"
 KEY="${2:-}"
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
@@ -36,7 +48,7 @@ elif [ -n "${KARVON_SSH_PW:-}" ] || [ -t 0 ]; then
   export KARVON_SSH_PW
   ASKPASS_FILE="$(mktemp)"
   printf '#!/bin/sh\necho "$KARVON_SSH_PW"\n' > "$ASKPASS_FILE"; chmod +x "$ASKPASS_FILE"
-  trap 'rm -f "$ASKPASS_FILE"; unset KARVON_SSH_PW' EXIT
+  cleanup() { rm -f "${ASKPASS_FILE:-}"; unset KARVON_SSH_PW; }
   export SSH_ASKPASS="$ASKPASS_FILE" SSH_ASKPASS_REQUIRE=force DISPLAY="${DISPLAY:-none}"
   SSH_OPTS+=(-o PreferredAuthentications=password -o PubkeyAuthentication=no)
 else
