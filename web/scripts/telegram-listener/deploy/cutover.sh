@@ -79,7 +79,7 @@ echo "[1/5] preparing the server"
 remote 'set -e
   SUDO=""; [ "$(id -u)" = 0 ] || SUDO="sudo -n"
   command -v python3 >/dev/null || { echo "python3 is missing"; exit 1; }
-  python3 -c "import venv, ensurepip" 2>/dev/null || $SUDO apt-get install -y python3-venv >/dev/null
+  python3 -c "import venv, ensurepip" 2>/dev/null || $SUDO env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=l apt-get install -y python3-venv >/dev/null 2>&1
   id karvon-listener >/dev/null 2>&1 || $SUDO useradd --system --home-dir /opt/karvon-listener --shell /usr/sbin/nologin karvon-listener
   $SUDO mkdir -p /opt/karvon-listener /opt/karvon-listener-stage
   $SUDO chmod 700 /opt/karvon-listener-stage'
@@ -116,8 +116,10 @@ echo "[4/5] python environment"
 remote 'set -e
   SUDO=""; [ "$(id -u)" = 0 ] || SUDO="sudo -n"
   cd /opt/karvon-listener
-  [ -d .venv ] || $SUDO -u karvon-listener python3 -m venv .venv
-  $SUDO -u karvon-listener .venv/bin/pip install -q -r requirements.txt
+  # run as the unprivileged service user: runuser when we are root, sudo -u otherwise
+  if [ "$(id -u)" = 0 ]; then AS="runuser -u karvon-listener --"; else AS="sudo -n -u karvon-listener"; fi
+  [ -d .venv ] || $AS python3 -m venv .venv
+  $AS .venv/bin/pip install -q -r requirements.txt
   $SUDO systemctl daemon-reload'
 
 echo "[5/5] starting the instances one at a time"

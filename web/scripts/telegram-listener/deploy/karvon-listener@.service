@@ -2,6 +2,11 @@
 Description=Karvon Telegram freight-ad listener (instance %i)
 After=network-online.target
 Wants=network-online.target
+# Telegram backs off aggressively on repeated auth/connection failures — don't hammer it with a
+# tight crash loop; cap restarts so a persistently broken instance stops instead of retrying forever.
+# (These belong in [Unit] on current systemd; in [Service] they are ignored.)
+StartLimitIntervalSec=600
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -12,11 +17,6 @@ Environment=ENV_FILE=.env.%i
 ExecStart=/opt/karvon-listener/.venv/bin/python /opt/karvon-listener/listener.py
 Restart=on-failure
 RestartSec=30
-# Telegram backs off aggressively on repeated auth/connection failures — don't hammer it with a
-# tight crash loop; cap restarts so a persistently broken instance pages a human instead of
-# retrying forever.
-StartLimitIntervalSec=600
-StartLimitBurst=5
 
 # Least-privilege hardening — this process only needs its own working directory and the network.
 NoNewPrivileges=true
