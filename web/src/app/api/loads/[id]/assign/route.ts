@@ -8,6 +8,8 @@ import { getMatchContext, getMatchTrucks, toMatchOffer } from "@/server/services
 import { scoreMatch } from "@/server/services/matching";
 import { findBackhaul } from "@/server/services/backhaul";
 import { invalidateMarketCache } from "@/server/services/market";
+import { PLATFORM_SOURCE } from "@/server/ingestion/pipeline";
+import { i18nFor, sendTelegram, siteUrl } from "@/server/services/telegram";
 
 const schema = z.object({ truckId: z.string().min(1).max(64) });
 const DAY = 86_400_000;
@@ -29,6 +31,10 @@ export const POST = api<{ id: string }>(
     const eta = new Date(start + estimateTransitDays(offer.distanceKm) * DAY);
 
     const trip = await db.$transaction(async (tx) => {
+      // Claim the load first, atomically: only one carrier can move it from ACTIVE to BOOKED, so two people
+      // pressing "take" at the same moment cannot both get it. The loser's transaction is rolled back.
+      const claimed = await tx.freightOffer.updateMany({ where: { id: offer.id, status: "ACTIVE" }, data: { status: "BOOKED" } });
+      if (claimed.count === 0) throw new HttpError(409, "This load was just taken by another carrier.");
       const t = await tx.trip.create({
         data: {
           orgId: session.orgId, truckId, offerId: offer.id, originCityId: offer.originCityId, destCityId: offer.destCityId, status: "PLANNED",
@@ -56,8 +62,37 @@ export const POST = api<{ id: string }>(
         link: best ? `/app/loads/${best.offer.id}?truck=${truck.id}` : `/app/fleet/${truck.id}`,
       },
     });
+    await tellLoadOwner(offer, { id: trip.id, carrier: session.org.name, contact: `${session.user.name}, ${session.user.email}`, truck }).catch((e) => console.error("[assign] could not notify the load owner", e));
     await audit({ userId: session.userId, orgId: session.orgId, action: "trip.assign", entity: "Trip", entityId: trip.id, meta: { offerId: offer.id, truckId }, ip });
     return { ok: true, tripId: trip.id, redirect: `/app/fleet/${truck.id}?assigned=1` };
   },
   { action: "trip:assign", limit: 20 },
 );
+
+/**
+ * Tells the company that posted the load on Karvon that a carrier took it, in each person's own language
+ * (and in Telegram when they linked it). Loads that came from other sources have no owner here, so nobody is told.
+ */
+async function tellLoadOwner(
+  offer: { id: string; originCityId: string; destCityId: string; loadingDate: Date },
+  by: { id: string; carrier: string; contact: string; truck: { code: string; bodyType: string; capacityKg: number } },
+) {
+  // Every company that posted this load on Karvon (the same load posted twice is merged into one offer).
+  const posted = await db.freightListing.findMany({ where: { offerId: offer.id, sourceId: PLATFORM_SOURCE.id }, select: { externalId: true } });
+  const orgIds = [...new Set(posted.map((l) => l.externalId.slice(0, l.externalId.indexOf("-"))).filter((id) => id.length > 0))];
+  if (!orgIds.length) return;
+  const members = await db.membership.findMany({ where: { orgId: { in: orgIds } }, select: { user: { select: { id: true, locale: true, telegramChatId: true } } } });
+  for (const { user } of members) {
+    const i = i18nFor(user.locale);
+    const title = i.t("notify.takenTitle", { carrier: by.carrier });
+    const body = i.t("notify.takenBody", {
+      route: `${i.city(offer.originCityId)} → ${i.city(offer.destCityId)}`,
+      date: i.shortDate(offer.loadingDate),
+      truck: `${by.truck.code}, ${i.tonnes(by.truck.capacityKg)} ${i.label(by.truck.bodyType).toLowerCase()}`,
+      contact: by.contact,
+    });
+    const link = `/load/${offer.id}`;
+    await db.notification.create({ data: { userId: user.id, type: "SYSTEM", title, body, link } });
+    if (user.telegramChatId) await sendTelegram(user.telegramChatId, { title, lines: [body], button: { text: i.t("notify.takenOpen"), url: `${siteUrl()}${link}` } });
+  }
+}

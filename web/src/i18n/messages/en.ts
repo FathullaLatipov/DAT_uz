@@ -710,6 +710,7 @@ export const en = {
     loadNotFound: "Load not found.",
     loadGone: "This load no longer exists.",
     loadUnavailable: "This load is no longer available.",
+    loadTaken: "This load was just taken by another carrier.",
     truckNotFound: "Truck not found.",
     truckNotInFleet: "Truck not found in your fleet.",
     truckNotAvailable: "{code} is not available right now.",
@@ -736,6 +737,9 @@ export const en = {
   },
 
   notify: {
+    takenTitle: "{carrier} took your load",
+    takenBody: "{route}, loading {date}. Truck: {truck}. Contact: {contact}.",
+    takenOpen: "Open the load",
     arrives: p({ one: "{code} arrives in {city} in ~{n} day", other: "{code} arrives in {city} in ~{n} days" }),
     found: p({
       one: "We found {n} return load. Best: {route}, {rate}, {score}% match, est. profit {profit}.",

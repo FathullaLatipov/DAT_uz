@@ -702,6 +702,7 @@ export const uz: Messages = {
     loadNotFound: "Yuk topilmadi.",
     loadGone: "Bu yuk endi mavjud emas.",
     loadUnavailable: "Bu yuk endi mavjud emas.",
+    loadTaken: "Bu yukni hozirgina boshqa tashuvchi oldi.",
     truckNotFound: "Mashina topilmadi.",
     truckNotInFleet: "Mashina avtoparkingizda topilmadi.",
     truckNotAvailable: "{code} mashinasi hozir mavjud emas.",
@@ -728,6 +729,9 @@ export const uz: Messages = {
   },
 
   notify: {
+    takenTitle: "{carrier} yukingizni oldi",
+    takenBody: "{route}, yuklash {date}. Mashina: {truck}. Aloqa: {contact}.",
+    takenOpen: "Yukni ochish",
     arrives: p({ other: "{code} mashinasi {city} shahriga ~{n} kunda yetib boradi" }),
     found: p({ other: "{n} ta qaytish yuki topildi. Eng yaxshisi: {route}, {rate}, moslik {score}%, taxminiy foyda {profit}." }),
     none: "Qaytish yuklari hozircha yo'q — manbalar yangilanishi bilan qidirishda davom etamiz.",

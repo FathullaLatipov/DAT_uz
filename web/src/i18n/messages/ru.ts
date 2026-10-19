@@ -723,6 +723,7 @@ export const ru: Messages = {
     loadNotFound: "Груз не найден.",
     loadGone: "Этого груза больше нет.",
     loadUnavailable: "Этот груз больше недоступен.",
+    loadTaken: "Этот груз только что взял другой перевозчик.",
     truckNotFound: "Машина не найдена.",
     truckNotInFleet: "Машина не найдена в вашем автопарке.",
     truckNotAvailable: "Машина {code} сейчас недоступна.",
@@ -749,6 +750,9 @@ export const ru: Messages = {
   },
 
   notify: {
+    takenTitle: "{carrier} взял ваш груз",
+    takenBody: "{route}, погрузка {date}. Машина: {truck}. Контакт: {contact}.",
+    takenOpen: "Открыть груз",
     arrives: p({
       one: "Машина {code} прибудет в город {city} через ~{n} день",
       few: "Машина {code} прибудет в город {city} через ~{n} дня",
