@@ -819,7 +819,9 @@ export const uz: Messages = {
 
   board: {
     estProfitFor: "taxminiy foyda · {code}",
-    savePrompt: "Bu qidiruvga nom bering (mos yangi yuklar haqida xabar olasiz):",
+    saveTitle: "Bu qidiruvni saqlash",
+    saveBody: "Mos yangi yuklar haqida xabar olasiz.",
+    saveLabel: "Nomi",
     defaultName: "Mening qidiruvim",
     loadsCount: p({ other: "{n} ta yuk" }),
     saveAria: "Qidiruvni saqlash va xabar olish",
@@ -862,7 +864,8 @@ export const uz: Messages = {
     saveLoad: "Yukni saqlash",
     saved: "Saqlandi",
     save: "Saqlash",
-    closeConfirm: "Yukni yopilgan deb belgilaysizmi? U katalogdan yo'qoladi.",
+    closeTitle: "Yukni yopilgan deb belgilaysizmi?",
+    closeBody: "U katalogdan yo'qoladi.",
     markCovered: "Yuk yopildi",
   },
 
@@ -1161,7 +1164,8 @@ export const uz: Messages = {
     perDay: "Kuniga",
     leg: "{n}-reys →",
     newSub: "Faqat mashina va uning joylashuvi majburiy.",
-    deleteConfirm: "{code} mashinasini o'chirasizmi? Uning reyslar tarixi ham o'chiriladi.",
+    deleteTitle: "{code} mashinasini o'chirasizmi?",
+    deleteBody: "Uning reyslar tarixi ham o'chiriladi.",
     vehicle: "Mashina",
     code: "Mashina kodi",
     plate: "Davlat raqami (ixtiyoriy)",
@@ -1493,6 +1497,15 @@ export const uz: Messages = {
     q2: "Yakuniy narx va to'lov shartlari",
     q3: "Yuklashdagi aloqa shaxsi",
     thanks: "Rahmat.",
+  },
+
+  dialog: {
+    ok: "OK",
+    cancel: "Bekor qilish",
+    delete: "O'chirish",
+    save: "Saqlash",
+    close: "Yopish",
+    errorTitle: "Bajarib bo'lmadi",
   },
 
   enums: {

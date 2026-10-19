@@ -6,6 +6,7 @@ import { BellPlus, Check, Columns2, List, Loader2, Map as MapIcon } from "lucide
 import { apiCall } from "@/lib/client";
 import { useI18n } from "@/i18n/client";
 import { cn } from "@/lib/format";
+import { useDialog } from "../ui/dialog";
 import { Button, Select } from "../ui/primitives";
 
 const SORTS = ["score", "profit", "ratePerKm", "rate", "deadhead", "loading", "grade", "newest", "distance"] as const;
@@ -13,6 +14,7 @@ const VIEWS = [["list", List, "viewList"], ["split", Columns2, "viewSplit"], ["m
 
 export function BoardToolbar({ total, view }: { total: number; view: string }) {
   const { t, tn } = useI18n();
+  const dialog = useDialog();
   const router = useRouter();
   const path = usePathname();
   const sp = useSearchParams();
@@ -26,14 +28,14 @@ export function BoardToolbar({ total, view }: { total: number; view: string }) {
   };
 
   async function saveSearch() {
-    const name = window.prompt(t("board.savePrompt"), sp.get("nl") ?? t("board.defaultName"));
+    const name = await dialog.prompt({ title: t("board.saveTitle"), message: t("board.saveBody"), label: t("board.saveLabel"), defaultValue: sp.get("nl") ?? t("board.defaultName") });
     if (!name) return;
     setSaving("saving");
     try {
       await apiCall("/api/saved-searches", "POST", { name, query: sp.toString() });
       setSaving("saved");
     } catch (e) {
-      alert((e as Error).message);
+      await dialog.alert({ message: (e as Error).message });
       setSaving("idle");
     }
   }

@@ -7,6 +7,7 @@ import { apiCall } from "@/lib/client";
 import { CITIES } from "@/server/domain/geo";
 import { BODY_TYPES, TRUCK_STATUSES, TRUCK_TYPES } from "@/server/domain/enums";
 import { useI18n } from "@/i18n/client";
+import { useDialog } from "../ui/dialog";
 import { Button, Field, Input, Select } from "../ui/primitives";
 
 export interface TruckFormValues {
@@ -29,6 +30,7 @@ export interface TruckFormValues {
 
 export function TruckForm({ id, initial, canDelete }: { id?: string; initial: TruckFormValues; canDelete?: boolean }) {
   const { t, label, city } = useI18n();
+  const dialog = useDialog();
   const router = useRouter();
   const [v, setV] = useState(initial);
   const [pending, setPending] = useState(false);
@@ -60,7 +62,7 @@ export function TruckForm({ id, initial, canDelete }: { id?: string; initial: Tr
   }
 
   async function remove() {
-    if (!id || !confirm(t("fleet.deleteConfirm", { code: v.code }))) return;
+    if (!id || !(await dialog.confirm({ title: t("fleet.deleteTitle", { code: v.code }), message: t("fleet.deleteBody"), danger: true }))) return;
     setPending(true);
     try {
       await apiCall(`/api/trucks/${id}`, "DELETE");

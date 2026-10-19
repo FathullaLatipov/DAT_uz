@@ -830,7 +830,9 @@ export const en = {
 
   board: {
     estProfitFor: "est. profit · {code}",
-    savePrompt: "Name this search (you'll get alerts for new matching loads):",
+    saveTitle: "Save this search",
+    saveBody: "You'll get alerts for new matching loads.",
+    saveLabel: "Name",
     defaultName: "My search",
     loadsCount: p({ one: "{n} load", other: "{n} loads" }),
     saveAria: "Save search and get alerts",
@@ -876,7 +878,8 @@ export const en = {
     saveLoad: "Save load",
     saved: "Saved",
     save: "Save",
-    closeConfirm: "Mark this load as covered? It will disappear from the catalog.",
+    closeTitle: "Mark this load as covered?",
+    closeBody: "It will disappear from the catalog.",
     markCovered: "Mark covered",
   },
 
@@ -1175,7 +1178,8 @@ export const en = {
     perDay: "Per day",
     leg: "Leg {n} →",
     newSub: "Only the vehicle and its location are required.",
-    deleteConfirm: "Delete {code}? Its trip history will be removed too.",
+    deleteTitle: "Delete truck {code}?",
+    deleteBody: "Its trip history will be removed too.",
     vehicle: "Vehicle",
     code: "Truck code",
     plate: "Plate (optional)",
@@ -1507,6 +1511,15 @@ export const en = {
     q2: "Final rate and payment terms",
     q3: "Contact person at loading",
     thanks: "Thank you.",
+  },
+
+  dialog: {
+    ok: "OK",
+    cancel: "Cancel",
+    delete: "Delete",
+    save: "Save",
+    close: "Close",
+    errorTitle: "Couldn't complete that",
   },
 
   enums: {
