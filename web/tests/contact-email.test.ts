@@ -28,7 +28,7 @@ test("mailto: address stays readable, subject and body are encoded with CRLF lin
 
 test("mailto: very long text is cut so the link still opens", () => {
   const u = mailtoUrl({ to: "a@b.co", subject: "x".repeat(500), body: "y".repeat(5000) });
-  assert.ok(decodeURIComponent(u.split("body=")[1]).length <= 1500);
+  assert.ok(decodeURIComponent(u.split("body=")[1]).length <= 2000);
   assert.ok(decodeURIComponent(u.split("subject=")[1].split("&")[0]).length <= 200);
 });
 

@@ -12,7 +12,7 @@ import { brokerReliability } from "@/server/services/broker";
 import { findBackhaul } from "@/server/services/backhaul";
 import { estimateTollsUsd } from "@/server/services/profitability";
 import { estimateTransitDays, freshGps } from "@/server/domain/geo";
-import { uniqueContacts } from "@/server/services/contacts";
+import { senderOf, uniqueContacts } from "@/server/services/contacts";
 
 const DAY = 86_400_000;
 
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       listings: offer.listings.slice(0, 25).map((l) => listingDto(l, !l.source.isDemo)),
       listingsTotal: offer.listings.length,
       contacts: uniqueContacts(offer.listings),
-      viewer: { name: session.user.name, org: session.org.name },
+      viewer: await senderOf(session.userId, session.orgId),
       favorite: d.favorite,
       canAssign: can(session, "trip:assign") && offer.status === "ACTIVE",
       truckOptions: matches.map((x) => ({ id: x.truck.id, label: `${x.truck.code} — ${x.match.eligible ? `${x.match.score}% · match` : "not eligible"}`, eligible: x.match.eligible })),

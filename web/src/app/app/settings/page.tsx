@@ -7,6 +7,7 @@ import { getI18n } from "@/i18n/server";
 import { notifierStatus } from "@/server/services/alerts";
 import { brokerKey } from "@/server/ingestion/normalize";
 import { EmailAlerts } from "@/components/settings/email-alerts";
+import { SignatureForm } from "@/components/settings/signature-form";
 import { emailConfigured } from "@/server/services/email";
 import { VerificationCard, type VerificationState } from "@/components/settings/verification-card";
 import { Badge, Card, CardHeader, PageHeader } from "@/components/ui/primitives";
@@ -23,13 +24,14 @@ export default async function SettingsPage() {
   const s = await requireSession();
   const { t, label, m: msgs } = await getI18n();
   const key = brokerKey(s.org.name);
-  const [me, pref, routes, members, lastRequest, ownBroker] = await Promise.all([
-    db.user.findUnique({ where: { id: s.userId }, select: { telegramChatId: true, emailAlerts: true } }),
+  const [me, pref, routes, members, lastRequest, ownBroker, orgProfile] = await Promise.all([
+    db.user.findUnique({ where: { id: s.userId }, select: { telegramChatId: true, emailAlerts: true, jobTitle: true } }),
     db.orgPreference.findUnique({ where: { orgId: s.orgId } }),
     db.preferredRoute.findMany({ where: { orgId: s.orgId, destCityId: { not: null } } }),
     db.membership.findMany({ where: { orgId: s.orgId }, include: { user: { select: { name: true, email: true } } } }),
     db.verificationRequest.findFirst({ where: { orgId: s.orgId }, orderBy: { createdAt: "desc" } }),
     key ? db.broker.findUnique({ where: { normalizedName: key }, select: { verified: true } }) : null,
+    db.organization.findUnique({ where: { id: s.orgId }, select: { phone: true, website: true, address: true, taxId: true } }),
   ]);
   const verification: VerificationState = ownBroker?.verified ? "approved" : lastRequest?.status === "PENDING" ? "pending" : lastRequest?.status === "REJECTED" ? "rejected" : "none";
   const telegram = notifierStatus({ telegramLinked: true }).find((n) => n.channel === "TELEGRAM")!;
@@ -70,6 +72,18 @@ export default async function SettingsPage() {
       <Card>
         <div className="px-4 py-4 sm:px-5">
           <EmailAlerts initial={me?.emailAlerts ?? true} email={s.user.email} available={emailConfigured()} />
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader title={t("prof.title")} />
+        <div className="px-4 pb-5 sm:px-5">
+          <SignatureForm
+            initial={{ jobTitle: me?.jobTitle ?? "", phone: orgProfile?.phone ?? "", website: orgProfile?.website ?? "", address: orgProfile?.address ?? "", taxId: orgProfile?.taxId ?? "" }}
+            name={s.user.name}
+            org={s.org.name}
+            canEditCompany={can(s, "settings:write")}
+          />
         </div>
       </Card>
 

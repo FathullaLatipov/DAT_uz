@@ -1,3 +1,4 @@
+import { db } from "../db";
 import { phoneKey } from "../ingestion/dedupe";
 
 export interface Contact {
@@ -37,4 +38,13 @@ export function uniqueContacts(listings: ListingLike[], max = 6): Contact[] {
     if (out.length >= max) break;
   }
   return out;
+}
+
+/** The signature details of the signed-in person for the enquiry e-mail (their role line and the company's contact details). */
+export async function senderOf(userId: string, orgId: string) {
+  const [u, o] = await Promise.all([
+    db.user.findUnique({ where: { id: userId }, select: { name: true, jobTitle: true } }),
+    db.organization.findUnique({ where: { id: orgId }, select: { name: true, phone: true, website: true, address: true, taxId: true } }),
+  ]);
+  return { name: u?.name ?? "", jobTitle: u?.jobTitle ?? null, org: o?.name ?? "", phone: o?.phone ?? null, website: o?.website ?? null, address: o?.address ?? null, taxId: o?.taxId ?? null };
 }

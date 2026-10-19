@@ -28,6 +28,7 @@ import type { CalcInput } from "./profit-calculator";
 import { cn } from "@/lib/format";
 import { Badge, Bar, DemoBadge, ScoreBadge, Select, Skeleton, Trend } from "../ui/primitives";
 import { ContactList } from "./contact-list";
+import type { Sender } from "@/lib/enquiry";
 import type { Contact } from "@/server/services/contacts";
 import { RouteMap } from "./route-map";
 import { ProfitCalculator } from "./profit-calculator";
@@ -48,7 +49,7 @@ export interface LoadDetailResponse {
   listings: { id: string; sourceId: string; sourceName: string; sourceUrl: string | null; lastSeenAt: string; rate: number; currency: string; externalId: string; contactName: string | null; contactPhone: string | null; contactEmail: string | null }[];
   listingsTotal: number;
   contacts: Contact[];
-  viewer: { name: string; org: string } | null;
+  viewer: Sender | null;
   favorite: boolean | null;
   canAssign: boolean;
   truckOptions: { id: string; label: string; eligible: boolean }[] | null;

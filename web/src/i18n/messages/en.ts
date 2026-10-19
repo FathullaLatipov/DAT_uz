@@ -1546,10 +1546,10 @@ export const en = {
   mail: {
     send: "Send email",
     sendTitle: "Write to {email}",
-    subject: "Cargo enquiry: {route}, {weight}, {date}",
+    subject: "{route}, {date}",
     hello: "Hello,",
     helloNamed: "Hello, {name},",
-    intro: "I saw your load on Karvon: {route}, {weight}, {body}, loading {date}.",
+    intro: "Need details on this load: {route}, {date}, {weight}, {body}.",
     rate: "Posted rate: {rate}.",
     truck: "I have a truck available: {truck}.",
     ask: "Is it still available? Please confirm:",
@@ -1557,6 +1557,18 @@ export const en = {
     q2: "Final rate and payment terms",
     q3: "Contact person at loading",
     thanks: "Thank you.",
+    sigTax: "Tax ID: {taxId}",
+    sigPhone: "Office: {phone}",
+    sigWebsite: "Website: {url}",
+    sigAddress: "Address: {address}",
+    notice: "SECURITY NOTICE | {company}\n\nVerify before you act: before confirming or booking any load, check the load details and the contact number through official channels. Freight fraud is sophisticated, and one quick verification call can prevent significant losses.",
+    openIn: "Write with",
+    viaGmail: "Gmail",
+    viaOutlook: "Outlook",
+    viaApp: "Mail app on this device",
+    copy: "Copy the text",
+    copied: "Copied",
+    more: "More ways to write",
   },
 
   dialog: {
@@ -1726,6 +1738,20 @@ export const en = {
     subject: "Karvon test e-mail",
     body: "If you can read this, e-mail from Karvon works. Notifications about loads, trips, payments and verification will reach you here.",
     button: "Open Karvon",
+  },
+
+  prof: {
+    title: "Your e-mail signature",
+    subtitle: "Used at the bottom of the enquiries you send from a load's contact button. Leave a field empty to leave it out.",
+    jobTitle: "Your role (e.g. Dispatch department)",
+    phone: "Office phone",
+    website: "Website",
+    address: "Address",
+    taxId: "Tax ID (INN)",
+    orgNote: "The company details are shared by everyone in {org}.",
+    save: "Save",
+    saved: "Saved.",
+    preview: "Preview",
   },
 
   enums: {
