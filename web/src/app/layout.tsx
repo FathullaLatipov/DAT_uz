@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { I18nProvider } from "@/i18n/client";
+import { DialogProvider } from "@/components/ui/dialog";
 import { getI18n } from "@/i18n/server";
 import "./globals.css";
 
@@ -35,7 +36,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} min-h-dvh antialiased`}>
-        <I18nProvider locale={locale} messages={m}>{children}</I18nProvider>
+        <I18nProvider locale={locale} messages={m}>
+          <DialogProvider>{children}</DialogProvider>
+        </I18nProvider>
       </body>
     </html>
   );
