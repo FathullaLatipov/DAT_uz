@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   BadgeCheck,
   CalendarCheck2,
@@ -47,6 +47,8 @@ export default async function PublicLoad({ params, searchParams }: Params & { se
   const { t, tn, label, city, ago, dateTime, km, money, perKm, shortDate, tonnes, usd, m: msgs } = await getI18n();
   const [session, o] = await Promise.all([getSession(), load(id)]);
   if (!o) notFound();
+  // Signed-in people get the full page (contacts, match for their trucks, profit); this one is for visitors and search engines.
+  if (session) redirect(`/app/loads/${o.id}${posted ? "?posted=1" : ""}`);
   const lane = await laneStats(o.originCityId, o.destCityId);
   const trusted = o.rateUsd > 0 && !o.qualityFlags.includes("SUSPICIOUS_RATE");
   const perKmRate = o.rateUsd / o.distanceKm;

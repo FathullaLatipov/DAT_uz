@@ -48,7 +48,7 @@ export function PostLoadForm({ defaultContact }: { defaultContact: string }) {
         rate: v.rate ? Number(v.rate) : null,
         unloadingDate: v.unloadingDate || null,
       });
-      router.push(`/load/${r.id}?posted=1`);
+      router.push(`/app/loads/${r.id}?posted=1`);
     } catch (err) {
       setError((err as Error).message);
       setPending(false);

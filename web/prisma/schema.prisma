@@ -28,6 +28,7 @@ model Organization {
 
   memberships     Membership[]
   trucks          Truck[]
+  verificationRequests VerificationRequest[]
   drivers         Driver[]
   preference      OrgPreference?
   preferredRoutes PreferredRoute[]
@@ -57,6 +58,29 @@ model User {
   savedSearches SavedSearch[]
   notifications Notification[]
   conversations AIConversation[]
+  verificationRequests VerificationRequest[]
+}
+
+/// A company's application to be marked as verified (reviewed by a platform admin).
+model VerificationRequest {
+  id          String    @id @default(cuid())
+  orgId       String
+  userId      String
+  companyName String
+  taxId       String
+  phone       String
+  note        String?
+  status      String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  reason      String? // why it was rejected
+  decidedById String?
+  decidedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([orgId])
 }
 
 /// One-time token for linking a Telegram chat to a user: /start <token> on the bot.

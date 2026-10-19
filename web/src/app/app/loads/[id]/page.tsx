@@ -29,11 +29,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("detail.title") };
 }
 
-export default async function LoadDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ truck?: string }> }) {
+export default async function LoadDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ truck?: string; posted?: string }> }) {
   const s = await requireSession();
   const { t: tr, tn, label, city, country, ago, dateTime, km, money, perKm, shortDate, tonnes, usd, m: msgs } = await getI18n();
   const { id } = await params;
-  const { truck: truckParam } = await searchParams;
+  const { truck: truckParam, posted } = await searchParams;
   const i18n = await getI18n();
   const d = await getOfferDetail(s.orgId, s.userId, id);
   if (!d) notFound();
@@ -56,6 +56,7 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
 
   return (
     <div className="mx-auto max-w-[1400px]">
+      {posted && <div className="mb-4 rounded-lg border border-pos/30 bg-pos-soft px-3 py-2.5 text-sm text-pos">{tr("load.published")}</div>}
       <Link href="/app/loads" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-fg">
         <ArrowLeft className="h-4 w-4" /> {tr("nav.loadBoard")}
       </Link>
