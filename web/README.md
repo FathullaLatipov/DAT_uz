@@ -107,6 +107,10 @@ The whole app is translated: the public site, sign-in/sign-up and every cabinet 
 - Still English: notifications stored in the database keep the language they were created in, and job-created ones (no user language) are English.
 - Have a native speaker review the Russian and Uzbek copy before launch.
 
+### Live trip tracking
+
+While a trip is on the road (**Start trip** on the truck page) both sides see it on a map: the planned line, the track driven, the truck, % of the way, km driven and left, and the ETA. The carrier also sees the diesel for the loaded leg (from the truck's own consumption and fuel price); the company that posted the load sees where the load is but never the carrier's costs (`/app/my-loads`). The truck's position comes from the phone in the cab: **Share live location** on the truck page reports it about every 30 s while the page stays open (screen wake lock; resumes after a reload). Until the first report the position is an estimate from elapsed time and is marked as such. A browser page cannot track in the background — Telegram "live location" to the bot is the planned way to cover that. API: `POST /api/trips/:id/position`, `GET /api/trips/:id/track`.
+
 ### E-mail notifications
 
 Important events (a carrier took, started or delivered your load; a company was verified or rejected; saved-search alerts with the E-mail channel) are also sent by e-mail, in the person's language, with a button to the right page. Set `SMTP_URL` (and `EMAIL_FROM`, and `APP_URL` so the button links point at the real site) in the server's `.env`; each person can turn it off in Settings. Notifications are written in the language the person last used the site in.

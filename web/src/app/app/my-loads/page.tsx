@@ -6,6 +6,8 @@ import { db } from "@/server/db";
 import { PLATFORM_SOURCE } from "@/server/ingestion/pipeline";
 import { getI18n } from "@/i18n/server";
 import { CloseLoadButton } from "@/components/loads/close-load-button";
+import { TripTrackPanel } from "@/components/fleet/trip-track-panel";
+import { loadTrack } from "@/server/services/tracking-data";
 import { RouteLabel } from "@/components/loads/parts";
 import { Badge, Card, EmptyState, LinkButton, PageHeader } from "@/components/ui/primitives";
 
@@ -43,7 +45,7 @@ export default async function MyLoadsPage() {
             orderBy: { createdAt: "desc" },
             take: 1,
             select: {
-              status: true, etaAt: true,
+              id: true, status: true, etaAt: true,
               truck: { select: { code: true } },
               org: { select: { name: true, memberships: { orderBy: { createdAt: "asc" }, take: 1, select: { user: { select: { name: true, email: true } } } } } },
             },
@@ -55,6 +57,9 @@ export default async function MyLoadsPage() {
   // A load posted twice is one offer; show it once.
   const seen = new Set<string>();
   const rows = listings.filter((l) => (seen.has(l.offer.id) ? false : (seen.add(l.offer.id), true)));
+  // Where each load on the road is (what the carrier shares: position, progress, ETA; never its costs).
+  const tracks = new Map<string, Awaited<ReturnType<typeof loadTrack>>>();
+  for (const r of rows.filter((x) => x.offer.trips[0]?.status === "IN_TRANSIT").slice(0, 10)) tracks.set(r.offer.id, await loadTrack(r.offer.trips[0].id, s.orgId));
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
@@ -102,6 +107,12 @@ export default async function MyLoadsPage() {
                   </div>
                 ) : (
                   stage === "active" && <p className="mt-3 text-xs text-muted"><Phone className="mr-1 inline h-3.5 w-3.5" />{t("ml.noCarrier")}</p>
+                )}
+
+                {tracks.get(o.id) && trip && (
+                  <div className="mt-3">
+                    <TripTrackPanel initial={tracks.get(o.id)!} tripId={trip.id} compactMap />
+                  </div>
                 )}
               </li>
             );
