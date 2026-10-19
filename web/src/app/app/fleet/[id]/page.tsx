@@ -12,6 +12,7 @@ import { Card, CardHeader, DemoBadge, Stat } from "@/components/ui/primitives";
 import { StatusBadge } from "@/components/fleet/status-badge";
 import { TruckForm } from "@/components/fleet/truck-form";
 import { TruckPosition } from "@/components/fleet/truck-position";
+import { CancelTripButton } from "@/components/fleet/cancel-trip-button";
 import { TripHistoryTable } from "@/components/fleet/trip-history-table";
 import { KmStack, ProfitBars } from "@/components/charts/lazy";
 import { RecRow } from "@/components/loads/recommendation";
@@ -82,6 +83,7 @@ export default async function TruckPage({ params, searchParams }: { params: Prom
             <div><div className="text-xs text-muted">{tr("calc.revenue")}</div>{usd(activeTrip.revenueUsd)}</div>
             <div><div className="text-xs text-muted">{tr("fleet.eta")}</div>{activeTrip.etaAt ? dateTime(activeTrip.etaAt) : "—"}</div>
             {activeTrip.offerId && <Link href={`/app/loads/${activeTrip.offerId}`} className="self-end text-brand hover:underline">{tr("fleet.loadLink")}</Link>}
+            {activeTrip.status === "PLANNED" && can(s, "trip:assign") && <CancelTripButton tripId={activeTrip.id} />}
           </div>
         </Card>
       )}

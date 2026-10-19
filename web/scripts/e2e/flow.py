@@ -154,13 +154,39 @@ TA, TB = ca.get("selectedTruckId"), cb.get("selectedTruckId")
 check("both carriers see the new load with a truck", bool(TA) and bool(TB))
 def post_assign(actor, truck, out, key):
     o = curl(["-X", "POST", "-H", "content-type: application/json", "-H", f"Cookie: {actor.cookie}", "-d", json.dumps({"truckId": truck}), f"{BASE}/api/loads/{OID2}/assign"])
-    out[key] = split(o)[0]
+    st, body = split(o)
+    out[key] = st
+    try:
+        trips[key] = json.loads(body).get("tripId")
+    except Exception:
+        pass
 import threading
+trips = {}
 res = {}
 th = [threading.Thread(target=post_assign, args=(carrier, TA, res, "a")), threading.Thread(target=post_assign, args=(carrier2, TB, res, "b"))]
 [t.start() for t in th]
 [t.join() for t in th]
 check("exactly one of them gets the load", sorted(res.values()) == [200, 409], f"{res}")
+
+print("\n== 12. The winner gives the load back")
+winner, loser, wkey = (carrier, carrier2, "a") if res.get("a") == 200 else (carrier2, carrier, "b")
+WTRIP = trips.get(wkey)
+st, d = shipper.call("POST", f"/api/trips/{WTRIP}/cancel")
+check("the shipper cannot cancel a carrier's trip", st in (403, 404), f"{st}")
+st, d = loser.call("POST", f"/api/trips/{WTRIP}/cancel")
+check("the other carrier cannot cancel it either", st == 404, f"{st}")
+st, d = winner.call("POST", f"/api/trips/{WTRIP}/cancel")
+check("the winner cancels the trip", st == 200 and d.get("offerBackOnBoard") is True, f"{st} {d}")
+st, d = winner.call("POST", f"/api/trips/{WTRIP}/cancel")
+check("cancelling twice is refused", st == 409, f"{st}")
+st, body = loser.page("/app/loads?origin=tashkent&dest=bukhara")
+check("the load is back on the board for others", OID2 in body)
+st, sn = shipper.page("/app/notifications")
+check("the shipper is told it was given back", st == 200 and "gave your load back" in sn)
+st, d = loser.call("POST", f"/api/loads/{OID2}/assign", {"truckId": (TB if loser is carrier2 else TA)})
+check("another carrier can now take it", st == 200 and d.get("tripId"), f"{st} {d if isinstance(d, dict) else ''}")
+st, d = carrier.call("POST", f"/api/trips/{TRIP}/cancel")
+check("a finished trip cannot be cancelled", st == 409, f"{st}")
 
 ok = sum(1 for _, o, _ in RESULTS if o)
 print(f"\n{ok}/{len(RESULTS)} checks passed")
