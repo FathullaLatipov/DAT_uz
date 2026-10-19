@@ -6,7 +6,9 @@ import { MessageSquarePlus, Star } from "lucide-react";
 import { apiCall } from "@/lib/client";
 import { useI18n } from "@/i18n/client";
 import { cn } from "@/lib/format";
+import { paymentDueAt } from "@/server/services/payment-rules";
 import { Badge, Button } from "../ui/primitives";
+import { PaymentBox } from "./payment-box";
 
 export interface TripRow {
   id: string;
@@ -19,7 +21,10 @@ export interface TripRow {
   status: string;
   isDemo: boolean;
   review: { id: string } | null;
-  offer: { brokerId: string | null; broker: { name: string } | null } | null;
+  offer: { brokerId: string | null; paymentTerms?: string | null; broker: { name: string } | null } | null;
+  completedAt?: string | Date | null;
+  paymentStatus?: string;
+  paidAt?: string | Date | null;
 }
 
 /** Trip history with an inline "leave a review" form for completed trips that have an
@@ -31,7 +36,7 @@ export function TripHistoryTable({ trips, initialOpenId }: { trips: TripRow[]; i
   const [openId, setOpenId] = useState<string | null>(initialOpenId ?? null);
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[560px] text-sm">
+      <table className="w-full min-w-[760px] text-sm">
         <thead>
           <tr className="border-y border-border bg-surface-2/60 text-left text-xs uppercase tracking-wide text-muted">
             <th className="px-4 py-2 font-medium">{t("fleet.colDate")}</th>
@@ -40,6 +45,7 @@ export function TripHistoryTable({ trips, initialOpenId }: { trips: TripRow[]; i
             <th className="px-3 py-2 text-right font-medium">{t("chart.profit")}</th>
             <th className="px-3 py-2 text-right font-medium">{t("dash.emptyKm")}</th>
             <th className="px-3 py-2 font-medium">{t("fleet.colStatus")}</th>
+            <th className="px-3 py-2 font-medium">{t("pay.column")}</th>
           </tr>
         </thead>
         <tbody className="num divide-y divide-border">
@@ -66,10 +72,23 @@ export function TripHistoryTable({ trips, initialOpenId }: { trips: TripRow[]; i
                       {tr.status === "COMPLETED" && tr.review && <span className="text-xs text-muted">{t("fleet.reviewed")}</span>}
                     </div>
                   </td>
+                  <td className="px-3 py-2">
+                    {tr.offer && tr.status !== "CANCELLED" && !tr.isDemo && (
+                      <PaymentBox
+                        role="carrier"
+                        compact
+                        p={{
+                          tripId: tr.id, status: tr.paymentStatus ?? "UNPAID", tripStatus: tr.status, amountUsd: tr.revenueUsd,
+                          dueAt: paymentDueAt(tr.offer.paymentTerms, { startedAt: new Date(tr.startedAt), completedAt: tr.completedAt ? new Date(tr.completedAt) : null })?.toISOString() ?? null,
+                          paidAt: tr.paidAt ? new Date(tr.paidAt).toISOString() : null,
+                        }}
+                      />
+                    )}
+                  </td>
                 </tr>
                 {open && (
                   <tr>
-                    <td colSpan={6} className="bg-surface-2/40 p-0">
+                    <td colSpan={7} className="bg-surface-2/40 p-0">
                       <ReviewForm tripId={tr.id} brokerName={tr.offer?.broker?.name ?? t("fleet.thisBroker")} onDone={() => setOpenId(null)} />
                     </td>
                   </tr>

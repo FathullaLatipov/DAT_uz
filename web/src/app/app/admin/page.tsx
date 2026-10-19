@@ -10,6 +10,9 @@ import { jobsEnabled } from "@/server/jobs/config";
 import { Badge, Card, CardHeader, DemoBadge, PageHeader, Stat } from "@/components/ui/primitives";
 import { CsvImport, SyncButton } from "@/components/admin/admin-actions";
 import { AdminTabs } from "@/components/admin/admin-tabs";
+import { EmailTest } from "@/components/admin/email-test";
+import { emailConfigured } from "@/server/services/email";
+import { siteUrl } from "@/server/services/telegram";
 import { getI18n } from "@/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -170,6 +173,10 @@ export default async function AdminPage() {
             {notifierStatus().map((n) => (
               <li key={n.channel} className="flex justify-between"><span>{t("adm.channelAlerts", { channel: m.adm.channels[n.channel] ?? n.channel })}</span><Badge tone={n.configured ? "pos" : "neutral"}>{n.configured ? t("adm.configured") : t("adm.notConfigured")}</Badge></li>
             ))}
+            <li className="space-y-2 border-t border-border pt-3">
+              <div className={siteUrl().startsWith("https://") ? "text-xs text-muted" : "text-xs text-warn"}>{siteUrl().startsWith("https://") ? t("adm.appUrl", { url: siteUrl() }) : t("adm.appUrlWarn", { url: siteUrl() })}</div>
+              <EmailTest configured={emailConfigured()} />
+            </li>
           </ul>
         </Card>
       </div>

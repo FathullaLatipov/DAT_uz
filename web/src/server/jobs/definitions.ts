@@ -1,5 +1,6 @@
 import { db, parseJson } from "../db";
 import { liveAdapters } from "../ingestion/registry";
+import { sendPaymentReminders } from "../services/payments";
 import { expireStaleOffers, mergeReposts, purgeOldOffers, runIngestion } from "../ingestion/pipeline";
 import { checkAllSavedSearches } from "../services/alerts";
 import { rateAgeHours, refreshRatesFromCbu } from "../services/fx";
@@ -63,6 +64,12 @@ export const JOBS = {
       if (total) bust();
       return { purged: total };
     },
+  },
+  "payment-reminders": {
+    everyMin: 6 * 60,
+    startDelayS: 300,
+    // Tells shippers when a payment is due and, once, when it is overdue (never for one already marked as sent).
+    run: () => sendPaymentReminders(),
   },
   "merge-reposts": {
     everyMin: 10, // works through the backlog in bounded slices, then finds little to do
