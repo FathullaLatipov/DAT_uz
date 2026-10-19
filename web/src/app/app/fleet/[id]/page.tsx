@@ -13,6 +13,8 @@ import { StatusBadge } from "@/components/fleet/status-badge";
 import { TruckForm } from "@/components/fleet/truck-form";
 import { TruckPosition } from "@/components/fleet/truck-position";
 import { TripActions } from "@/components/fleet/trip-actions";
+import { TripTrackPanel } from "@/components/fleet/trip-track-panel";
+import { loadTrack } from "@/server/services/tracking-data";
 import { TripHistoryTable } from "@/components/fleet/trip-history-table";
 import { KmStack, ProfitBars } from "@/components/charts/lazy";
 import { RecRow } from "@/components/loads/recommendation";
@@ -40,6 +42,7 @@ export default async function TruckPage({ params, searchParams }: { params: Prom
     !busy && !["MAINTENANCE", "OFFLINE"].includes(t.status) ? recommendations(s.orgId, 5, { truckId: t.id }) : Promise.resolve([]),
     busy && activeTrip ? findBackhaul(s.orgId, { ...matchTruck, status: "AVAILABLE" }, activeTrip.destCityId, activeTrip.etaAt ?? new Date(), 120, 4) : Promise.resolve(null),
   ]);
+  const track = activeTrip?.status === "IN_TRANSIT" ? await loadTrack(activeTrip.id, s.orgId) : null;
   const chains = recs.length ? await bestChains(s.orgId, matchTruck, recs.map((r) => ({ offer: r.offer, match: r.match })), 2) : [];
 
   return (
@@ -91,6 +94,13 @@ export default async function TruckPage({ params, searchParams }: { params: Prom
             {activeTrip.offerId && <Link href={`/app/loads/${activeTrip.offerId}`} className="self-end text-brand hover:underline">{tr("fleet.loadLink")}</Link>}
             {can(s, "trip:assign") && <TripActions tripId={activeTrip.id} truckId={t.id} status={activeTrip.status} destCityId={activeTrip.destCityId} />}
           </div>
+        </Card>
+      )}
+
+      {track && activeTrip && (
+        <Card className="mb-5 p-4 sm:p-5">
+          <h2 className="mb-3 text-sm font-semibold">{tr("tt.title")}</h2>
+          <TripTrackPanel initial={track} tripId={activeTrip.id} />
         </Card>
       )}
 

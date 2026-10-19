@@ -247,6 +247,21 @@ model Trip {
   originCity City          @relation("TripOrigin", fields: [originCityId], references: [id])
   destCity   City          @relation("TripDest", fields: [destCityId], references: [id])
   review     BrokerReview?
+  points     TripPoint[]
+}
+
+/// A GPS fix sent from the truck while a trip is on the road (the track drawn on the map).
+model TripPoint {
+  id     String   @id @default(cuid())
+  tripId String
+  lat    Float
+  lng    Float
+  speed  Float? // km/h, when the phone reports it
+  at     DateTime @default(now())
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, at])
 }
 
 // ───────────────────────────── Freight ─────────────────────────────
