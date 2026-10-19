@@ -432,9 +432,8 @@ export const ru: Messages = {
       routesSub: "между городами, которые мы охватываем",
       countries: "стран",
       countriesSub: "Узбекистан и его коридоры",
-      sources: "источников",
-      sourcesTelegram: "в т. ч. Telegram-групп: {n}",
-      sourcesOther: "ленты и брокеры",
+      grade: "оценка у каждого груза",
+      gradeSub: "насколько ему можно верить, ещё до звонка",
       live: "Живые цифры платформы · последний груз добавлен {ago}",
     },
     problem: {

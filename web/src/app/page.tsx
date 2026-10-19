@@ -53,7 +53,6 @@ export default async function Home() {
     routes: totals.routes,
     countries: totals.countries,
     telegramGroups: sources.telegramGroups,
-    otherSources: sources.otherSources,
     newestAt: latest[0]?.createdAt ?? null,
   };
 
