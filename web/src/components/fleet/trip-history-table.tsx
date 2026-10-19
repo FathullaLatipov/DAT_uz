@@ -25,9 +25,10 @@ export interface TripRow {
 /** Trip history with an inline "leave a review" form for completed trips that have an
  * identified broker and haven't been reviewed yet — one review per trip, enforced server-side
  * by the unique BrokerReview.tripId constraint. */
-export function TripHistoryTable({ trips }: { trips: TripRow[] }) {
+export function TripHistoryTable({ trips, initialOpenId }: { trips: TripRow[]; initialOpenId?: string }) {
   const { t, label, city, shortDate, usd } = useI18n();
-  const [openId, setOpenId] = useState<string | null>(null);
+  // After "complete trip" the review form for that trip is already open.
+  const [openId, setOpenId] = useState<string | null>(initialOpenId ?? null);
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[560px] text-sm">
