@@ -5,6 +5,8 @@ import { can, PLAN_FEATURES } from "@/server/auth/permissions";
 import { db, parseJson } from "@/server/db";
 import { getI18n } from "@/i18n/server";
 import { notifierStatus } from "@/server/services/alerts";
+import { brokerKey } from "@/server/ingestion/normalize";
+import { VerificationCard, type VerificationState } from "@/components/settings/verification-card";
 import { Badge, Card, CardHeader, PageHeader } from "@/components/ui/primitives";
 import { TelegramConnect } from "@/components/settings/telegram-connect";
 import { PreferencesForm } from "@/components/settings/preferences-form";
@@ -18,12 +20,16 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function SettingsPage() {
   const s = await requireSession();
   const { t, label, m: msgs } = await getI18n();
-  const [me, pref, routes, members] = await Promise.all([
+  const key = brokerKey(s.org.name);
+  const [me, pref, routes, members, lastRequest, ownBroker] = await Promise.all([
     db.user.findUnique({ where: { id: s.userId }, select: { telegramChatId: true } }),
     db.orgPreference.findUnique({ where: { orgId: s.orgId } }),
     db.preferredRoute.findMany({ where: { orgId: s.orgId, destCityId: { not: null } } }),
     db.membership.findMany({ where: { orgId: s.orgId }, include: { user: { select: { name: true, email: true } } } }),
+    db.verificationRequest.findFirst({ where: { orgId: s.orgId }, orderBy: { createdAt: "desc" } }),
+    key ? db.broker.findUnique({ where: { normalizedName: key }, select: { verified: true } }) : null,
   ]);
+  const verification: VerificationState = ownBroker?.verified ? "approved" : lastRequest?.status === "PENDING" ? "pending" : lastRequest?.status === "REJECTED" ? "rejected" : "none";
   const telegram = notifierStatus({ telegramLinked: true }).find((n) => n.channel === "TELEGRAM")!;
 
   return (
@@ -42,6 +48,19 @@ export default async function SettingsPage() {
               paymentTerms: parseJson(pref?.paymentTerms, []),
               routes: routes.map((r) => ({ originCityId: r.originCityId, destCityId: r.destCityId! })),
             }}
+          />
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader title={t("ver.title")} />
+        <div className="px-4 pb-5 sm:px-5">
+          <VerificationCard
+            state={verification}
+            companyName={s.org.name}
+            pendingSince={lastRequest?.status === "PENDING" ? lastRequest.createdAt.toISOString() : null}
+            reason={lastRequest?.status === "REJECTED" ? lastRequest.reason : null}
+            canEdit={can(s, "settings:write")}
           />
         </div>
       </Card>

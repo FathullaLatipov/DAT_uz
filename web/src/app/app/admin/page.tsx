@@ -9,6 +9,7 @@ import { JOBS } from "@/server/jobs/definitions";
 import { jobsEnabled } from "@/server/jobs/config";
 import { Badge, Card, CardHeader, DemoBadge, PageHeader, Stat } from "@/components/ui/primitives";
 import { CsvImport, SyncButton } from "@/components/admin/admin-actions";
+import { AdminTabs } from "@/components/admin/admin-tabs";
 import { getI18n } from "@/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -52,6 +53,7 @@ export default async function AdminPage() {
   return (
     <div className="mx-auto max-w-[1400px] space-y-5">
       <PageHeader title={t("adm.title")} subtitle={t("adm.subtitle")} actions={<SyncButton />} />
+      <AdminTabs active="overview" pending={await db.verificationRequest.count({ where: { status: "PENDING" } })} />
 
       <Card className="grid grid-cols-2 gap-5 p-4 sm:grid-cols-3 sm:p-5 lg:grid-cols-6">
         <Stat label={t("adm.opportunities")} value={num(totalOffers)} sub={t("adm.activeCount", { n: offerStats.find((o) => o.status === "ACTIVE")?._count ?? 0 })} />
