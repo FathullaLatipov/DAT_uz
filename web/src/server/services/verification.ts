@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { brokerKey, qualityLevel } from "../ingestion/normalize";
-import { i18nFor, sendTelegram, siteUrl } from "./telegram";
+import { notifyUser, RECIPIENT_SELECT } from "./notify-user";
 import { invalidateMarketCache } from "./market";
 
 /**
@@ -30,15 +30,16 @@ export async function setBrokerVerified(brokerId: string, verified: boolean, met
   return { offersRequalified: changed };
 }
 
-/** Tells every member of a company the outcome, in each person's language (and in Telegram if linked). */
+/** Tells every member of a company the outcome, in each person's language and on every channel they use. */
 async function tellOrg(orgId: string, approved: boolean, vars: { company: string; reason?: string }) {
-  const members = await db.membership.findMany({ where: { orgId }, select: { user: { select: { id: true, locale: true, telegramChatId: true } } } });
+  const members = await db.membership.findMany({ where: { orgId }, select: { user: { select: RECIPIENT_SELECT } } });
   for (const { user } of members) {
-    const i = i18nFor(user.locale);
-    const title = i.t(approved ? "ver.approvedTitle" : "ver.rejectedTitle");
-    const body = approved ? i.t("ver.approvedNote", { company: vars.company }) : i.t("ver.rejectedNote", { reason: vars.reason ?? "" });
-    await db.notification.create({ data: { userId: user.id, type: "SYSTEM", title, body, link: "/app/settings" } });
-    if (user.telegramChatId) await sendTelegram(user.telegramChatId, { title, lines: [body], button: { text: i.t("ver.title"), url: `${siteUrl()}/app/settings` } });
+    await notifyUser(user, (i) => ({
+      title: i.t(approved ? "ver.approvedTitle" : "ver.rejectedTitle"),
+      body: approved ? i.t("ver.approvedNote", { company: vars.company }) : i.t("ver.rejectedNote", { reason: vars.reason ?? "" }),
+      link: "/app/settings",
+      button: i.t("ver.title"),
+    }));
   }
 }
 

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/server/db";
+import { getLocale } from "@/i18n/server";
 import { startSession } from "@/server/auth/session";
 import { audit, rateLimit } from "@/server/security";
 import { clientIp, errorResponse, localize } from "@/server/http";
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
     const email = body.email.toLowerCase();
     if (await db.user.findUnique({ where: { email } })) return NextResponse.json({ error: await localize("An account with this email already exists.") }, { status: 409 });
 
-    const user = await db.user.create({ data: { email, name: body.name, passwordHash: await bcrypt.hash(body.password, 10) } });
+    const user = await db.user.create({ data: { email, name: body.name, passwordHash: await bcrypt.hash(body.password, 10), locale: await getLocale() } });
     const org = await db.organization.create({ data: { name: body.company || `${body.name}'s fleet`, plan: "FREE" } });
     // Account type picked on the signup screen (truck owner vs broker); further refined in onboarding.
     const accountType = body.accountType ?? "OWNER_OPERATOR";

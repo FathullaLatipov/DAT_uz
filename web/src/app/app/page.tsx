@@ -248,7 +248,7 @@ async function BrokerDashboard({ orgId, orgName, userName }: { orgId: string; or
       </div>
 
       <Card className="overflow-hidden">
-        <CardHeader title={t("dash.recentLoads")} action={<Link href="/app/post" className="text-xs text-brand hover:underline">{t("dash.manage")}</Link>} />
+        <CardHeader title={t("dash.recentLoads")} action={<Link href="/app/my-loads" className="text-xs text-brand hover:underline">{t("dash.manage")}</Link>} />
         {listings.length === 0 ? (
           <EmptyState
             icon={<PackagePlus className="h-5 w-5" />}
@@ -260,7 +260,7 @@ async function BrokerDashboard({ orgId, orgName, userName }: { orgId: string; or
           <ul className="divide-y divide-border border-t border-border">
             {listings.map((l) => (
               <li key={l.id} className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
-                <Link href={`/load/${l.offerId}`} className="min-w-0 hover:underline">
+                <Link href={`/app/my-loads#load-${l.offerId}`} className="min-w-0 hover:underline">
                   <RouteLabel origin={l.offer.originCityId} dest={l.offer.destCityId} size="sm" />
                   <div className="text-xs text-muted">{relativeDay(l.offer.loadingDate)} · {l.offer.rateUsd > 0 ? usd(l.offer.rateUsd) : t("tile.rateNegotiable").toLowerCase()}</div>
                 </Link>

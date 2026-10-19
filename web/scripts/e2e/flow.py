@@ -259,6 +259,27 @@ check("settings now show 'Verified'", st == 200 and "Your company is verified" i
 st, d = admin.call("POST", f"/api/admin/loads/{OID2}", {"status": "EXPIRED"})
 check("the admin can hide a posted load", st in (200, 409), f"{st} {d}")
 
+print("\n== 15. The shipper's own page, and e-mail")
+st, ml = shipper.page("/app/my-loads")
+check("My loads lists the carrier that delivered", st == 200 and f"E2E Trans {RUN}" in ml or f"E2E Two {RUN}" in ml)
+check("My loads shows a delivered load", "Delivered" in ml)
+check("My loads shows the carrier's contact e-mail", "@e2e.test" in ml)
+st, d = shipper.call("POST", "/api/loads", {**load, "destCityId": "namangan", "rate": 800, "contactEmail": ""})
+OID3 = d.get("id") if isinstance(d, dict) else None
+st, ml = shipper.page("/app/my-loads")
+check("a new load shows as waiting for a carrier", st == 200 and "Waiting for a carrier" in ml)
+for lang in ("ru", "uz"):
+    check(f"My loads renders in {lang}", shipper.page("/app/my-loads", lang)[0] == 200)
+st, d = shipper.call("PATCH", "/api/account", {"emailAlerts": False})
+check("the shipper turns e-mail alerts off", st == 200, f"{st} {d}")
+st, cx = runner.call("GET", f"/api/loads/{OID3}")
+st, d = runner.call("POST", f"/api/loads/{OID3}/assign", {"truckId": cx.get("selectedTruckId") or RT})
+check("a carrier takes the third load", st == 200, f"{st} {d if isinstance(d, dict) else ''}")
+st, sn = shipper.page("/app/notifications")
+check("the in-app notification still arrives with e-mail off", st == 200 and sn.count("took your load") >= 3)
+st, ml = shipper.page("/app/my-loads")
+check("My loads now shows it as taken", st == 200 and "Taken, not started" in ml)
+
 ok = sum(1 for _, o, _ in RESULTS if o)
 print(f"\n{ok}/{len(RESULTS)} checks passed")
 for n, o, dt in RESULTS:

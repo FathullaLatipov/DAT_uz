@@ -107,6 +107,10 @@ The whole app is translated: the public site, sign-in/sign-up and every cabinet 
 - Still English: notifications stored in the database keep the language they were created in, and job-created ones (no user language) are English.
 - Have a native speaker review the Russian and Uzbek copy before launch.
 
+### E-mail notifications
+
+Important events (a carrier took, started or delivered your load; a company was verified or rejected; saved-search alerts with the E-mail channel) are also sent by e-mail, in the person's language, with a button to the right page. Set `SMTP_URL` (and `EMAIL_FROM`, and `APP_URL` so the button links point at the real site) in the server's `.env`; each person can turn it off in Settings. Notifications are written in the language the person last used the site in.
+
 ### Telegram alerts
 
 Users connect their own Telegram in **Settings → Telegram**, then switch the Telegram channel on for any saved search; new matching loads arrive in the bot chat (in the language they last signed in with), with a button that opens the load.

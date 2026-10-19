@@ -68,6 +68,7 @@ export const en = {
     directions: "Directions",
     howItWorks: "How it works",
     postLoad: "Post a load",
+    myLoads: "My loads",
     // Landing anchors
     how: "How it works",
     features: "Features",
@@ -1278,6 +1279,10 @@ export const en = {
     tgDisconnect: "Disconnect",
     tgReopen: "Open Telegram again",
     tgHow: "Turn on the Telegram channel on any saved search to receive its alerts here.",
+    emailTitle: "E-mail alerts",
+    emailBody: "Get a copy of important notifications (a load was taken, started, delivered; your company was verified) by e-mail at {email}.",
+    emailOff: "E-mail is not set up on this server yet, so nothing is sent for now.",
+    emailSaved: "Saved.",
     team: "Team",
     plan: "Plan",
     planSub: "Billing isn't enabled during the beta — plans show what each tier will include.",
@@ -1621,6 +1626,36 @@ export const en = {
     hideBody: "It leaves the board right away. You can restore it later.",
     empty: "Nothing here.",
     done: "Done.",
+  },
+
+  email: {
+    footer: "You get this because you have a Karvon account. You can turn e-mail alerts off in Settings.",
+  },
+
+  ml: {
+    title: "My loads",
+    subtitle: "Everything you posted, and where each load is now.",
+    empty: "You haven't posted a load yet.",
+    post: "Post a load",
+    colRoute: "Route",
+    colLoading: "Loading",
+    colRate: "Rate",
+    colStatus: "Status",
+    colCarrier: "Carrier",
+    status: {
+      active: "Waiting for a carrier",
+      taken: "Taken, not started",
+      onroad: "On the road",
+      delivered: "Delivered",
+      expired: "Expired, nobody took it",
+      closed: "Closed",
+    },
+    truck: "Truck {truck}",
+    arrives: "Arrives {when}",
+    contact: "Contact",
+    view: "Open",
+    noCarrier: "No carrier yet",
+    posted: "Posted {ago}",
   },
 
   enums: {
