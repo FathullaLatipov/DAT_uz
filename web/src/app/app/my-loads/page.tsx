@@ -7,6 +7,8 @@ import { PLATFORM_SOURCE } from "@/server/ingestion/pipeline";
 import { getI18n } from "@/i18n/server";
 import { CloseLoadButton } from "@/components/loads/close-load-button";
 import { TripTrackPanel } from "@/components/fleet/trip-track-panel";
+import { PaymentBox } from "@/components/fleet/payment-box";
+import { paymentDueAt } from "@/server/services/payment-rules";
 import { loadTrack } from "@/server/services/tracking-data";
 import { RouteLabel } from "@/components/loads/parts";
 import { Badge, Card, EmptyState, LinkButton, PageHeader } from "@/components/ui/primitives";
@@ -39,13 +41,13 @@ export default async function MyLoadsPage() {
       firstSeenAt: true,
       offer: {
         select: {
-          id: true, originCityId: true, destCityId: true, loadingDate: true, rateUsd: true, status: true,
+          id: true, originCityId: true, destCityId: true, loadingDate: true, rateUsd: true, status: true, paymentTerms: true,
           trips: {
             where: { status: { not: "CANCELLED" } },
             orderBy: { createdAt: "desc" },
             take: 1,
             select: {
-              id: true, status: true, etaAt: true,
+              id: true, status: true, etaAt: true, startedAt: true, completedAt: true, revenueUsd: true, paymentStatus: true, paidAt: true,
               truck: { select: { code: true } },
               org: { select: { name: true, memberships: { orderBy: { createdAt: "asc" }, take: 1, select: { user: { select: { name: true, email: true } } } } } },
             },
@@ -107,6 +109,19 @@ export default async function MyLoadsPage() {
                   </div>
                 ) : (
                   stage === "active" && <p className="mt-3 text-xs text-muted"><Phone className="mr-1 inline h-3.5 w-3.5" />{t("ml.noCarrier")}</p>
+                )}
+
+                {trip && (
+                  <div className="mt-3 border-t border-border pt-3">
+                    <PaymentBox
+                      role="shipper"
+                      p={{
+                        tripId: trip.id, status: trip.paymentStatus, tripStatus: trip.status, amountUsd: trip.revenueUsd,
+                        dueAt: paymentDueAt(o.paymentTerms, trip)?.toISOString() ?? null,
+                        paidAt: trip.paidAt?.toISOString() ?? null,
+                      }}
+                    />
+                  </div>
                 )}
 
                 {tracks.get(o.id) && trip && (

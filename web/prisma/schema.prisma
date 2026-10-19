@@ -240,6 +240,14 @@ model Trip {
   emptyKm      Float
   isDemo       Boolean   @default(false)
   createdAt    DateTime  @default(now())
+  // Payment for the load, tracked by both sides: UNPAID → SHIPPER_PAID (the shipper says it was sent) → CONFIRMED
+  // (the carrier says it arrived); the carrier can raise DISPUTED instead. The due date comes from the load's payment terms.
+  paymentStatus   String    @default("UNPAID") // UNPAID | SHIPPER_PAID | CONFIRMED | DISPUTED
+  shipperPaidAt   DateTime?
+  paidAt          DateTime? // when the carrier confirmed it arrived
+  disputeNote     String?
+  remindedAt      DateTime? // last payment reminder sent to the shipper
+  remindCount     Int       @default(0)
 
   org        Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   truck      Truck         @relation(fields: [truckId], references: [id], onDelete: Cascade)

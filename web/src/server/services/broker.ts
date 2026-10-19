@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 import { db } from "../db";
 import type { I18n } from "../../i18n/create";
 import { englishI18n } from "../../i18n/default";
+import { paymentDueAt, paymentSample, paymentVerdict } from "./payment-rules";
 
 /**
  * Broker reliability is computed ONLY from data on the platform: identity verification,
@@ -34,20 +35,24 @@ export interface BrokerReliability {
 
 type ReviewLite = { rating: number; paidOnTime: boolean | null; disputed: boolean; cancelled: boolean; isDemo: boolean };
 
-export function computeReliability(verified: boolean, reviews: ReviewLite[], completedTrips: number, i18n?: I18n): BrokerReliability {
+/**
+ * `paidSamples`: payment outcomes known from the trips themselves (true = paid on time, false = late, overdue or
+ * disputed), for trips whose review did not already carry one. They count towards the payment record.
+ */
+export function computeReliability(verified: boolean, reviews: ReviewLite[], completedTrips: number, i18n?: I18n, paidSamples: boolean[] = []): BrokerReliability {
   const { t, tn } = i18n ?? englishI18n();
   const n = reviews.length;
   const isDemo = reviews.some((r) => r.isDemo);
+  const paySamples = [...reviews.filter((r) => r.paidOnTime != null).map((r) => r.paidOnTime as boolean), ...paidSamples];
   if (n < MIN_REVIEWS) {
     return {
       score: null, sufficient: false, reviews: n, avgRating: n ? reviews.reduce((s, r) => s + r.rating, 0) / n : null,
-      paidOnTimePct: null, disputePct: null, cancelPct: null, completedTrips, components: [], isDemo,
+      paidOnTimePct: paySamples.length ? Math.round((paySamples.filter(Boolean).length / paySamples.length) * 100) : null, disputePct: null, cancelPct: null, completedTrips, components: [], isDemo,
       explanation: tn("broker.insufficient", n, { min: MIN_REVIEWS }),
     };
   }
   const avg = reviews.reduce((s, r) => s + r.rating, 0) / n;
-  const payKnown = reviews.filter((r) => r.paidOnTime != null);
-  const onTime = payKnown.length ? payKnown.filter((r) => r.paidOnTime).length / payKnown.length : null;
+  const onTime = paySamples.length ? paySamples.filter(Boolean).length / paySamples.length : null;
   const disputes = reviews.filter((r) => r.disputed).length / n;
   const cancels = reviews.filter((r) => r.cancelled).length / n;
 
@@ -57,7 +62,7 @@ export function computeReliability(verified: boolean, reviews: ReviewLite[], com
     {
       key: "payment", label: t("broker.payment"), max: 25,
       points: onTime == null ? 12 : Math.round(onTime * 25),
-      detail: onTime == null ? t("broker.paymentNone") : tn("broker.paymentDetail", payKnown.length, { pct: Math.round(onTime * 100) }),
+      detail: onTime == null ? t("broker.paymentNone") : tn("broker.paymentDetail", paySamples.length, { pct: Math.round(onTime * 100) }),
     },
     { key: "disputes", label: t("broker.disputes"), max: 10, points: Math.round((1 - Math.min(1, disputes * 4)) * 10), detail: t("broker.disputesDetail", { pct: Math.round(disputes * 100) }) },
     { key: "cancellations", label: t("broker.cancellations"), max: 10, points: Math.round((1 - Math.min(1, cancels * 4)) * 10), detail: t("broker.cancellationsDetail", { pct: Math.round(cancels * 100) }) },
@@ -74,11 +79,25 @@ export function computeReliability(verified: boolean, reviews: ReviewLite[], com
 export async function brokerReliability(brokerId: string, i18n?: I18n): Promise<BrokerReliability | null> {
   const b = await db.broker.findUnique({
     where: { id: brokerId },
-    include: { reviews: true, offers: { select: { trips: { where: { status: "COMPLETED" }, select: { id: true } } } } },
+    include: {
+      reviews: true,
+      offers: { select: { paymentTerms: true, trips: { where: { status: "COMPLETED" }, select: { id: true, startedAt: true, completedAt: true, paymentStatus: true, paidAt: true } } } },
+    },
   });
   if (!b) return null;
   const trips = b.offers.reduce((s, o) => s + o.trips.length, 0);
-  return computeReliability(b.verified, b.reviews, trips, i18n);
+  // What actually happened to the money, trip by trip, beats the "paid on time" tick in a review; trips with
+  // no verdict yet (not due, or not known) contribute nothing.
+  const objective = new Map<string, boolean>();
+  for (const o of b.offers)
+    for (const t of o.trips) {
+      const sample = paymentSample(paymentVerdict({ status: t.paymentStatus, paidAt: t.paidAt }, paymentDueAt(o.paymentTerms, t)));
+      if (sample != null) objective.set(t.id, sample);
+    }
+  const reviewed = new Set(b.reviews.map((r) => r.tripId).filter((x): x is string => !!x));
+  const reviews = b.reviews.map((r) => (r.tripId && objective.has(r.tripId) ? { ...r, paidOnTime: objective.get(r.tripId)! } : r));
+  const extra = [...objective].filter(([id]) => !reviewed.has(id)).map(([, v]) => v);
+  return computeReliability(b.verified, reviews, trips, i18n, extra);
 }
 
 /**

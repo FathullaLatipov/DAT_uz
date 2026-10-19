@@ -17,8 +17,7 @@ export async function tellLoadOwners(
     | { kind: "started"; carrier: string; truck: { code: string; bodyType: string; capacityKg: number } }
     | { kind: "delivered"; carrier: string },
 ) {
-  const posted = await db.freightListing.findMany({ where: { offerId: offer.id, sourceId: PLATFORM_SOURCE.id }, select: { externalId: true } });
-  const orgIds = [...new Set(posted.map((l) => l.externalId.slice(0, l.externalId.indexOf("-"))).filter((id) => id.length > 0))];
+  const orgIds = await postingOrgIds(offer.id);
   if (!orgIds.length) return;
   const members = await db.membership.findMany({ where: { orgId: { in: orgIds } }, select: { user: { select: RECIPIENT_SELECT } } });
   for (const { user } of members) {
@@ -36,4 +35,10 @@ export async function tellLoadOwners(
       return { title: i.t(`notify.${event.kind}Title`, { carrier: event.carrier }), body, link: `/app/my-loads#load-${offer.id}`, button: i.t("notify.takenOpen") };
     });
   }
+}
+
+/** The companies that posted this load on Karvon (the same load posted twice is one offer). Empty for loads from other sources. */
+export async function postingOrgIds(offerId: string): Promise<string[]> {
+  const posted = await db.freightListing.findMany({ where: { offerId, sourceId: PLATFORM_SOURCE.id }, select: { externalId: true } });
+  return [...new Set(posted.map((l) => l.externalId.slice(0, l.externalId.indexOf("-"))).filter((id) => id.length > 0))];
 }

@@ -111,9 +111,13 @@ The whole app is translated: the public site, sign-in/sign-up and every cabinet 
 
 While a trip is on the road (**Start trip** on the truck page) both sides see it on a map: the planned line, the track driven, the truck, % of the way, km driven and left, and the ETA. The carrier also sees the diesel for the loaded leg (from the truck's own consumption and fuel price); the company that posted the load sees where the load is but never the carrier's costs (`/app/my-loads`). The truck's position comes from the phone in the cab: **Share live location** on the truck page reports it about every 30 s while the page stays open (screen wake lock; resumes after a reload). Until the first report the position is an estimate from elapsed time and is marked as such. A browser page cannot track in the background — Telegram "live location" to the bot is the planned way to cover that. API: `POST /api/trips/:id/position`, `GET /api/trips/:id/track`.
 
+### Payments
+
+Both sides follow the money for a load. The shipper presses **I paid** (My loads) and the carrier presses **Payment received** (truck page → trip history), or reports **Not paid** after delivery; each step notifies the other side (in-app, Telegram, e-mail). The due date comes from the load's payment terms (prepaid / on loading: departure; on unloading: delivery; net 7/14/30: delivery + N days), with one day of slack. Whether a payment was on time is therefore a fact — the carrier's confirmation against the due date — and feeds the shipper's *paid on time* figure and reliability score instead of the tick-box in a review. A daily job reminds a shipper when a payment is due and once more when it is overdue. No money moves through Karvon; it only records what the two parties say.
+
 ### E-mail notifications
 
-Important events (a carrier took, started or delivered your load; a company was verified or rejected; saved-search alerts with the E-mail channel) are also sent by e-mail, in the person's language, with a button to the right page. Set `SMTP_URL` (and `EMAIL_FROM`, and `APP_URL` so the button links point at the real site) in the server's `.env`; each person can turn it off in Settings. Notifications are written in the language the person last used the site in.
+Important events (a carrier took, started or delivered your load; a company was verified or rejected; saved-search alerts with the E-mail channel) are also sent by e-mail, in the person's language, with a button to the right page. Set `SMTP_URL` (and `EMAIL_FROM`, and `APP_URL` so the button links point at the real site) in the server's `.env`; each person can turn it off in Settings. In **Admin → Overview** the health card shows whether e-mail is on, which address the links in mails point to, and has a *Send a test e-mail to me* button. Notifications are written in the language the person last used the site in.
 
 ### Telegram alerts
 

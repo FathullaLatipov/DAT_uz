@@ -65,7 +65,7 @@ export async function truckDetail(orgId: string, truckId: string) {
       trips: {
         orderBy: { startedAt: "desc" },
         take: 40,
-        include: { originCity: true, destCity: true, review: { select: { id: true } }, offer: { select: { brokerId: true, broker: { select: { name: true } } } } },
+        include: { originCity: true, destCity: true, review: { select: { id: true } }, offer: { select: { brokerId: true, paymentTerms: true, broker: { select: { name: true } } } } },
       },
     },
   });

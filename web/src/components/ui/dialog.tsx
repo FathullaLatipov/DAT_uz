@@ -18,7 +18,7 @@ import { Button, Input } from "./primitives";
  */
 
 export interface ConfirmOptions { title: string; message?: string; confirmText?: string; cancelText?: string; danger?: boolean }
-export interface PromptOptions { title: string; message?: string; label?: string; defaultValue?: string; placeholder?: string; confirmText?: string; cancelText?: string; maxLength?: number }
+export interface PromptOptions { title: string; message?: string; label?: string; defaultValue?: string; placeholder?: string; confirmText?: string; cancelText?: string; maxLength?: number; allowEmpty?: boolean }
 export interface AlertOptions { title?: string; message: string; okText?: string }
 
 interface DialogApi {
@@ -102,7 +102,7 @@ function DialogView({ req, onClosed }: { req: Request; onClosed: () => void }) {
     e.preventDefault();
     if (req.kind === "prompt") {
       const v = value.trim();
-      if (v) settle(v);
+      if (v || req.o.allowEmpty) settle(v);
     } else settle(true);
   }
 
@@ -143,7 +143,7 @@ function DialogView({ req, onClosed }: { req: Request; onClosed: () => void }) {
             // For a destructive question the safe answer holds the focus, so a stray Enter does not delete.
             <Button type="button" variant="outline" onClick={cancel} data-autofocus={danger ? "" : undefined}>{cancelText}</Button>
           )}
-          <Button type="submit" variant={danger ? "danger" : "primary"} data-autofocus={req.kind === "alert" || (req.kind === "confirm" && !danger) ? "" : undefined} disabled={req.kind === "prompt" && !value.trim()}>
+          <Button type="submit" variant={danger ? "danger" : "primary"} data-autofocus={req.kind === "alert" || (req.kind === "confirm" && !danger) ? "" : undefined} disabled={req.kind === "prompt" && !req.o.allowEmpty && !value.trim()}>
             {confirmText}
           </Button>
         </div>
