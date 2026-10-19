@@ -12,7 +12,7 @@ import { Card, CardHeader, DemoBadge, Stat } from "@/components/ui/primitives";
 import { StatusBadge } from "@/components/fleet/status-badge";
 import { TruckForm } from "@/components/fleet/truck-form";
 import { TruckPosition } from "@/components/fleet/truck-position";
-import { CancelTripButton } from "@/components/fleet/cancel-trip-button";
+import { TripActions } from "@/components/fleet/trip-actions";
 import { TripHistoryTable } from "@/components/fleet/trip-history-table";
 import { KmStack, ProfitBars } from "@/components/charts/lazy";
 import { RecRow } from "@/components/loads/recommendation";
@@ -24,12 +24,12 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("fleet.truck") };
 }
 
-export default async function TruckPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ assigned?: string }> }) {
+export default async function TruckPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ assigned?: string; delivered?: string }> }) {
   const s = await requireSession();
   if (s.role === "BROKER") redirect("/app/post");
   const { t: tr, tn, label, city, num, dateTime, usd } = await getI18n();
   const { id } = await params;
-  const { assigned } = await searchParams;
+  const { assigned, delivered } = await searchParams;
   const d = await truckDetail(s.orgId, id);
   if (!d) notFound();
   const { truck: t, month, last60, weeks, activeTrip } = d;
@@ -47,6 +47,12 @@ export default async function TruckPage({ params, searchParams }: { params: Prom
       <Link href="/app/fleet" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-fg">
         <ArrowLeft className="h-4 w-4" /> {tr("nav.fleet")}
       </Link>
+      {delivered && (
+        <div className="mb-4 animate-fade-up rounded-lg border border-pos/30 bg-pos-soft px-3 py-2.5 text-sm text-pos">
+          <div className="flex items-center gap-2 font-medium"><CheckCircle2 className="h-4 w-4" /> {tr("fleet.deliveredBanner", { code: t.code, city: city(t.currentCityId) })}</div>
+          <div className="mt-1 pl-6">{tr("fleet.rateNow")}</div>
+        </div>
+      )}
       {assigned && (
         <div className="mb-4 flex animate-fade-up items-center gap-2 rounded-lg border border-pos/30 bg-pos-soft px-3 py-2.5 text-sm text-pos">
           <CheckCircle2 className="h-4 w-4" /> {tr("fleet.assigned", { code: t.code })}
@@ -83,7 +89,7 @@ export default async function TruckPage({ params, searchParams }: { params: Prom
             <div><div className="text-xs text-muted">{tr("calc.revenue")}</div>{usd(activeTrip.revenueUsd)}</div>
             <div><div className="text-xs text-muted">{tr("fleet.eta")}</div>{activeTrip.etaAt ? dateTime(activeTrip.etaAt) : "—"}</div>
             {activeTrip.offerId && <Link href={`/app/loads/${activeTrip.offerId}`} className="self-end text-brand hover:underline">{tr("fleet.loadLink")}</Link>}
-            {activeTrip.status === "PLANNED" && can(s, "trip:assign") && <CancelTripButton tripId={activeTrip.id} />}
+            {can(s, "trip:assign") && <TripActions tripId={activeTrip.id} truckId={t.id} status={activeTrip.status} destCityId={activeTrip.destCityId} />}
           </div>
         </Card>
       )}
@@ -123,7 +129,7 @@ export default async function TruckPage({ params, searchParams }: { params: Prom
             {t.trips.length === 0 ? (
               <p className="px-5 pb-5 text-sm text-muted">{tr("fleet.noTripsYet")}</p>
             ) : (
-              <TripHistoryTable trips={t.trips} />
+              <TripHistoryTable trips={t.trips} initialOpenId={delivered} />
             )}
           </Card>
 
