@@ -1,6 +1,7 @@
 import { db, parseJson } from "../db";
 import { searchLoads } from "./freight";
 import { loadFiltersSchema } from "./filters";
+import { emailConfigured, sendEmail } from "./email";
 import { i18nFor, sendTelegram, siteUrl, telegramConfigured } from "./telegram";
 
 /**
@@ -17,6 +18,9 @@ export interface AlertMessage {
   lines?: string[];
   /** Set when the user linked a Telegram chat. */
   telegramChatId?: string | null;
+  /** The person's e-mail, when they allow e-mail alerts. */
+  email?: string | null;
+  footer?: string;
   buttonText?: string;
 }
 
@@ -44,11 +48,13 @@ const telegramNotifier: Notifier = {
   },
 };
 
+/** E-mail: the same alert, to the address on the account (when SMTP is configured and the person has not turned e-mail alerts off). */
 const emailNotifier: Notifier = {
   channel: "EMAIL",
-  configured: () => !!process.env.SMTP_URL,
-  async send() {
-    // Wire to an SMTP/transactional provider when configured.
+  configured: () => emailConfigured(),
+  async send(m) {
+    if (!m.email) return;
+    await sendEmail({ to: m.email, subject: m.title, text: [m.body, ...(m.lines ?? [])].join("\n"), button: { text: m.buttonText ?? "Open", url: `${siteUrl()}${m.link}` }, footer: m.footer });
   },
 };
 
@@ -91,7 +97,7 @@ export async function checkAllSavedSearches(maxUsers = 200) {
 export async function checkSavedSearches(userId: string, orgId: string) {
   const searches = await db.savedSearch.findMany({ where: { userId, orgId } });
   // Alerts are written in the language the user last signed in with, not the server's.
-  const user = await db.user.findUnique({ where: { id: userId }, select: { locale: true, telegramChatId: true } });
+  const user = await db.user.findUnique({ where: { id: userId }, select: { locale: true, telegramChatId: true, email: true, emailAlerts: true } });
   const i = i18nFor(user?.locale);
   let alerts = 0;
   for (const s of searches) {
@@ -115,6 +121,8 @@ export async function checkSavedSearches(userId: string, orgId: string) {
         lines: [...top.map((r) => line(r, "alerts.line")), ...(fresh.length > top.length ? [i.tn("alerts.more", fresh.length - top.length)] : [])],
         link: `/app/loads/${best.offer.id}`,
         telegramChatId: user?.telegramChatId,
+        email: user?.emailAlerts ? user.email : null,
+        footer: i.t("email.footer"),
         buttonText: i.t("alerts.open"),
       };
       const channels = parseJson<string[]>(s.channels, ["WEB"]);

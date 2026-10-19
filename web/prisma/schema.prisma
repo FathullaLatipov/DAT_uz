@@ -52,6 +52,8 @@ model User {
   // Telegram alerts: set when the user taps Start on the bot via a one-time link (see services/telegram.ts).
   telegramChatId   String?   @unique
   telegramLinkedAt DateTime?
+  // E-mail copies of important notifications (a load was taken, a company was verified…). On by default.
+  emailAlerts  Boolean   @default(true)
 
   memberships   Membership[]
   favorites     Favorite[]

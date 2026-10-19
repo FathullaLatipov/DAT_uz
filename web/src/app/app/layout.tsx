@@ -3,11 +3,14 @@ import { db } from "@/server/db";
 import { MobileNav, Sidebar, Topbar } from "@/components/shell/nav";
 import { hideDemoFreight } from "@/server/domain/demo";
 import { NlSearch } from "@/components/shell/nl-search";
+import { after } from "next/server";
 import { getI18n } from "@/i18n/server";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const s = await requireSession();
-  const { t } = await getI18n();
+  const { t, locale } = await getI18n();
+  // Notifications are written in the language the person last used the site in (the switcher only sets a cookie).
+  after(() => db.user.updateMany({ where: { id: s.userId, OR: [{ locale: null }, { NOT: { locale } }] }, data: { locale } }).catch(() => {}));
   const unread = await db.notification.count({ where: { userId: s.userId, readAt: null } });
   const isAdmin = s.platformRole === "ADMIN";
   const isBroker = s.role === "BROKER";

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  BarChart3, Bell, Bookmark, Calculator, LayoutDashboard, LogOut, Menu, Package, PackagePlus, Settings, ShieldCheck, Sparkles, Truck, X,
+  BarChart3, Bell, Bookmark, Calculator, ClipboardList, LayoutDashboard, LogOut, Menu, Package, PackagePlus, Settings, ShieldCheck, Sparkles, Truck, X,
 } from "lucide-react";
 import { cn } from "@/lib/format";
 import { apiCall } from "@/lib/client";
@@ -21,6 +21,7 @@ const NAV = [
   { href: "/app/analytics", label: "market", icon: BarChart3 },
   { href: "/app/saved", label: "saved", icon: Bookmark },
   { href: "/app/post", label: "postLoad", icon: PackagePlus },
+  { href: "/app/my-loads", label: "myLoads", icon: ClipboardList },
   { href: "/app/calculator", label: "calculator", icon: Calculator },
   { href: "/app/settings", label: "settings", icon: Settings },
 ] as const;
