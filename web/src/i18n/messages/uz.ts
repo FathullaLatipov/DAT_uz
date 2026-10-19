@@ -1532,10 +1532,10 @@ export const uz: Messages = {
   mail: {
     send: "Yozish",
     sendTitle: "{email} manziliga yozish",
-    subject: "Yuk bo'yicha so'rov: {route}, {weight}, {date}",
+    subject: "{route}, {date}",
     hello: "Assalomu alaykum!",
     helloNamed: "Assalomu alaykum, {name}!",
-    intro: "Karvon'da yukingizni ko'rdim: {route}, {weight}, {body}, yuklash {date}.",
+    intro: "Shu yuk bo'yicha tafsilotlar kerak: {route}, {date}, {weight}, {body}.",
     rate: "Ko'rsatilgan narx: {rate}.",
     truck: "Bo'sh mashinam bor: {truck}.",
     ask: "Yuk hali dolzarbmi? Iltimos, aniqlashtiring:",
@@ -1543,6 +1543,18 @@ export const uz: Messages = {
     q2: "Yakuniy narx va to'lov shartlari",
     q3: "Yuklashdagi aloqa shaxsi",
     thanks: "Rahmat.",
+    sigTax: "STIR: {taxId}",
+    sigPhone: "Ofis: {phone}",
+    sigWebsite: "Sayt: {url}",
+    sigAddress: "Manzil: {address}",
+    notice: "XAVFSIZLIK OGOHLANTIRISHI | {company}\n\nHarakat qilishdan oldin tekshiring: har qanday yukni tasdiqlash yoki band qilishdan oldin yuk ma'lumotlari va aloqa raqamini rasmiy kanallar orqali tekshiring. Yuk tashishdagi firibgarlik murakkab, bitta tekshiruv qo'ng'irog'i katta zararning oldini oladi.",
+    openIn: "Yozish uchun",
+    viaGmail: "Gmail",
+    viaOutlook: "Outlook",
+    viaApp: "Bu qurilmadagi pochta ilovasi",
+    copy: "Matnni nusxalash",
+    copied: "Nusxalandi",
+    more: "Yozishning boshqa usullari",
   },
 
   dialog: {
@@ -1712,6 +1724,20 @@ export const uz: Messages = {
     subject: "Karvon sinov xati",
     body: "Agar bu xatni o'qiyotgan bo'lsangiz, Karvon pochtasi ishlayapti. Yuklar, reyslar, to'lov va tekshiruv haqidagi bildirishnomalar shu yerga keladi.",
     button: "Karvon'ni ochish",
+  },
+
+  prof: {
+    title: "Xatlardagi imzongiz",
+    subtitle: "Yukning aloqa tugmasidan yuboradigan xatlaringiz oxirida ko'rsatiladi. Bo'sh maydon xatga kiritilmaydi.",
+    jobTitle: "Lavozimingiz (masalan, dispetcherlik bo'limi)",
+    phone: "Ofis telefoni",
+    website: "Sayt",
+    address: "Manzil",
+    taxId: "STIR",
+    orgNote: "Kompaniya ma'lumotlari {org} dagi hamma uchun umumiy.",
+    save: "Saqlash",
+    saved: "Saqlandi.",
+    preview: "Ko'rib chiqish",
   },
 
   enums: {

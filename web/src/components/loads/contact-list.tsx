@@ -1,50 +1,24 @@
 "use client";
 
-import { Mail, Phone, Send } from "lucide-react";
+import { Mail, Phone } from "lucide-react";
 import { useI18n } from "@/i18n/client";
-import { mailtoUrl } from "@/lib/mailto";
+import { buildEnquiry, type Enquiry, type Sender } from "@/lib/enquiry";
 import type { Contact } from "@/server/services/contacts";
+import { MailButton } from "./mail-button";
 
-export interface EnquiryContext {
-  originId: string;
-  destId: string;
-  weightKg: number;
-  bodyType: string;
-  /** ISO date of loading */
-  loadingDate: string;
-  rateUsd: number;
-  truck?: { code: string; bodyType: string; capacityKg: number } | null;
-  viewer?: { name: string; org: string } | null;
+export interface EnquiryContext extends Enquiry {
+  viewer?: Sender | null;
 }
 
 /**
- * Contacts for a load. A phone is a tel: link; an e-mail gets a "Send" button that opens the visitor's
- * mail program with a ready enquiry (route, weight, date, their truck, what to confirm), like the
- * one-click enquiry on other freight boards.
+ * Contacts for a load. A phone is a tel: link; an e-mail gets a "Send" button that opens a ready, addressed
+ * message (route, date, weight, the sender's truck, what to confirm, and their signature) in Gmail, Outlook or
+ * the mail app, like the one-click enquiry on other freight boards.
  */
 export function ContactList({ contacts, ctx }: { contacts: Contact[]; ctx: EnquiryContext }) {
-  const { t, city, tonnes, usd, label, shortDate } = useI18n();
+  const i18n = useI18n();
 
-  function enquiry(c: Contact) {
-    const route = `${city(ctx.originId)} → ${city(ctx.destId)}`;
-    const date = shortDate(ctx.loadingDate);
-    const lines = [
-      c.name ? t("mail.helloNamed", { name: c.name }) : t("mail.hello"),
-      "",
-      t("mail.intro", { route, weight: tonnes(ctx.weightKg), body: label(ctx.bodyType).toLowerCase(), date }),
-      ...(ctx.rateUsd > 0 ? [t("mail.rate", { rate: usd(ctx.rateUsd) })] : []),
-      ...(ctx.truck ? [t("mail.truck", { truck: `${tonnes(ctx.truck.capacityKg)} ${label(ctx.truck.bodyType).toLowerCase()}` })] : []),
-      "",
-      t("mail.ask"),
-      `1. ${t("mail.q1")}`,
-      `2. ${t("mail.q2")}`,
-      `3. ${t("mail.q3")}`,
-      "",
-      t("mail.thanks"),
-      ...(ctx.viewer ? [ctx.viewer.name, ctx.viewer.org] : []),
-    ];
-    return mailtoUrl({ to: c.email!, subject: t("mail.subject", { route, weight: tonnes(ctx.weightKg), date }), body: lines.join("\n") });
-  }
+  const draftFor = (c: Contact) => ({ to: c.email!, ...buildEnquiry(i18n, ctx, { name: c.name }, ctx.viewer ?? null) });
 
   return (
     <ul className="space-y-1.5 text-sm">
@@ -61,13 +35,7 @@ export function ContactList({ contacts, ctx }: { contacts: Contact[]; ctx: Enqui
               <span className="inline-flex min-w-0 items-center gap-1.5">
                 <Mail className="h-3.5 w-3.5 shrink-0 text-muted" />
                 <span className="truncate text-muted">{c.email}</span>
-                <a
-                  href={enquiry(c)}
-                  title={t("mail.sendTitle", { email: c.email })}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-md bg-brand-soft px-2 py-0.5 text-xs font-medium text-brand hover:brightness-95"
-                >
-                  <Send className="h-3 w-3" /> {t("mail.send")}
-                </a>
+                <MailButton draft={draftFor(c)} />
               </span>
             )}
           </div>

@@ -25,6 +25,11 @@ model Organization {
   plan      String   @default("FREE") // FREE | PRO | FLEET | ENTERPRISE
   isDemo    Boolean  @default(false)
   createdAt DateTime @default(now())
+  // Shown in the signature of the e-mails a person sends from a load's contact button.
+  phone     String?
+  website   String?
+  address   String?
+  taxId     String?
 
   memberships     Membership[]
   trucks          Truck[]
@@ -54,6 +59,8 @@ model User {
   telegramLinkedAt DateTime?
   // E-mail copies of important notifications (a load was taken, a company was verified…). On by default.
   emailAlerts  Boolean   @default(true)
+  // Their role line in the e-mail signature, e.g. "Dispatch department".
+  jobTitle     String?
 
   memberships   Membership[]
   favorites     Favorite[]

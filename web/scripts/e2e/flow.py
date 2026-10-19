@@ -95,7 +95,7 @@ check("grade is present on the board row", "title=\"Grade" in body or "Grade " i
 cs = c.get("contacts") or []
 check("carrier sees the shipper's phone and email", any(x.get("phone") and x.get("email") == EMAIL for x in cs), f"{cs}")
 st, pg = carrier.page(f"/app/loads/{OID}")
-check("load page has a Send-email link with a template", st == 200 and "mailto:" in pg and EMAIL in html.unescape(pg))
+check("load page has a Send-email button that opens Gmail with the addressed draft", st == 200 and "mail.google.com/mail/?view=cm" in html.unescape(pg) and EMAIL.replace("@", "%40") in html.unescape(pg))
 check("carrier can open it in Russian and Uzbek", carrier.page(f"/app/loads/{OID}", "ru")[0] == 200 and carrier.page(f"/app/loads/{OID}", "uz")[0] == 200)
 
 print("\n== 6. Roles: what each side must NOT be able to do")
@@ -358,6 +358,24 @@ st, d = guest.call("POST", f"/api/trips/{TRIP}/payment", {"action": "received"})
 check("a visitor cannot touch a payment", st == 401, f"{st}")
 for lang in ("ru", "uz"):
     check(f"the payment screens render in {lang}", shipper.page("/app/my-loads", lang)[0] == 200 and runner.page(f"/app/fleet/{RT}", lang)[0] == 200)
+print("\n== 19. The e-mail signature")
+st, d = carrier.call("PATCH", "/api/profile", {"jobTitle": "Dispatch department", "phone": "+998 71 123 45 67", "website": "https://taylor.example", "address": "6784 Loop Road, Tashkent", "taxId": "305123456"})
+check("the carrier saves his signature details", st == 200, f"{st} {d}")
+st, d = carrier.call("PATCH", "/api/profile", {"website": "not a website"})
+check("a bad website is refused", st == 400, f"{st}")
+st, d = carrier.call("PATCH", "/api/profile", {"phone": "abc"})
+check("a bad phone is refused", st == 400, f"{st}")
+st, d = guest.call("PATCH", "/api/profile", {"jobTitle": "x"})
+check("a visitor cannot edit a profile", st == 401, f"{st}")
+st, pg = carrier.page("/app/settings")
+check("settings show the signature form with a preview", st == 200 and "Your e-mail signature" in pg and "Dispatch department" in html.unescape(pg))
+st, pg = carrier.page(f"/app/loads/{OID}")
+raw = html.unescape(pg)
+g = re.findall(r'href="(https://mail\.google\.com/mail/[^"]+)"', raw)
+body = __import__("urllib.parse", fromlist=["x"]).unquote(g[0].split("&body=")[1]) if g else ""
+check("the draft carries the signature and the security notice", bool(g) and all(x in body for x in ["Dispatch department", "Office: +998 71 123 45 67", "Website: https://taylor.example", "Address: 6784 Loop Road, Tashkent", "Tax ID: 305123456", "SECURITY NOTICE"]), body[-200:].replace("\n", " | "))
+st, pg = carrier.page(f"/app/loads/{OID}", "ru")
+check("and the Russian draft is in Russian", "%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9%D1%82%D0%B5" in pg or "mail.google.com" in pg)
 json.dump({"T3": T3, "RTRIP": RTRIP, "TRIP": TRIP}, open(os.environ.get("TEMP", ".") + "/e2e_trips.json", "w"))
 
 ok = sum(1 for _, o, _ in RESULTS if o)

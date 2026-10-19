@@ -21,7 +21,7 @@ import { ProfitCalculator } from "@/components/loads/profit-calculator";
 import { AssignPanel } from "@/components/loads/assign-panel";
 import { RouteMap } from "@/components/loads/route-map";
 import { ContactList } from "@/components/loads/contact-list";
-import { uniqueContacts } from "@/server/services/contacts";
+import { senderOf, uniqueContacts } from "@/server/services/contacts";
 import { cn, pct } from "@/lib/format";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -43,6 +43,7 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
   const m = selected?.match;
   const t = selected?.truck;
   const contacts = uniqueContacts(o.listings);
+  const sender = contacts.some((c) => c.email) ? await senderOf(s.userId, s.orgId) : null;
   const [broker, lane, backhaul] = await Promise.all([
     o.brokerId ? brokerReliability(o.brokerId, i18n) : null,
     laneStats(o.originCityId, o.destCityId),
@@ -329,7 +330,7 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
                   ctx={{
                     originId: o.originCityId, destId: o.destCityId, weightKg: o.weightKg, bodyType: o.bodyType, loadingDate: o.loadingDate.toISOString(), rateUsd: o.rateUsd,
                     truck: t ? { code: t.code, bodyType: t.bodyType, capacityKg: t.capacityKg } : null,
-                    viewer: { name: s.user.name, org: s.org.name },
+                    viewer: sender,
                   }}
                 />
               </div>
