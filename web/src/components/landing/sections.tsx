@@ -98,7 +98,6 @@ export interface LiveStats {
   routes: number;
   countries: number;
   telegramGroups: number;
-  otherSources: number;
   newestAt: Date | null;
 }
 
@@ -109,8 +108,8 @@ export async function StatBand({ s }: { s: LiveStats }) {
     [num(s.routes), t("landing.stats.routes"), t("landing.stats.routesSub")],
     [num(s.countries), t("landing.stats.countries"), t("landing.stats.countriesSub")],
   ];
-  const sourceCount = s.telegramGroups + s.otherSources;
-  if (sourceCount > 0) tiles.push([num(sourceCount), t("landing.stats.sources"), s.telegramGroups > 0 ? t("landing.stats.sourcesTelegram", { n: num(s.telegramGroups) }) : t("landing.stats.sourcesOther")]);
+  // What sets Karvon apart rather than a count: every load carries an A–D trust grade.
+  tiles.push(["A–D", t("landing.stats.grade"), t("landing.stats.gradeSub")]);
   return (
     <section aria-label={t("landing.stats.aria")} className="border-y border-border bg-surface">
       <div className={cn(wrap, "py-8")}>

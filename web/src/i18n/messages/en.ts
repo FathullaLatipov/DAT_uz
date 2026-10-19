@@ -438,9 +438,8 @@ export const en = {
       routesSub: "between cities we cover",
       countries: "countries",
       countriesSub: "Uzbekistan and its corridors",
-      sources: "sources",
-      sourcesTelegram: "incl. {n} Telegram groups",
-      sourcesOther: "feeds and brokers",
+      grade: "grade on every load",
+      gradeSub: "how far to trust it, before you call",
       live: "Live numbers from the platform · newest load posted {ago}",
     },
     problem: {

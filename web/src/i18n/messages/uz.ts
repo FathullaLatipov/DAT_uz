@@ -432,9 +432,8 @@ export const uz: Messages = {
       routesSub: "biz qamrab olgan shaharlar orasida",
       countries: "davlat",
       countriesSub: "O'zbekiston va uning yo'laklari",
-      sources: "manba",
-      sourcesTelegram: "shu jumladan {n} ta Telegram guruh",
-      sourcesOther: "lentalar va brokerlar",
+      grade: "har bir yukda baho",
+      gradeSub: "qo'ng'iroqdan oldin qanchalik ishonish mumkin",
       live: "Platformaning jonli raqamlari · eng so'nggi yuk qo'shildi: {ago}",
     },
     problem: {
