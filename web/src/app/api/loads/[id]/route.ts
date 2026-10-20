@@ -130,6 +130,7 @@ function offerDto(o: {
   volumeM3: number | null; cargoType: string; requirements: string; packaging: string | null; paymentTerms: string | null;
   rateUsd: number; rate: number; currency: string; status: string; quality: string; isDemo: boolean;
   qualityFlags: string; expiresAt: Date;
+  cargoLengthM: number | null; cargoWidthM: number | null; cargoHeightM: number | null; oversize: boolean; adrClass: string | null;
 }) {
   return {
     id: o.id,
@@ -146,6 +147,11 @@ function offerDto(o: {
     cargoType: o.cargoType,
     requirements: parseJson<string[]>(o.requirements, []),
     packaging: o.packaging,
+    cargoLengthM: o.cargoLengthM,
+    cargoWidthM: o.cargoWidthM,
+    cargoHeightM: o.cargoHeightM,
+    oversize: o.oversize,
+    adrClass: o.adrClass,
     paymentTerms: o.paymentTerms,
     rateUsd: o.rateUsd,
     rate: o.rate,

@@ -29,11 +29,14 @@ export function PostLoadForm({ defaultContact }: { defaultContact: string }) {
   const router = useRouter();
   const [v, setV] = useState({
     originCityId: "tashkent", destCityId: "almaty", loadingDate: tomorrow(), unloadingDate: "", cargoType: "GENERAL", weightKg: "20000",
-    volumeM3: "", bodyType: "CURTAINSIDER", rate: "", currency: "USD", paymentTerms: "ON_UNLOADING", contactName: defaultContact, contactPhone: "", contactEmail: "", requirements: "",
+    volumeM3: "", cargoLengthM: "", cargoWidthM: "", cargoHeightM: "", oversize: false, adrClass: "", bodyType: "CURTAINSIDER", rate: "", currency: "USD", paymentTerms: "ON_UNLOADING", contactName: defaultContact, contactPhone: "", contactEmail: "", requirements: "",
   });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setV({ ...v, [k]: e.target.value });
+  const size = (k: "cargoLengthM" | "cargoWidthM" | "cargoHeightM", label: string) => (
+    <Field label={label}><Input type="number" inputMode="decimal" min={0.1} max={30} step="0.05" value={v[k]} onChange={set(k)} /></Field>
+  );
   const distance = useMemo(() => estimateRoadKm(v.originCityId, v.destCityId), [v.originCityId, v.destCityId]);
 
   async function submit(e: React.FormEvent) {
@@ -45,6 +48,10 @@ export function PostLoadForm({ defaultContact }: { defaultContact: string }) {
         ...v,
         weightKg: Number(v.weightKg),
         volumeM3: v.volumeM3 ? Number(v.volumeM3) : null,
+        cargoLengthM: v.cargoLengthM ? Number(v.cargoLengthM) : null,
+        cargoWidthM: v.cargoWidthM ? Number(v.cargoWidthM) : null,
+        cargoHeightM: v.cargoHeightM ? Number(v.cargoHeightM) : null,
+        adrClass: v.adrClass || null,
         rate: v.rate ? Number(v.rate) : null,
         unloadingDate: v.unloadingDate || null,
       });
@@ -79,6 +86,24 @@ export function PostLoadForm({ defaultContact }: { defaultContact: string }) {
           <Field label={t("post.requirements")} className="sm:col-span-2 lg:col-span-4" hint={t("post.requirementsHint")}>
             <Input value={v.requirements} onChange={set("requirements")} maxLength={300} />
           </Field>
+          <div className="sm:col-span-2 lg:col-span-4">
+            <p className="mb-1 text-xs text-muted">{t("post.sizeHint")}</p>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {size("cargoLengthM", t("post.sizeL"))}
+              {size("cargoWidthM", t("post.sizeW"))}
+              {size("cargoHeightM", t("post.sizeH"))}
+              <Field label={t("post.adrClass")}>
+                <Select value={v.adrClass} onChange={set("adrClass")}>
+                  <option value="">{t("post.adrNone")}</option>
+                  <option value="0">{t("post.adrUnknown")}</option>
+                  {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((n) => <option key={n} value={n}>{t("post.adrOption", { n })}</option>)}
+                </Select>
+              </Field>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={v.oversize} onChange={(e) => setV({ ...v, oversize: e.target.checked })} className="h-4 w-4" /> {t("post.oversize")}
+              </label>
+            </div>
+          </div>
         </div>
       </section>
       <section className="border-t border-border pt-6">

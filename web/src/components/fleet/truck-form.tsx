@@ -6,6 +6,8 @@ import { Loader2, Trash2 } from "lucide-react";
 import { apiCall } from "@/lib/client";
 import { CITIES } from "@/server/domain/geo";
 import { BODY_TYPES, TRUCK_STATUSES, TRUCK_TYPES } from "@/server/domain/enums";
+import { typicalPassport } from "@/server/domain/fit";
+import { PASSPORT_NUMBERS } from "@/lib/truck-passport";
 import { useI18n } from "@/i18n/client";
 import { useDialog } from "../ui/dialog";
 import { Button, Field, Input, Select } from "../ui/primitives";
@@ -26,7 +28,13 @@ export interface TruckFormValues {
   driverCostPerKm: number;
   maintenancePerKm: number;
   otherPerTripUsd: number;
+  // Passport, as typed: "" = unknown.
+  cargoLengthM: string; cargoWidthM: string; cargoHeightM: string;
+  heightM: string; widthM: string; lengthM: string;
+  grossWeightKg: string; axles: string; axleLoadKg: string;
+  adr: boolean;
 }
+
 
 export function TruckForm({ id, initial, canDelete }: { id?: string; initial: TruckFormValues; canDelete?: boolean }) {
   const { t, label, city } = useI18n();
@@ -36,7 +44,9 @@ export function TruckForm({ id, initial, canDelete }: { id?: string; initial: Tr
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [filled, setFilled] = useState(false);
   const set = <K extends keyof TruckFormValues>(k: K, val: TruckFormValues[K]) => (setSaved(false), setV((s) => ({ ...s, [k]: val })));
+  const text = (k: keyof TruckFormValues) => (e: React.ChangeEvent<HTMLInputElement>) => set(k, e.target.value as never);
   const num = (k: keyof TruckFormValues) => (e: React.ChangeEvent<HTMLInputElement>) => set(k, Number(e.target.value) as never);
 
   async function submit(e: React.FormEvent) {
@@ -44,7 +54,10 @@ export function TruckForm({ id, initial, canDelete }: { id?: string; initial: Tr
     setPending(true);
     setError(null);
     try {
-      const body = { ...v, plate: v.plate || null, driverName: v.driverName || null };
+      const body = {
+        ...v, plate: v.plate || null, driverName: v.driverName || null,
+        ...Object.fromEntries(PASSPORT_NUMBERS.map((k) => [k, v[k].trim() === "" ? null : Number(v[k].replace(",", "."))])),
+      };
       if (id) {
         await apiCall(`/api/trucks/${id}`, "PATCH", body);
         setSaved(true);
@@ -59,6 +72,13 @@ export function TruckForm({ id, initial, canDelete }: { id?: string; initial: Tr
     } finally {
       setPending(false);
     }
+  }
+
+  function fillTypical() {
+    const p = typicalPassport(v.truckType, v.bodyType);
+    setSaved(false);
+    setFilled(true);
+    setV((s) => ({ ...s, ...Object.fromEntries(PASSPORT_NUMBERS.map((k) => [k, String(p[k])])) as Record<(typeof PASSPORT_NUMBERS)[number], string> }));
   }
 
   async function remove() {
@@ -92,6 +112,39 @@ export function TruckForm({ id, initial, canDelete }: { id?: string; initial: Tr
             <Field label={t("fleet.capacity")}><Input type="number" inputMode="numeric" min={500} max={60000} step={500} value={v.capacityKg} onChange={num("capacityKg")} /></Field>
             <Field label={t("fleet.volume")}><Input type="number" inputMode="decimal" min={1} max={200} value={v.volumeM3} onChange={num("volumeM3")} /></Field>
           </div>
+        </div>
+      </section>
+      <section>
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold">{t("pass.title")}</h3>
+          <Button type="button" variant="ghost" onClick={fillTypical}>{t("pass.fill")}</Button>
+        </div>
+        <p className="mb-3 text-xs text-muted">{filled ? t("pass.filled") : t("pass.hint")}</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <fieldset className="rounded-lg border border-border p-3">
+            <legend className="px-1 text-xs font-medium text-muted">{t("pass.cargoSpace")}</legend>
+            <div className="grid grid-cols-3 gap-2">
+              <Field label={t("pass.length")}><Input type="number" inputMode="decimal" step="0.05" min={0} value={v.cargoLengthM} onChange={text("cargoLengthM")} /></Field>
+              <Field label={t("pass.width")}><Input type="number" inputMode="decimal" step="0.05" min={0} value={v.cargoWidthM} onChange={text("cargoWidthM")} /></Field>
+              <Field label={t("pass.height")}><Input type="number" inputMode="decimal" step="0.05" min={0} value={v.cargoHeightM} onChange={text("cargoHeightM")} /></Field>
+            </div>
+          </fieldset>
+          <fieldset className="rounded-lg border border-border p-3">
+            <legend className="px-1 text-xs font-medium text-muted">{t("pass.vehicle")}</legend>
+            <div className="grid grid-cols-3 gap-2">
+              <Field label={t("pass.length")}><Input type="number" inputMode="decimal" step="0.05" min={0} value={v.lengthM} onChange={text("lengthM")} /></Field>
+              <Field label={t("pass.width")}><Input type="number" inputMode="decimal" step="0.05" min={0} value={v.widthM} onChange={text("widthM")} /></Field>
+              <Field label={t("pass.height")}><Input type="number" inputMode="decimal" step="0.05" min={0} value={v.heightM} onChange={text("heightM")} /></Field>
+            </div>
+          </fieldset>
+          <Field label={t("pass.gross")}><Input type="number" inputMode="numeric" step="500" min={0} value={v.grossWeightKg} onChange={text("grossWeightKg")} /></Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label={t("pass.axles")}><Input type="number" inputMode="numeric" min={0} value={v.axles} onChange={text("axles")} /></Field>
+            <Field label={t("pass.axleLoad")}><Input type="number" inputMode="numeric" step="500" min={0} value={v.axleLoadKg} onChange={text("axleLoadKg")} /></Field>
+          </div>
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input type="checkbox" checked={v.adr} onChange={(e) => set("adr", e.target.checked)} className="h-4 w-4" /> {t("pass.adr")}
+          </label>
         </div>
       </section>
       <section>

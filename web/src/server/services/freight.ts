@@ -77,6 +77,7 @@ export const toMatchOffer = (o: {
   id: string; originCityId: string; destCityId: string; originCountry: string; destCountry: string; loadingDate: Date;
   weightKg: number; volumeM3: number | null; bodyType: string; cargoType: string; distanceKm: number; rateUsd: number;
   paymentTerms: string | null; brokerId: string | null;
+  cargoLengthM?: number | null; cargoWidthM?: number | null; cargoHeightM?: number | null; oversize?: boolean; adrClass?: string | null; requirements?: string;
 }): MatchOffer => o;
 
 // originCity/destCity/broker are deliberately NOT joined here: every list/card component
@@ -244,6 +245,7 @@ const matchingOfferSelect = {
   id: true, originCityId: true, destCityId: true, originCountry: true, destCountry: true, loadingDate: true,
   weightKg: true, volumeM3: true, bodyType: true, cargoType: true, distanceKm: true, rateUsd: true,
   paymentTerms: true, brokerId: true, qualityFlags: true, sourceCreatedAt: true, createdAt: true,
+  cargoLengthM: true, cargoWidthM: true, cargoHeightM: true, oversize: true, adrClass: true, requirements: true,
 } satisfies Prisma.FreightOfferSelect;
 type MatchingOffer = Prisma.FreightOfferGetPayload<{ select: typeof matchingOfferSelect }>;
 

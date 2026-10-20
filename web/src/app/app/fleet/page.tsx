@@ -78,7 +78,8 @@ export default async function FleetPage() {
                         <tr key={t.id} className="relative transition-colors hover:bg-surface-2/70">
                           <td className="px-4 py-3">
                             <Link href={`/app/fleet/${t.id}`} className="font-semibold after:absolute after:inset-0">{t.code}</Link>
-                            <div className="text-xs text-muted">{(t.capacityKg / 1000).toFixed(0)} {tr("units.tonnes")} · {label(t.bodyType)} · {t.volumeM3} {tr("units.cubicMetres")}</div>
+                            <div className="text-xs text-muted">{(t.capacityKg / 1000).toFixed(0)} {tr("units.tonnes")} · {label(t.bodyType)} · {t.volumeM3} {tr("units.cubicMetres")}{t.adr ? " · ADR" : ""}</div>
+                            {t.cargoLengthM == null && t.cargoHeightM == null && canWrite && <Link href={`/app/fleet/${t.id}`} className="relative z-10 text-xs text-brand hover:underline">{tr("pass.missing")}</Link>}
                           </td>
                           <td className="px-3 py-3">{t.driver?.name ?? <span className="text-subtle">{tr("fleet.unassigned")}</span>}</td>
                           <td className="px-3 py-3">{city(t.currentCityId)}</td>

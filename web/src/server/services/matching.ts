@@ -1,6 +1,7 @@
 import { AVG_KM_PER_DAY, GPS_FRESH_MS, estimateRoadKm, roadKmFromPoint } from "../domain/geo";
 import type { I18n } from "../../i18n/create";
 import { englishI18n } from "../../i18n/default";
+import { checkFit, type CargoSize, type TruckPassport } from "../domain/fit";
 import { computeProfit, estimateTollsUsd, type CostProfile, type ProfitBreakdown } from "./profitability";
 
 /**
@@ -10,7 +11,7 @@ import { computeProfit, estimateTollsUsd, type CostProfile, type ProfitBreakdown
  * moment they are built, so what the engine returns can be shown as-is.
  */
 
-export interface MatchTruck extends CostProfile {
+export interface MatchTruck extends CostProfile, TruckPassport {
   id: string;
   code: string;
   bodyType: string;
@@ -40,6 +41,20 @@ export interface MatchOffer {
   rateUsd: number;
   paymentTerms: string | null;
   brokerId: string | null;
+  cargoLengthM?: number | null;
+  cargoWidthM?: number | null;
+  cargoHeightM?: number | null;
+  oversize?: boolean;
+  adrClass?: string | null;
+  /** JSON string[] as stored, or the parsed list. */
+  requirements?: string | string[];
+}
+
+/** The requirements column holds a JSON array; anything else counts as none. */
+function requirementList(r: string | string[] | undefined): string[] {
+  if (Array.isArray(r)) return r;
+  if (!r || r === "[]") return [];
+  try { const v = JSON.parse(r); return Array.isArray(v) ? v.map(String) : []; } catch { return []; }
 }
 
 export interface MatchPreferences {
@@ -137,11 +152,19 @@ export function scoreMatch(truck: MatchTruck, offer: MatchOffer, ctx: MatchConte
   if (body === 0) blockers.push(t("match.blockerBody", { body: lc(offer.bodyType), truckBody: lc(truck.bodyType) }));
   if (!weightOk) blockers.push(t("match.blockerWeight", { cargo: (offer.weightKg / 1000).toFixed(1), cap: (truck.capacityKg / 1000).toFixed(1) }));
   if (!volumeOk) blockers.push(t("match.blockerVolume", { v: offer.volumeM3 ?? 0, cap: truck.volumeM3 }));
+  // Size and dangerous-goods checks; unknown values never block (see domain/fit.ts).
+  const cargo: CargoSize = { cargoLengthM: offer.cargoLengthM, cargoWidthM: offer.cargoWidthM, cargoHeightM: offer.cargoHeightM, oversize: offer.oversize, adrClass: offer.adrClass, requirements: requirementList(offer.requirements) };
+  const fit = checkFit(truck, cargo);
+  for (const b of fit.blockers) {
+    if (b.code === "NEEDS_ADR") blockers.push(t("match.blockerAdr"));
+    else blockers.push(t(b.code === "TOO_LONG" ? "match.blockerLong" : b.code === "TOO_WIDE" ? "match.blockerWide" : "match.blockerHigh", { cargo: b.cargo ?? 0, truck: b.truck ?? 0 }));
+  }
+  for (const w of fit.warnings) warnings.push(t(w.code === "OVERSIZE" ? "match.warnOversize" : "match.warnNoPassport"));
   if (truck.status === "MAINTENANCE" || truck.status === "OFFLINE") blockers.push(t("match.blockerStatus", { status: lc(truck.status) }));
   const fill = offer.weightKg / truck.capacityKg;
   add(
     "truck",
-    weightOk && volumeOk ? body : 0,
+    weightOk && volumeOk && fit.blockers.length === 0 ? body : 0,
     body === 100
       ? t("match.truckExact", { body: lc(truck.bodyType), pct: Math.round(fill * 100) })
       : body > 0

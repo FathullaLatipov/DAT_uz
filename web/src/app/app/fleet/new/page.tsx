@@ -7,6 +7,7 @@ import { DEFAULT_COST_PROFILE } from "@/server/services/profitability";
 import { getI18n } from "@/i18n/server";
 import { Card, PageHeader } from "@/components/ui/primitives";
 import { TruckForm } from "@/components/fleet/truck-form";
+import { passportText } from "@/lib/truck-passport";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
@@ -27,7 +28,7 @@ export default async function NewTruck() {
         <TruckForm
           initial={{
             code: `T-${1001 + n}`, plate: "", truckType: "SEMI", bodyType: "CURTAINSIDER", capacityKg: 20000, volumeM3: 86, currentCityId: "tashkent",
-            status: "AVAILABLE", availableFrom: new Date(now.getTime() + 5 * 3_600_000).toISOString().slice(0, 16), driverName: "", ...DEFAULT_COST_PROFILE,
+            status: "AVAILABLE", availableFrom: new Date(now.getTime() + 5 * 3_600_000).toISOString().slice(0, 16), driverName: "", ...DEFAULT_COST_PROFILE, ...passportText({}),
           }}
         />
       </Card>

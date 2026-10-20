@@ -28,6 +28,12 @@ export interface ParsedListing {
   contactEmail?: string;
   packaging?: string;
   requirements?: string[];
+  /** Cargo size in metres, oversize flag and ADR class when the ad states them. */
+  cargoLengthM?: number | null;
+  cargoWidthM?: number | null;
+  cargoHeightM?: number | null;
+  oversize?: boolean;
+  adrClass?: string | null;
   postedAt?: string | Date;
   expiresAt?: string | Date;
   raw: unknown;
@@ -59,6 +65,11 @@ export interface NormalizedOffer {
   contactEmail: string | null;
   packaging: string | null;
   requirements: string[];
+  cargoLengthM: number | null;
+  cargoWidthM: number | null;
+  cargoHeightM: number | null;
+  oversize: boolean;
+  adrClass: string | null;
   postedAt: Date | null;
   expiresAt: Date;
 }

@@ -26,6 +26,11 @@ const schema = z
     contactPhone: z.string().trim().regex(/^\+?[\d\s()-]{7,20}$/, "Enter a valid phone number"),
     contactEmail: z.union([z.literal(""), z.string().trim().email("Enter a valid email address").max(120)]).optional(),
     requirements: z.string().trim().max(300).optional(),
+    cargoLengthM: z.number().min(0.1).max(30).optional().nullable(),
+    cargoWidthM: z.number().min(0.1).max(10).optional().nullable(),
+    cargoHeightM: z.number().min(0.1).max(10).optional().nullable(),
+    oversize: z.boolean().optional(),
+    adrClass: z.enum(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]).optional().nullable(),
   })
   .refine((v) => v.originCityId !== v.destCityId, { message: "Origin and destination must differ", path: ["destCityId"] });
 
@@ -53,6 +58,7 @@ export const POST = api(
       contactName: b.contactName,
       contactPhone: b.contactPhone,
       contactEmail: b.contactEmail || undefined,
+      cargoLengthM: b.cargoLengthM, cargoWidthM: b.cargoWidthM, cargoHeightM: b.cargoHeightM, oversize: b.oversize, adrClass: b.adrClass,
       requirements: b.requirements ? b.requirements.split(",").map((s) => s.trim()).filter(Boolean) : [],
       postedAt: new Date(),
       expiresAt: new Date(loading.getTime() + 86_400_000),

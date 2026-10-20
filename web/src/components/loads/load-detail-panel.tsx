@@ -27,6 +27,7 @@ import type { ScoreComponent } from "@/server/services/matching";
 import type { CalcInput } from "./profit-calculator";
 import { cn } from "@/lib/format";
 import { Badge, Bar, DemoBadge, ScoreBadge, Select, Skeleton, Trend } from "../ui/primitives";
+import { cargoFacts } from "@/lib/cargo-size";
 import { ContactList } from "./contact-list";
 import type { Sender } from "@/lib/enquiry";
 import type { Contact } from "@/server/services/contacts";
@@ -42,6 +43,7 @@ export interface LoadDetailResponse {
     volumeM3: number | null; cargoType: string; requirements: string[]; packaging: string | null; paymentTerms: string | null;
     rateUsd: number; rate: number; currency: string; status: string; quality: string; isDemo: boolean;
     qualityFlags: string[]; expiresAt: string; flags?: string[];
+    cargoLengthM: number | null; cargoWidthM: number | null; cargoHeightM: number | null; oversize: boolean; adrClass: string | null;
   };
   broker: { id: string; name: string; verified: boolean; isDemo: boolean; countryCode: string | null; taxId: string | null } | null;
   brokerReliability: BrokerReliability | null;
@@ -156,8 +158,8 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
             <DetailField icon={<Package className="h-3.5 w-3.5" />} label={t("panel.cargo")} value={label(o.cargoType)} />
             <DetailField icon={<Wallet className="h-3.5 w-3.5" />} label={t("panel.payment")} value={o.paymentTerms ? label(o.paymentTerms) : "—"} />
           </dl>
-          {o.requirements.length > 0 && (
-            <p className="text-xs text-muted"><span className="font-medium text-fg">{t("panel.requirements")}</span> {o.requirements.join(", ")}</p>
+          {(o.requirements.length > 0 || cargoFacts(o, t).length > 0) && (
+            <p className="text-xs text-muted"><span className="font-medium text-fg">{t("panel.requirements")}</span> {[...cargoFacts(o, t), ...o.requirements].join(", ")}</p>
           )}
           <p className="text-xs text-subtle">
             {t("panel.listingLine", { listings: tn("panel.listings", data.listingsTotal ?? listings.length), id: listings[0]?.externalId ?? o.id.slice(0, 8), ago: ago(lastSeen) })}

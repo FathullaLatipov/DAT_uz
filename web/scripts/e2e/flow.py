@@ -376,6 +376,40 @@ body = __import__("urllib.parse", fromlist=["x"]).unquote(g[0].split("&body=")[1
 check("the draft carries the signature and the security notice", bool(g) and all(x in body for x in ["Dispatch department", "Office: +998 71 123 45 67", "Website: https://taylor.example", "Address: 6784 Loop Road, Tashkent", "Tax ID: 305123456", "SECURITY NOTICE"]), body[-200:].replace("\n", " | "))
 st, pg = carrier.page(f"/app/loads/{OID}", "ru")
 check("and the Russian draft is in Russian", "%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9%D1%82%D0%B5" in pg or "mail.google.com" in pg)
+print("\n== 20. Truck passport and cargo size")
+st, d = carrier.call("PATCH", f"/api/trucks/{TRUCK}", {"cargoLengthM": 13.6, "cargoWidthM": 2.45, "cargoHeightM": 2.7, "heightM": 4, "lengthM": 16.5, "widthM": 2.55, "grossWeightKg": 40000, "axles": 5, "axleLoadKg": 10000, "adr": False})
+check("carrier saves the truck passport", st == 200, f"{st} {d}")
+st, d = carrier.call("PATCH", f"/api/trucks/{TRUCK}", {"cargoHeightM": 5, "heightM": 3})
+check("a passport with the cargo space taller than the vehicle is refused or ignored", st in (200, 400), f"{st}")
+st, d = carrier.call("PATCH", f"/api/trucks/{TRUCK}", {"heightM": 9})
+check("an impossible height is refused", st == 400, f"{st}")
+carrier.call("PATCH", f"/api/trucks/{TRUCK}", {"cargoHeightM": 2.7, "heightM": 4})
+st, pg = carrier.page(f"/app/fleet/{TRUCK}")
+check("the truck page shows the saved passport", st == 200 and 'value="13.6"' in pg and "Dimensions" in pg, f"{st}")
+st, pg = carrier.page("/app/fleet/new")
+check("the new-truck page renders the passport form", st == 200 and "Dimensions" in pg and 'step="0.05"' in pg, f"{st}")
+tall = {**load, "destCityId": "bukhara", "rate": 1000, "contactEmail": "", "cargoLengthM": 6, "cargoWidthM": 2.4, "cargoHeightM": 3.4, "oversize": True}
+st, d = shipper.call("POST", "/api/loads", tall)
+TALL = d.get("id") if isinstance(d, dict) else None
+check("shipper posts a load with a size", st == 200 and TALL, f"{st} {d}")
+st, d = carrier.call("GET", f"/api/loads/{TALL}?truck={TRUCK}")
+mm = (d or {}).get("match") or {}
+check("a 3.4 m tall cargo does not fit a 2.7 m cargo space (blocker with both numbers)", mm.get("eligible") is False and any("3.4" in b and "2.7" in b for b in mm.get("blockers", [])), f"{mm.get('blockers')}")
+check("the load page shows the cargo size and oversize", "6 × 2.4 × 3.4 m" in html.unescape(carrier.page(f"/app/loads/{TALL}")[1]))
+adr = {**load, "destCityId": "fergana", "rate": 1000, "contactEmail": "", "adrClass": "3"}
+st, d = shipper.call("POST", "/api/loads", adr)
+ADRID = d.get("id") if isinstance(d, dict) else None
+st, d = carrier.call("GET", f"/api/loads/{ADRID}?truck={TRUCK}")
+mm = (d or {}).get("match") or {}
+check("dangerous goods block a truck without ADR", mm.get("eligible") is False and any("ADR" in b for b in mm.get("blockers", [])), f"{mm.get('blockers')}")
+carrier.call("PATCH", f"/api/trucks/{TRUCK}", {"adr": True})
+st, d = carrier.call("GET", f"/api/loads/{ADRID}?truck={TRUCK}")
+check("the same load fits once the truck is ADR-certified", ((d or {}).get("match") or {}).get("eligible") is True, f"{((d or {}).get('match') or {}).get('blockers')}")
+st, d = shipper.call("POST", "/api/loads", {**load, "cargoHeightM": 99})
+check("an absurd cargo height is refused", st == 400, f"{st}")
+st, pg = carrier.page("/app/fleet", "ru")
+check("the Russian fleet page opens", st == 200)
+
 json.dump({"T3": T3, "RTRIP": RTRIP, "TRIP": TRIP}, open(os.environ.get("TEMP", ".") + "/e2e_trips.json", "w"))
 
 ok = sum(1 for _, o, _ in RESULTS if o)
