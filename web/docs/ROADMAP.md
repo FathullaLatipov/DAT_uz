@@ -39,6 +39,8 @@ Delivered in three PRs: **A** (1.1–1.3, data and fit), **B** (1.4–1.5, routi
 - **Code:** `route-map.tsx` takes polylines from `routing.ts`; `LazyMap` already supports routes.
 
 ### 1.6 Profit on the real route
+
+**Status: done for the single-load views** (page, row panel, load API): the calculator takes the routed loaded and empty km from the truck's route (falls back to the city table when the service is slow or has no route) and says which basis it shows. Not yet: the score in the load list (thousands of pairs; stays on the table), the trip created by *take this load*, and toll cost (still a per-km estimate on the routed km).
 - **Where:** *Profit calculator* and the match score use routed km and hours; toll estimate from the route; diesel from the truck's own consumption.
 - **Code:** `profitability.ts` (km source), `matching.ts` (deadhead from routed km when cached).
 

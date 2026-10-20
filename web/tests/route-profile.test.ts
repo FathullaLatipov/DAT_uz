@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { hasDimensions, legKey, orsFailure, orsRestrictions, parseOrsRoute, profileKey, profileOf, simplifyPath, type Pt } from "../src/server/domain/route-profile";
+import { distancesFor, hasDimensions, legKey, orsFailure, orsRestrictions, parseOrsRoute, profileKey, profileOf, simplifyPath, type Pt } from "../src/server/domain/route-profile";
 
 test("profileOf rounds, leaves unknown values out and shares a key between near-identical trucks", () => {
   const a = profileOf({ heightM: 3.98, widthM: 2.55, lengthM: 16.4, grossWeightKg: 39800, axleLoadKg: 10100 }, false);
@@ -59,4 +59,13 @@ test("orsFailure tells a stable 'no road' from outages, limits and a bad key", (
   assert.equal(orsFailure(429, null), "LIMIT");
   assert.equal(orsFailure(503, null), "BUSY");
   assert.equal(orsFailure(400, { error: { code: 9999 } }), "FAILED");
+});
+
+test("distancesFor takes routed distances when the loaded leg is a real route, the table otherwise", () => {
+  const fb = { loadedKm: 286, deadheadKm: 40 };
+  assert.deepEqual(distancesFor({ ok: true, km: 354.5 }, { ok: true, km: 12.3 }, fb), { loadedKm: 354.5, deadheadKm: 12.3, routed: true });
+  assert.deepEqual(distancesFor({ ok: true, km: 354.5 }, null, fb), { loadedKm: 354.5, deadheadKm: 40, routed: true }); // truck already at the pickup / empty leg unknown
+  assert.deepEqual(distancesFor({ ok: true, km: 354.5 }, { ok: false }, fb), { loadedKm: 354.5, deadheadKm: 40, routed: true });
+  assert.deepEqual(distancesFor({ ok: false }, { ok: true, km: 5 }, fb), { loadedKm: 286, deadheadKm: 40, routed: false }); // never mix a routed leg with a failed one
+  assert.deepEqual(distancesFor(null, null, fb), { loadedKm: 286, deadheadKm: 40, routed: false });
 });

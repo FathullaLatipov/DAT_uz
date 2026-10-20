@@ -11,6 +11,8 @@ import { invalidateMarketCache, laneStats } from "@/server/services/market";
 import { brokerReliability } from "@/server/services/broker";
 import { findBackhaul } from "@/server/services/backhaul";
 import { estimateTollsUsd } from "@/server/services/profitability";
+import { legsFor } from "@/server/services/routing";
+import { distancesFor } from "@/server/domain/route-profile";
 import { estimateTransitDays, freshGps } from "@/server/domain/geo";
 import { senderOf, uniqueContacts } from "@/server/services/contacts";
 
@@ -64,6 +66,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const selected = matches.find((x) => x.truck.id === truckParam) ?? matches[0];
     const t = selected?.truck;
     const m = selected?.match;
+    // Distances for the profit maths from the truck's road route, when the service answers within a moment.
+    const legs = t && m?.eligible ? await legsFor(t, offer, { waitMs: 3000 }) : null;
+    const dist = distancesFor(legs?.loaded, legs?.empty, { loadedKm: Math.round(offer.distanceKm), deadheadKm: m?.deadheadKm ?? 0 });
 
     const [broker, lane, backhaul] = await Promise.all([
       offer.brokerId ? brokerReliability(offer.brokerId, await getI18n()) : null,
@@ -107,13 +112,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             truckPos: freshGps(t),
             calc: {
               revenueUsd: Math.round(offer.rateUsd),
-              loadedKm: Math.round(offer.distanceKm),
-              deadheadKm: m.deadheadKm,
+              loadedKm: Math.round(dist.loadedKm),
+              deadheadKm: Math.round(dist.deadheadKm),
+              routed: dist.routed,
               fuelLPer100km: t.fuelLPer100km,
               fuelPriceUsd: t.fuelPriceUsd,
               driverCostPerKm: t.driverCostPerKm,
               maintenancePerKm: t.maintenancePerKm,
-              tollsUsd: estimateTollsUsd(offer.distanceKm, offer.originCountry, offer.destCountry),
+              tollsUsd: estimateTollsUsd(dist.loadedKm, offer.originCountry, offer.destCountry),
               otherPerTripUsd: t.otherPerTripUsd,
             },
           }

@@ -1803,6 +1803,7 @@ export const en = {
     noRoute: "No road found that suits this truck",
     busy: "Route service is busy, try later",
     notSetUp: "Route service is not set up",
+    basis: "Distances are for the road route planned for this truck; tolls are still an estimate.",
     note: "Planned from open map data (OpenStreetMap). Some low bridges and temporary bans may be missing: check the road before you go.",
   },
 

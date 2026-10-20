@@ -422,9 +422,18 @@ if d.get("enabled"):
     check("the same route again is served from the cache", d2["loaded"] == d["loaded"])
     if MOCK:
         calls = json.loads(split(curl([MOCK + "/stats"]))[1] or "{}")
-        check("the mock saw exactly the requests the first call needed (cache works)", calls.get("calls") in (1, 2), f"{calls}")
+        carrier.call("GET", f"/api/loads/{OID}/route?truck={TRUCK}")
+        carrier.page(f"/app/loads/{OID}")
+        again = json.loads(split(curl([MOCK + "/stats"]))[1] or "{}")
+        check("asking again (API and page) makes no new request to the routing service (cache works)", again.get("calls") == calls.get("calls"), f"{calls.get('calls')} -> {again.get('calls')}")
         check("the truck's height and weight reached the routing service", all(k in json.dumps(calls.get("last")) for k in ["height", "weight"]), f"{calls}")
+        st, cd = carrier.call("GET", f"/api/loads/{OID}?truck={TRUCK}")
+        calc = ((cd or {}).get("match") or {}).get("calc") or {}
+        check("the profit calculator uses the routed distance (400 km from the mock, not the city table)", calc.get("routed") is True and calc.get("loadedKm") == 400, f"{calc}")
         carrier.call("PATCH", f"/api/trucks/{TRUCK}", {"heightM": 4.6, "cargoHeightM": 2.7})
+        st, cd = carrier.call("GET", f"/api/loads/{OID}?truck={TRUCK}")
+        calc = ((cd or {}).get("match") or {}).get("calc") or {}
+        check("with no route for the truck the calculator falls back to the city table", calc.get("routed") is False and calc.get("loadedKm") != 400, f"{calc}")
         st, d3 = carrier.call("GET", f"/api/loads/{OID}/route?truck={TRUCK}")
         check("a truck no road suits gets a clear 'no route', not an error", st == 200 and d3["loaded"]["ok"] is False and d3["loaded"]["reason"] == "NO_ROUTE", f"{d3}")
         carrier.call("PATCH", f"/api/trucks/{TRUCK}", {"heightM": 4})
