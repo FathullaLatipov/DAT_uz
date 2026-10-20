@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import { api, HttpError } from "@/server/http";
 import { audit } from "@/server/security";
 import { transitDaysWithBorders } from "@/server/domain/borders";
+import { legsFor } from "@/server/services/routing";
 import { getI18n } from "@/i18n/server";
 import { getMatchContext, getMatchTrucks, toMatchOffer } from "@/server/services/freight";
 import { scoreMatch } from "@/server/services/matching";
@@ -26,8 +27,10 @@ export const POST = api<{ id: string }>(
     const match = scoreMatch(truck, toMatchOffer(offer), await getMatchContext(session.orgId));
     if (!match.eligible) throw new HttpError(409, `${truck.code} can't take this load: ${match.blockers[0]}`);
 
+    // Driving time from the truck's cached road route when there is one; otherwise from the distance.
+    const routed = (await legsFor(truck, offer, { cachedOnly: true })).loaded;
     const start = Math.max(offer.loadingDate.getTime(), match.readyAt.getTime());
-    const eta = new Date(start + transitDaysWithBorders(offer.distanceKm, offer.originCountry, offer.destCountry) * DAY);
+    const eta = new Date(start + transitDaysWithBorders(offer.distanceKm, offer.originCountry, offer.destCountry, truck.crew ?? 1, routed?.ok ? routed.minutes : null) * DAY);
 
     const trip = await db.$transaction(async (tx) => {
       // Claim the load first, atomically: only one carrier can move it from ACTIVE to BOOKED, so two people

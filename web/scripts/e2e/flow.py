@@ -453,6 +453,17 @@ check("and in Russian", st == 200 and ">Границы<" in pg and "наклад
 st, pg = carrier.page(f"/app/loads/{OID}")
 check("a domestic load has no border card", st == 200 and ">Border crossings<" not in pg)
 
+print("\n== 23. Driver hours")
+st, d = carrier.call("PATCH", f"/api/trucks/{TRUCK}", {"crew": 3})
+check("a crew of three is refused", st == 400, f"{st}")
+st, d = carrier.call("PATCH", f"/api/trucks/{TRUCK}", {"crew": 2})
+check("carrier sets a team of two", st == 200, f"{st} {d}")
+st, pg = carrier.page(f"/app/loads/{XB}?truck={TRUCK}")
+check("the load page splits the transit time into driving, rest and borders", st == 200 and ">Of which<" in pg and "rest and breaks" in pg, f"{st}")
+st, pg = carrier.page(f"/app/fleet/{TRUCK}")
+check("the truck form offers the crew choice", st == 200 and "2 drivers (team)" in html.unescape(pg))
+carrier.call("PATCH", f"/api/trucks/{TRUCK}", {"crew": 1})
+
 json.dump({"T3": T3, "RTRIP": RTRIP, "TRIP": TRIP}, open(os.environ.get("TEMP", ".") + "/e2e_trips.json", "w"))
 
 ok = sum(1 for _, o, _ in RESULTS if o)

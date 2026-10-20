@@ -1811,6 +1811,16 @@ export const uz: Messages = {
     note: "Odatiy quruqlik yo'nalishi uchun taxminiy qiymatlar, jonli navbat emas: kutish bir necha soatdan bir necha kungacha o'zgaradi. Yo'lga chiqishdan oldin chegara holati va tashuvchiga kerakli ruxsatnomalarni aniqlang.",
   },
 
+  hos: {
+    crew: "Kabinadagi haydovchilar",
+    crewHint: "Ikki haydovchi mashinani tinimsiz haydaydi, shuning uchun reys tezroq yetib boradi.",
+    crewOne: "1 haydovchi",
+    crewTwo: "2 haydovchi (juftlik)",
+    split: "Shundan",
+    splitValue: "{driving} rul boshida · {rest} dam va tanaffus · {border} chegarada",
+    note: "Mehnat va dam olish qoidalari bo'yicha hisoblangan: sutkada 9 soatgacha haydash, tanaffuslar va tungi dam (ikki haydovchi tinimsiz yuradi).",
+  },
+
   enums: {
     CURTAINSIDER: "Tentli",
     BOX: "Furgon",

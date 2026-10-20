@@ -53,7 +53,8 @@ Delivered in three PRs: **A** (1.1–1.3, data and fit), **B** (1.4–1.5, routi
 ### 2.1 Border crossings (done)
 `domain/borders.ts`: land border graph between the covered countries, the quickest usual corridor between two countries (Dijkstra), typical time per crossing as a low–high range, fees and papers (CMR / TIR / transit declaration; no fee and CMR only inside the customs union). Used for: the **Border crossings** card on the load page (after the route card), the transit time (driving days + typical border time), the fee part of the profit estimate, and the ETA of a taken or started trip. The hour ranges and the fee are planning figures, not live queues, and are meant to be corrected by someone who knows the corridors.
 
-### 2.2 Driver hours and rest (next)
+### 2.2 Driver hours and rest (done)
+`domain/hos.ts`: one driver drives up to 9 h a day with a 45 min break per 4.5 h and a night's rest (planned as a 24 h day); a team of two drives around the clock (18 h of driving per 24 h, plus handover). The truck has a *Drivers on board* setting (1 or 2) in the passport block. Trip time = driving (from the cached road route's duration when there is one, else distance / 61 km/h) + rest + typical border time. Shown on the load page as *Of which: driving · rest and breaks · at borders*; used for the ETA when a load is taken or a trip is started. Not modelled: the two longer driving days a week, loading/unloading hours, national holidays.
 ### 2.3 Diesel price by country (next)
 
 ## Later stages (backlog, in order)
