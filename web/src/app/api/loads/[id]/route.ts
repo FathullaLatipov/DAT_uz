@@ -99,6 +99,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             warnings: m.warnings,
             deadheadKm: m.deadheadKm,
             benchmarkPerKm: m.benchmarkPerKm,
+            truckId: t.id,
             truckCode: t.code,
             truckBody: t.bodyType,
             truckCapacityKg: t.capacityKg,

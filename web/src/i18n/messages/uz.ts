@@ -1776,6 +1776,22 @@ export const uz: Messages = {
     cargoAdrAny: "ADR",
   },
 
+  rt: {
+    title: "{code} uchun yo'nalish",
+    loading: "Bu mashina uchun yo'nalish tuzilmoqda…",
+    toPickup: "Yuklashgacha (bo'sh)",
+    loaded: "Yuk bilan",
+    duration: "{h} soat {m} daq",
+    minutes: "{m} daq",
+    tolls: "Yuk bilan yo'lning taxminan {pct}% pullik yo'llardan o'tadi.",
+    hazmat: "Yo'nalish xavfli yuk (ADR) sifatida tuzilgan.",
+    noDims: "Past ko'priklar va massa cheklovlaridan qochish uchun mashina o'lchamlarini kiriting.",
+    noRoute: "Bu mashinaga mos yo'l topilmadi",
+    busy: "Yo'nalish xizmati band, keyinroq urinib ko'ring",
+    notSetUp: "Yo'nalish xizmati sozlanmagan",
+    note: "Yo'nalish ochiq xarita ma'lumotlari (OpenStreetMap) asosida tuzilgan. Ba'zi past ko'priklar va vaqtinchalik taqiqlar bo'lmasligi mumkin: yo'lga chiqishdan oldin tekshiring.",
+  },
+
   enums: {
     CURTAINSIDER: "Tentli",
     BOX: "Furgon",

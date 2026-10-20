@@ -21,6 +21,8 @@ export interface MapRoute {
   id: string;
   from: [number, number];
   to: [number, number];
+  /** The real road, when known; otherwise the leg is drawn as an arc from `from` to `to`. */
+  path?: [number, number][];
   kind?: "loaded" | "empty";
   highlight?: boolean;
 }
@@ -109,7 +111,7 @@ export default function FreightMap({
       type: "FeatureCollection" as const,
       features: rts.map((r) => ({
         type: "Feature" as const,
-        geometry: { type: "LineString" as const, coordinates: arc(r.from, r.to) },
+        geometry: { type: "LineString" as const, coordinates: r.path && r.path.length > 1 ? r.path : arc(r.from, r.to) },
         properties: { id: r.id, kind: r.kind ?? "loaded", highlight: r.highlight ? 1 : 0 },
       })),
     };
@@ -206,7 +208,7 @@ export default function FreightMap({
   }
 
   function fit(m: MLMap) {
-    const coords = [...data.current.points.map((p) => [p.lng, p.lat] as [number, number]), ...data.current.routes.flatMap((r) => [r.from, r.to])];
+    const coords = [...data.current.points.map((p) => [p.lng, p.lat] as [number, number]), ...data.current.routes.flatMap((r) => (r.path && r.path.length > 1 ? r.path : [r.from, r.to]))];
     if (!coords.length) return;
     const b = new maplibregl.LngLatBounds(coords[0], coords[0]);
     for (const c of coords) b.extend(c);
