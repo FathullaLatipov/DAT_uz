@@ -21,6 +21,8 @@ import { ProfitCalculator } from "@/components/loads/profit-calculator";
 import { AssignPanel } from "@/components/loads/assign-panel";
 import { RouteMap } from "@/components/loads/route-map";
 import { RouteCard } from "@/components/loads/route-card";
+import { BorderCard } from "@/components/loads/border-card";
+import { borderSummary, transitDaysWithBorders } from "@/server/domain/borders";
 import { legsFor } from "@/server/services/routing";
 import { distancesFor } from "@/server/domain/route-profile";
 import { ContactList } from "@/components/loads/contact-list";
@@ -48,6 +50,7 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
   const t = selected?.truck;
   // Distances for the profit maths from the truck's road route, when the service answers within a moment.
   const legs = t && m?.eligible ? await legsFor(t, o, { waitMs: 3000 }) : null;
+  const borders = borderSummary(o.originCountry, o.destCountry);
   const dist = distancesFor(legs?.loaded, legs?.empty, { loadedKm: Math.round(o.distanceKm), deadheadKm: m?.deadheadKm ?? 0 });
   const contacts = uniqueContacts(o.listings);
   const sender = contacts.some((c) => c.email) ? await senderOf(s.userId, s.orgId) : null;
@@ -141,7 +144,7 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
                 <Def k={tr("load.loading")} v={dateTime(o.loadingDate)} />
                 <Def k={tr("load.unloading")} v={o.unloadingDate ? shortDate(o.unloadingDate) : "—"} />
                 <Def k={tr("load.distance")} v={`${km(o.distanceKm)} ${msgs.units.est}`} />
-                <Def k={tr("detail.transit")} v={`~${tn("route.days", estimateTransitDays(o.distanceKm))}`} />
+                <Def k={tr("detail.transit")} v={`~${tn("route.days", transitDaysWithBorders(o.distanceKm, o.originCountry, o.destCountry))}`} />
                 <Def k={tr("load.payment")} v={label(o.paymentTerms)} />
                 <Def k={tr("detail.expires")} v={dateTime(o.expiresAt)} />
               </dl>
@@ -163,7 +166,7 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
                   fuelPriceUsd: t?.fuelPriceUsd ?? 0.95,
                   driverCostPerKm: t?.driverCostPerKm ?? 0.22,
                   maintenancePerKm: t?.maintenancePerKm ?? 0.08,
-                  tollsUsd: estimateTollsUsd(dist.loadedKm, o.originCountry, o.destCountry),
+                  tollsUsd: estimateTollsUsd(dist.loadedKm, o.originCountry, o.destCountry, borders.feeUsd),
                   otherPerTripUsd: t?.otherPerTripUsd ?? 20,
                 }}
               />
@@ -171,6 +174,7 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
           </Card>
 
           {t && m?.eligible && <RouteCard offerId={o.id} truckId={t.id} truckCode={t.code} />}
+          <BorderCard summary={borders} />
 
           {/* Market */}
           <Card>

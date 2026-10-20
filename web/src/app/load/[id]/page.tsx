@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { getSession } from "@/server/auth/session";
 import { db, parseJson } from "@/server/db";
-import { estimateTransitDays } from "@/server/domain/geo";
+import { transitDaysWithBorders } from "@/server/domain/borders";
 import { getI18n } from "@/i18n/server";
 import { routeSlug } from "@/server/services/catalog";
 import { laneStats, MIN_SAMPLES } from "@/server/services/market";
@@ -55,7 +55,7 @@ export default async function PublicLoad({ params, searchParams }: Params & { se
   const perKmRate = o.rateUsd / o.distanceKm;
   const lastSeen = o.listings.reduce((a, l) => (l.lastSeenAt > a ? l.lastSeenAt : a), o.lastSeenAt);
   const reqs = parseJson<string[]>(o.requirements, []);
-  const transitDays = estimateTransitDays(o.distanceKm);
+  const transitDays = transitDaysWithBorders(o.distanceKm, o.originCountry, o.destCountry);
   const details: { icon: React.ReactNode; label: string; value: React.ReactNode }[] = [
     { icon: <Package className="h-4 w-4" />, label: t("load.cargo"), value: label(o.cargoType) },
     { icon: <Weight className="h-4 w-4" />, label: t("load.weight"), value: tonnes(o.weightKg) },

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { db } from "@/server/db";
 import { api, HttpError } from "@/server/http";
 import { audit } from "@/server/security";
-import { estimateTransitDays } from "@/server/domain/geo";
+import { transitDaysWithBorders } from "@/server/domain/borders";
 import { getI18n } from "@/i18n/server";
 import { getMatchContext, getMatchTrucks, toMatchOffer } from "@/server/services/freight";
 import { scoreMatch } from "@/server/services/matching";
@@ -27,7 +27,7 @@ export const POST = api<{ id: string }>(
     if (!match.eligible) throw new HttpError(409, `${truck.code} can't take this load: ${match.blockers[0]}`);
 
     const start = Math.max(offer.loadingDate.getTime(), match.readyAt.getTime());
-    const eta = new Date(start + estimateTransitDays(offer.distanceKm) * DAY);
+    const eta = new Date(start + transitDaysWithBorders(offer.distanceKm, offer.originCountry, offer.destCountry) * DAY);
 
     const trip = await db.$transaction(async (tx) => {
       // Claim the load first, atomically: only one carrier can move it from ACTIVE to BOOKED, so two people

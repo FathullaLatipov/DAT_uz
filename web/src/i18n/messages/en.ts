@@ -1807,6 +1807,24 @@ export const en = {
     note: "Planned from open map data (OpenStreetMap). Some low bridges and temporary bans may be missing: check the road before you go.",
   },
 
+  bd: {
+    title: "Border crossings",
+    subtitle: "{n} on the usual route",
+    hours: "{n} h",
+    hoursRange: "{lo}–{hi} h",
+    wait: "Typical time at the border: {range}",
+    fee: "fees and permits about {fee}",
+    noFee: "no customs control inside the union",
+    docs: "Have ready: {docs}",
+    doc: {
+      CMR: "CMR waybill",
+      TIR: "TIR carnet",
+      TRANSIT: "transit declaration",
+    },
+    total: "In total about {range} at borders and {fee} in fees. Added to the transit time and the profit estimate.",
+    note: "Planning figures for the usual land route, not live queues: waits change from hours to days. Check the border situation and the permits your carrier needs before you go.",
+  },
+
   enums: {
     CURTAINSIDER: "Curtainsider",
     BOX: "Box / Van",

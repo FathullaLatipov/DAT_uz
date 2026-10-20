@@ -75,12 +75,12 @@ export const TOLL_PER_KM_USD: Record<string, number> = {
   UZ: 0.01, KZ: 0.02, KG: 0.01, TJ: 0.01, TM: 0.02, RU: 0.035, BY: 0.06, AZ: 0.01, GE: 0.01, AM: 0.01, TR: 0.08, CN: 0.14,
 };
 
-export function estimateTollsUsd(loadedKm: number, originCountry: string, destCountry: string) {
+export function estimateTollsUsd(loadedKm: number, originCountry: string, destCountry: string, crossingFeesUsd?: number) {
   const a = TOLL_PER_KM_USD[originCountry] ?? 0.02;
   const b = TOLL_PER_KM_USD[destCountry] ?? 0.02;
-  const crossings = originCountry === destCountry ? 0 : 1;
-  // Border crossing fees/permits: flat planning estimate per crossing.
-  return r2(loadedKm * ((a + b) / 2) + crossings * 40);
+  // Border fees and permits: from the corridor's crossings when known, else a flat planning estimate for a cross-border load.
+  const border = crossingFeesUsd ?? (originCountry === destCountry ? 0 : 40);
+  return r2(loadedKm * ((a + b) / 2) + border);
 }
 
 export const DEFAULT_COST_PROFILE: CostProfile = {
