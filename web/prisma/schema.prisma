@@ -550,3 +550,19 @@ model AuditLog {
 
   @@index([createdAt])
 }
+
+/// A routed road leg for a truck profile (origin, destination, size/weight/ADR). The routing service is
+/// rate-limited and the answer for the same pair and profile rarely changes, so it is looked up here first.
+model RouteCache {
+  key        String   @id // "ors:41.30,69.24>43.24,76.95|h4_w2.55_..."
+  ok         Boolean
+  reason     String? // NO_ROUTE when no road suits the profile
+  distanceKm Float    @default(0)
+  minutes    Int      @default(0)
+  tollShare  Float? // 0..1 share of the route on toll roads, when the engine says
+  path       String   @default("[]") // JSON [[lng,lat],...], simplified
+  source     String   @default("ors")
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}

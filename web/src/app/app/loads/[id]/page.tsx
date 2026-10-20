@@ -20,6 +20,7 @@ import { FavoriteButton } from "@/components/loads/favorite-button";
 import { ProfitCalculator } from "@/components/loads/profit-calculator";
 import { AssignPanel } from "@/components/loads/assign-panel";
 import { RouteMap } from "@/components/loads/route-map";
+import { RouteCard } from "@/components/loads/route-card";
 import { ContactList } from "@/components/loads/contact-list";
 import { senderOf, uniqueContacts } from "@/server/services/contacts";
 import { cargoFacts } from "@/lib/cargo-size";
@@ -104,7 +105,7 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
           {/* Route */}
           <Card className="overflow-hidden">
             <div className="h-64 sm:h-80">
-              <RouteMap origin={o.originCityId} dest={o.destCityId} truckCity={t?.currentCityId} truckPos={t ? freshGps(t) : null} truckCode={t?.code} className="h-full w-full" />
+              <RouteMap origin={o.originCityId} dest={o.destCityId} offerId={o.id} truckId={t?.id} truckCity={t?.currentCityId} truckPos={t ? freshGps(t) : null} truckCode={t?.code} className="h-full w-full" />
             </div>
             {m && (
               <div className="grid grid-cols-2 gap-4 border-t border-border p-4 sm:grid-cols-4 sm:p-5">
@@ -162,6 +163,8 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
               />
             </div>
           </Card>
+
+          {t && m?.eligible && <RouteCard offerId={o.id} truckId={t.id} truckCode={t.code} />}
 
           {/* Market */}
           <Card>

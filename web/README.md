@@ -41,6 +41,8 @@ Other scripts: `npm run build`, `npm start`, `npm test` (unit tests for the dete
 | `JOBS_ENABLED`, `JOBS_SECRET` | `JOBS_ENABLED=1` starts the background scheduler; `JOBS_SECRET` authenticates `POST /api/jobs/run` (required when enabled). |
 | `ALERT_TELEGRAM_CHAT_ID` | Optional. With `TELEGRAM_BOT_TOKEN`, sends operator alerts (source down, listener silent…) to this chat. |
 | `CBU_RATES_URL`, `OSRM_URL` | Optional overrides for the FX feed and the OSRM server used by the distance-table script. |
+| `ORS_API_KEY` | Optional. Turns on truck routing: the real road for a truck's height, width, length, weight, axle load and ADR, drawn on the load map with distance and driving time (OpenRouteService, `driving-hgv`; free key from openrouteservice.org, no card). Answers are cached in the database (`RouteCache`); `ORS_DAILY_CAP` (default 1500) keeps requests under the free allowance. Without a key the feature is off and the app behaves as before. |
+| `ORS_URL`, `ORS_DAILY_CAP` | Optional. Another directions endpoint (a self-hosted OpenRouteService, or the mock in `scripts/e2e/mock_ors.py`), and the daily request cap. |
 
 ## Architecture
 

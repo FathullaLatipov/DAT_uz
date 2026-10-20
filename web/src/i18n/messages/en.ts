@@ -1790,6 +1790,22 @@ export const en = {
     cargoAdrAny: "ADR",
   },
 
+  rt: {
+    title: "Route for {code}",
+    loading: "Planning the route for this truck…",
+    toPickup: "To pickup (empty)",
+    loaded: "Loaded",
+    duration: "{h} h {m} min",
+    minutes: "{m} min",
+    tolls: "About {pct}% of the loaded route is on toll roads.",
+    hazmat: "Planned as dangerous goods (ADR).",
+    noDims: "Add the truck's dimensions to avoid low bridges and weight limits.",
+    noRoute: "No road found that suits this truck",
+    busy: "Route service is busy, try later",
+    notSetUp: "Route service is not set up",
+    note: "Planned from open map data (OpenStreetMap). Some low bridges and temporary bans may be missing: check the road before you go.",
+  },
+
   enums: {
     CURTAINSIDER: "Curtainsider",
     BOX: "Box / Van",
