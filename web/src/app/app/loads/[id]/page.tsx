@@ -21,6 +21,8 @@ import { ProfitCalculator } from "@/components/loads/profit-calculator";
 import { AssignPanel } from "@/components/loads/assign-panel";
 import { RouteMap } from "@/components/loads/route-map";
 import { RouteCard } from "@/components/loads/route-card";
+import { legsFor } from "@/server/services/routing";
+import { distancesFor } from "@/server/domain/route-profile";
 import { ContactList } from "@/components/loads/contact-list";
 import { senderOf, uniqueContacts } from "@/server/services/contacts";
 import { cargoFacts } from "@/lib/cargo-size";
@@ -44,6 +46,9 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
   const selected = matches.find((m) => m.truck.id === truckParam) ?? matches[0];
   const m = selected?.match;
   const t = selected?.truck;
+  // Distances for the profit maths from the truck's road route, when the service answers within a moment.
+  const legs = t && m?.eligible ? await legsFor(t, o, { waitMs: 3000 }) : null;
+  const dist = distancesFor(legs?.loaded, legs?.empty, { loadedKm: Math.round(o.distanceKm), deadheadKm: m?.deadheadKm ?? 0 });
   const contacts = uniqueContacts(o.listings);
   const sender = contacts.some((c) => c.email) ? await senderOf(s.userId, s.orgId) : null;
   const [broker, lane, backhaul] = await Promise.all([
@@ -151,13 +156,14 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
                 key={t?.id}
                 initial={{
                   revenueUsd: Math.round(o.rateUsd),
-                  loadedKm: Math.round(o.distanceKm),
-                  deadheadKm: m?.deadheadKm ?? 0,
+                  loadedKm: Math.round(dist.loadedKm),
+                  deadheadKm: Math.round(dist.deadheadKm),
+                  routed: dist.routed,
                   fuelLPer100km: t?.fuelLPer100km ?? 32,
                   fuelPriceUsd: t?.fuelPriceUsd ?? 0.95,
                   driverCostPerKm: t?.driverCostPerKm ?? 0.22,
                   maintenancePerKm: t?.maintenancePerKm ?? 0.08,
-                  tollsUsd: estimateTollsUsd(o.distanceKm, o.originCountry, o.destCountry),
+                  tollsUsd: estimateTollsUsd(dist.loadedKm, o.originCountry, o.destCountry),
                   otherPerTripUsd: t?.otherPerTripUsd ?? 20,
                 }}
               />

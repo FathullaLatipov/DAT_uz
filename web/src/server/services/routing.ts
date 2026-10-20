@@ -1,6 +1,8 @@
 import "server-only";
 import { db } from "../db";
-import { legKey, orsFailure, orsRestrictions, parseOrsRoute, type LatLng, type Pt, type RouteFailure, type RouteProfile } from "../domain/route-profile";
+import { freshGps, getCity } from "../domain/geo";
+import { needsAdr } from "../domain/fit";
+import { legKey, orsFailure, orsRestrictions, parseOrsRoute, profileOf, type LatLng, type Pt, type RouteFailure, type RouteProfile, type TruckDims } from "../domain/route-profile";
 
 /**
  * Truck routing through OpenRouteService (driving-hgv profile: height, width, length, weight, axle load, ADR).
@@ -65,16 +67,21 @@ async function fetchLeg(from: LatLng, to: LatLng, profile: RouteProfile): Promis
   return r ? { ok: true, ...r } : { ok: false, reason: "NO_ROUTE" };
 }
 
+async function readCache(key: string, now: Date): Promise<RouteLeg | null> {
+  const hit = await db.routeCache.findUnique({ where: { key } });
+  if (!hit) return null;
+  const age = now.getTime() - hit.createdAt.getTime();
+  if (hit.ok && age < OK_TTL) return { ok: true, km: hit.distanceKm, minutes: hit.minutes, path: JSON.parse(hit.path) as Pt[], tollShare: hit.tollShare };
+  if (!hit.ok && age < NO_ROUTE_TTL) return { ok: false, reason: "NO_ROUTE" };
+  return null;
+}
+
 /** A road route for this truck profile, from the cache when possible. Null when routing is not set up. */
 export async function routeLeg(from: LatLng, to: LatLng, profile: RouteProfile, now = new Date()): Promise<RouteLeg | null> {
   if (!routingEnabled()) return null;
   const key = legKey(from, to, profile);
-  const hit = await db.routeCache.findUnique({ where: { key } });
-  if (hit) {
-    const age = now.getTime() - hit.createdAt.getTime();
-    if (hit.ok && age < OK_TTL) return { ok: true, km: hit.distanceKm, minutes: hit.minutes, path: JSON.parse(hit.path) as Pt[], tollShare: hit.tollShare };
-    if (!hit.ok && age < NO_ROUTE_TTL) return { ok: false, reason: "NO_ROUTE" };
-  }
+  const cached = await readCache(key, now);
+  if (cached) return cached;
   const pending = inflight.get(key);
   if (pending) return pending;
   if (throttled(now.getTime())) return { ok: false, reason: "BUSY" };
@@ -95,4 +102,47 @@ export async function routeLeg(from: LatLng, to: LatLng, profile: RouteProfile, 
   })().finally(() => inflight.delete(key));
   inflight.set(key, job);
   return job;
+}
+
+export interface RoutedTruck extends TruckDims {
+  adr?: boolean | null;
+  currentCityId: string;
+  lat?: number | null;
+  lng?: number | null;
+  positionAt?: Date | null;
+}
+
+export interface RoutedLoad {
+  originCityId: string;
+  destCityId: string;
+  adrClass?: string | null;
+  requirements?: string;
+}
+
+function requirementList(s: string | undefined): string[] {
+  try { const v = JSON.parse(s ?? "[]"); return Array.isArray(v) ? v.map(String) : []; } catch { return []; }
+}
+
+/**
+ * The two legs of a job for one truck: the empty drive to the pickup (null when the truck is already there)
+ * and the loaded drive. `waitMs` caps how long to wait for the routing service: a page that needs the numbers
+ * now falls back to the table distances when it is slow (the answer still lands in the cache for next time).
+ * `cachedOnly` never calls the service.
+ */
+export async function legsFor(truck: RoutedTruck, load: RoutedLoad, opts: { waitMs?: number; cachedOnly?: boolean } = {}) {
+  const o = getCity(load.originCityId);
+  const d = getCity(load.destCityId);
+  const hazmat = !!truck.adr && needsAdr({ adrClass: load.adrClass, requirements: requirementList(load.requirements) });
+  const profile = profileOf(truck, hazmat);
+  if (!routingEnabled() || !o || !d) return { profile, hazmat, loaded: null as RouteLeg | null, empty: null as RouteLeg | null };
+  const here = freshGps(truck) ?? getCity(truck.currentCityId) ?? o;
+  const emptyNeeded = Math.abs(here.lat - o.lat) + Math.abs(here.lng - o.lng) > 0.05;
+  const run = async (from: LatLng, to: LatLng): Promise<RouteLeg | null> => {
+    if (opts.cachedOnly) return readCache(legKey(from, to, profile), new Date());
+    const job = routeLeg(from, to, profile);
+    if (!opts.waitMs) return job;
+    return Promise.race([job, new Promise<null>((r) => setTimeout(() => r(null), opts.waitMs))]);
+  };
+  const [loaded, empty] = await Promise.all([run(o, d), emptyNeeded ? run(here, o) : Promise.resolve(null)]);
+  return { profile, hazmat, loaded, empty };
 }

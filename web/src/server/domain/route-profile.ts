@@ -121,3 +121,14 @@ export function orsFailure(status: number, body: unknown): RouteFailure {
   if (status >= 500 || status === 408) return "BUSY";
   return "FAILED";
 }
+
+type LegLike = { ok: true; km: number } | { ok: false } | null | undefined;
+
+/**
+ * Distances for the profit maths: the routed ones where the routing service answered, the table estimates otherwise.
+ * `routed` is true only when the loaded leg is a real route, so a screen can say which basis it shows.
+ */
+export function distancesFor(loaded: LegLike, empty: LegLike, fallback: { loadedKm: number; deadheadKm: number }) {
+  if (!loaded || !loaded.ok) return { loadedKm: fallback.loadedKm, deadheadKm: fallback.deadheadKm, routed: false };
+  return { loadedKm: loaded.km, deadheadKm: empty && empty.ok ? empty.km : fallback.deadheadKm, routed: true };
+}

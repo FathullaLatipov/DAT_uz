@@ -1789,6 +1789,7 @@ export const uz: Messages = {
     noRoute: "Bu mashinaga mos yo'l topilmadi",
     busy: "Yo'nalish xizmati band, keyinroq urinib ko'ring",
     notSetUp: "Yo'nalish xizmati sozlanmagan",
+    basis: "Masofalar shu mashina uchun tuzilgan yo'nalish bo'yicha olingan; pullik yo'llar hamon taxminiy.",
     note: "Yo'nalish ochiq xarita ma'lumotlari (OpenStreetMap) asosida tuzilgan. Ba'zi past ko'priklar va vaqtinchalik taqiqlar bo'lmasligi mumkin: yo'lga chiqishdan oldin tekshiring.",
   },
 
