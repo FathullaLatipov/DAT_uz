@@ -4,6 +4,8 @@
  * hours to days, so every crossing carries a low–high range and the screens say so.
  */
 
+import { tripTime } from "./hos";
+
 export type BorderDoc = "CMR" | "TIR" | "TRANSIT";
 
 export interface BorderEdge {
@@ -110,9 +112,13 @@ export function borderSummary(from: string, to: string): BorderSummary {
   };
 }
 
-/** Driving days (the same 550 km/day as everywhere) plus the typical border time, rounded up. Inside one country this is the plain driving estimate. */
-export function transitDaysWithBorders(km: number, from: string, to: string, drivingKmPerDay = 550) {
+/** Typical border time of the corridor, hours (the middle of each crossing's range). */
+export function typicalBorderHours(from: string, to: string) {
   const s = borderSummary(from, to);
-  const typical = (s.hoursLow + s.hoursHigh) / 2;
-  return Math.max(1, Math.ceil(km / drivingKmPerDay + typical / 24));
+  return (s.hoursLow + s.hoursHigh) / 2;
+}
+
+/** Days for a trip: driving under driver-hours rules plus the typical border time, rounded up. Inside one country this is just the driving. */
+export function transitDaysWithBorders(km: number, from: string, to: string, crew = 1, drivingMinutes?: number | null) {
+  return tripTime({ km, drivingMinutes, crew, borderH: typicalBorderHours(from, to) }).days;
 }

@@ -50,7 +50,7 @@ test("transit time: unchanged inside a country, longer across borders", () => {
   const plain = estimateTransitDays(865);
   const across = transitDaysWithBorders(865, "UZ", "KZ");
   assert.ok(across >= plain);
-  assert.equal(across, Math.ceil(865 / 550 + 22 / 24)); // 22 h = the middle of 8–36 h
+  assert.equal(across, 3); // ~14 h driving + a rest night + 22 h at the border (the middle of 8–36 h)
 });
 
 test("tolls: corridor fees replace the flat border estimate; the old default still applies without them", () => {

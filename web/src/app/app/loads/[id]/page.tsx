@@ -22,7 +22,8 @@ import { AssignPanel } from "@/components/loads/assign-panel";
 import { RouteMap } from "@/components/loads/route-map";
 import { RouteCard } from "@/components/loads/route-card";
 import { BorderCard } from "@/components/loads/border-card";
-import { borderSummary, transitDaysWithBorders } from "@/server/domain/borders";
+import { borderSummary, transitDaysWithBorders, typicalBorderHours } from "@/server/domain/borders";
+import { tripTime } from "@/server/domain/hos";
 import { legsFor } from "@/server/services/routing";
 import { distancesFor } from "@/server/domain/route-profile";
 import { ContactList } from "@/components/loads/contact-list";
@@ -51,6 +52,7 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
   // Distances for the profit maths from the truck's road route, when the service answers within a moment.
   const legs = t && m?.eligible ? await legsFor(t, o, { waitMs: 3000 }) : null;
   const borders = borderSummary(o.originCountry, o.destCountry);
+  const tt = tripTime({ km: o.distanceKm, drivingMinutes: legs?.loaded?.ok ? legs.loaded.minutes : null, crew: t?.crew ?? 1, borderH: typicalBorderHours(o.originCountry, o.destCountry) });
   const dist = distancesFor(legs?.loaded, legs?.empty, { loadedKm: Math.round(o.distanceKm), deadheadKm: m?.deadheadKm ?? 0 });
   const contacts = uniqueContacts(o.listings);
   const sender = contacts.some((c) => c.email) ? await senderOf(s.userId, s.orgId) : null;
@@ -144,7 +146,13 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
                 <Def k={tr("load.loading")} v={dateTime(o.loadingDate)} />
                 <Def k={tr("load.unloading")} v={o.unloadingDate ? shortDate(o.unloadingDate) : "—"} />
                 <Def k={tr("load.distance")} v={`${km(o.distanceKm)} ${msgs.units.est}`} />
-                <Def k={tr("detail.transit")} v={`~${tn("route.days", transitDaysWithBorders(o.distanceKm, o.originCountry, o.destCountry))}`} />
+                <Def k={tr("detail.transit")} v={`~${tn("route.days", transitDaysWithBorders(o.distanceKm, o.originCountry, o.destCountry, t?.crew ?? 1, legs?.loaded?.ok ? legs.loaded.minutes : null))}`} />
+                {tt.elapsedH > 0 && (
+                  <div className="col-span-2">
+                    <Def k={tr("hos.split")} v={tr("hos.splitValue", { driving: tr("bd.hours", { n: Math.round(tt.drivingH) }), rest: tr("bd.hours", { n: Math.round(tt.restH) }), border: tr("bd.hours", { n: Math.round(tt.borderH) }) })} />
+                    <p className="mt-1 text-xs text-subtle">{tr("hos.note")}</p>
+                  </div>
+                )}
                 <Def k={tr("load.payment")} v={label(o.paymentTerms)} />
                 <Def k={tr("detail.expires")} v={dateTime(o.expiresAt)} />
               </dl>

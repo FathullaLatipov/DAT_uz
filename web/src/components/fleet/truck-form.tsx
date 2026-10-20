@@ -33,6 +33,7 @@ export interface TruckFormValues {
   heightM: string; widthM: string; lengthM: string;
   grossWeightKg: string; axles: string; axleLoadKg: string;
   adr: boolean;
+  crew: number;
 }
 
 
@@ -142,6 +143,12 @@ export function TruckForm({ id, initial, canDelete }: { id?: string; initial: Tr
             <Field label={t("pass.axles")}><Input type="number" inputMode="numeric" min={0} value={v.axles} onChange={text("axles")} /></Field>
             <Field label={t("pass.axleLoad")}><Input type="number" inputMode="numeric" step="500" min={0} value={v.axleLoadKg} onChange={text("axleLoadKg")} /></Field>
           </div>
+          <Field label={t("hos.crew")} hint={t("hos.crewHint")}>
+            <Select value={v.crew} onChange={(e) => set("crew", Number(e.target.value))}>
+              <option value={1}>{t("hos.crewOne")}</option>
+              <option value={2}>{t("hos.crewTwo")}</option>
+            </Select>
+          </Field>
           <label className="flex items-center gap-2 text-sm sm:col-span-2">
             <input type="checkbox" checked={v.adr} onChange={(e) => set("adr", e.target.checked)} className="h-4 w-4" /> {t("pass.adr")}
           </label>

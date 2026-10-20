@@ -21,6 +21,8 @@ export interface MatchTruck extends CostProfile, TruckPassport {
   currentCityId: string;
   availableFrom: Date;
   status: string;
+  /** Drivers on board: 1, or 2 when the truck runs as a team. */
+  crew?: number;
   /** Phone GPS fix; used for deadhead only while fresh and the truck is not mid-trip. */
   lat?: number | null;
   lng?: number | null;

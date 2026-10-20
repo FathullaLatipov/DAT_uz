@@ -203,6 +203,7 @@ model Truck {
   axles            Int?
   axleLoadKg       Int?
   adr              Boolean   @default(false) // certified for dangerous goods
+  crew             Int       @default(1) // drivers on board: 1, or 2 (team driving)
   currentCityId    String
   status           String    @default("AVAILABLE") // AVAILABLE | LOADING | IN_TRANSIT | UNLOADING | MAINTENANCE | OFFLINE
   availableFrom    DateTime  @default(now())

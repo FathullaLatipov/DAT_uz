@@ -1825,6 +1825,16 @@ export const en = {
     note: "Planning figures for the usual land route, not live queues: waits change from hours to days. Check the border situation and the permits your carrier needs before you go.",
   },
 
+  hos: {
+    crew: "Drivers on board",
+    crewHint: "A team of two keeps the truck moving around the clock, so trips arrive sooner.",
+    crewOne: "1 driver",
+    crewTwo: "2 drivers (team)",
+    split: "Of which",
+    splitValue: "{driving} driving · {rest} rest and breaks · {border} at borders",
+    note: "Planned with driver-hours rules: up to 9 h of driving a day with breaks and a night's rest (a team of two drives around the clock).",
+  },
+
   enums: {
     CURTAINSIDER: "Curtainsider",
     BOX: "Box / Van",
