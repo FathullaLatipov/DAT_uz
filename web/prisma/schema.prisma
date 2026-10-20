@@ -192,6 +192,17 @@ model Truck {
   bodyType         String // CURTAINSIDER | REFRIGERATED | ...
   capacityKg       Int
   volumeM3         Float
+  // Passport for fit checks and truck routing. All optional: null = unknown, which never blocks a match.
+  cargoLengthM     Float?
+  cargoWidthM      Float?
+  cargoHeightM     Float?
+  heightM          Float? // overall vehicle height
+  widthM           Float?
+  lengthM          Float?
+  grossWeightKg    Int?
+  axles            Int?
+  axleLoadKg       Int?
+  adr              Boolean   @default(false) // certified for dangerous goods
   currentCityId    String
   status           String    @default("AVAILABLE") // AVAILABLE | LOADING | IN_TRANSIT | UNLOADING | MAINTENANCE | OFFLINE
   availableFrom    DateTime  @default(now())
@@ -365,6 +376,12 @@ model FreightOffer {
   truckType       String?
   packaging       String?
   requirements    String    @default("[]") // JSON string[]
+  // Size of the cargo when the ad says so; null = not stated.
+  cargoLengthM    Float?
+  cargoWidthM     Float?
+  cargoHeightM    Float?
+  oversize        Boolean   @default(false)
+  adrClass        String? // 1..9 (dangerous goods class)
   distanceKm      Float
   rate            Float // best listing, original currency
   currency        String

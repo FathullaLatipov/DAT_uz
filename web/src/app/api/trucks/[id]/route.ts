@@ -2,7 +2,7 @@ import { db } from "@/server/db";
 import { api, HttpError } from "@/server/http";
 import { audit } from "@/server/security";
 import { invalidateMarketCache } from "@/server/services/market";
-import { truckSchema } from "../schema";
+import { truckBase } from "../schema";
 
 async function ownTruck(id: string, orgId: string) {
   const t = await db.truck.findFirst({ where: { id, orgId }, include: { driver: true } });
@@ -13,7 +13,7 @@ async function ownTruck(id: string, orgId: string) {
 export const PATCH = api<{ id: string }>(
   async ({ req, session, params, ip }) => {
     const t = await ownTruck(params.id, session.orgId);
-    const { driverName, availableFrom, ...data } = truckSchema.partial().parse(await req.json());
+    const { driverName, availableFrom, ...data } = truckBase.partial().parse(await req.json());
     let driverId = t.driverId;
     if (driverName !== undefined) {
       if (!driverName) driverId = null;

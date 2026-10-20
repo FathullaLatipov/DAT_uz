@@ -25,6 +25,7 @@ import { PublicFooter, PublicHeader } from "@/components/public/public-header";
 import { Freshness, QualityBadge, RouteLabel } from "@/components/loads/parts";
 import { RouteMap } from "@/components/loads/route-map";
 import { Badge, Card, CardHeader, DemoBadge, LinkButton, Trend } from "@/components/ui/primitives";
+import { cargoFacts } from "@/lib/cargo-size";
 import { cn } from "@/lib/format";
 
 type Params = { params: Promise<{ id: string }> };
@@ -64,7 +65,7 @@ export default async function PublicLoad({ params, searchParams }: Params & { se
     { icon: <CalendarCheck2 className="h-4 w-4" />, label: t("load.unloading"), value: o.unloadingDate ? shortDate(o.unloadingDate) : "—" },
     { icon: <RouteIcon className="h-4 w-4" />, label: t("load.distance"), value: t("load.distanceValue", { km: km(o.distanceKm), days: tn("route.days", transitDays) }) },
     { icon: <Wallet className="h-4 w-4" />, label: t("load.payment"), value: label(o.paymentTerms) },
-    { icon: <ListChecks className="h-4 w-4" />, label: t("load.requirements"), value: reqs.length ? reqs.join(", ") : "—" },
+    { icon: <ListChecks className="h-4 w-4" />, label: t("load.requirements"), value: reqs.length || cargoFacts(o, t).length ? [...cargoFacts(o, t), ...reqs].join(", ") : "—" },
   ];
 
   return (

@@ -11,6 +11,7 @@ import { getI18n } from "@/i18n/server";
 import { Card, CardHeader, DemoBadge, Stat } from "@/components/ui/primitives";
 import { StatusBadge } from "@/components/fleet/status-badge";
 import { TruckForm } from "@/components/fleet/truck-form";
+import { passportText } from "@/lib/truck-passport";
 import { TruckPosition } from "@/components/fleet/truck-position";
 import { TripActions } from "@/components/fleet/trip-actions";
 import { TripTrackPanel } from "@/components/fleet/trip-track-panel";
@@ -153,7 +154,7 @@ export default async function TruckPage({ params, searchParams }: { params: Prom
                   initial={{
                     code: t.code, plate: t.plate ?? "", truckType: t.truckType, bodyType: t.bodyType, capacityKg: t.capacityKg, volumeM3: t.volumeM3,
                     currentCityId: t.currentCityId, status: t.status, availableFrom: t.availableFrom.toISOString().slice(0, 16), driverName: t.driver?.name ?? "",
-                    fuelLPer100km: t.fuelLPer100km, fuelPriceUsd: t.fuelPriceUsd, driverCostPerKm: t.driverCostPerKm, maintenancePerKm: t.maintenancePerKm, otherPerTripUsd: t.otherPerTripUsd,
+                    fuelLPer100km: t.fuelLPer100km, fuelPriceUsd: t.fuelPriceUsd, driverCostPerKm: t.driverCostPerKm, maintenancePerKm: t.maintenancePerKm, otherPerTripUsd: t.otherPerTripUsd, ...passportText(t),
                   }}
                 />
               ) : (

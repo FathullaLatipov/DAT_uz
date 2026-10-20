@@ -22,6 +22,7 @@ import { AssignPanel } from "@/components/loads/assign-panel";
 import { RouteMap } from "@/components/loads/route-map";
 import { ContactList } from "@/components/loads/contact-list";
 import { senderOf, uniqueContacts } from "@/server/services/contacts";
+import { cargoFacts } from "@/lib/cargo-size";
 import { cn, pct } from "@/lib/format";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -125,7 +126,7 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
                 <Def k={tr("load.volume")} v={o.volumeM3 ? `${o.volumeM3} ${msgs.units.cubicMetres}` : "—"} />
                 <Def k={tr("detail.bodyRequired")} v={label(o.bodyType)} />
                 <Def k={tr("detail.packaging")} v={o.packaging ?? "—"} />
-                <Def k={tr("load.requirements")} v={requirements.length ? requirements.join(", ") : "—"} />
+                <Def k={tr("load.requirements")} v={requirements.length || cargoFacts(o, tr).length ? [...cargoFacts(o, tr), ...requirements].join(", ") : "—"} />
               </dl>
             </Card>
             <Card>

@@ -1,5 +1,6 @@
 import { parseQueryRules } from "../ai/nlsearch";
 import { normalizeCurrency } from "./normalize";
+import { parseCargoSize } from "../domain/fit";
 import type { ParsedListing } from "./types";
 import type { I18n } from "../../i18n/create";
 import { englishI18n } from "../../i18n/default";
@@ -126,6 +127,7 @@ export function parseAd(text: string, idx: number, batch: string, now = new Date
 
   const phone = findPhone(text);
   const rate = parseRate(stripPhone(text));
+  const size = parseCargoSize(text);
   const pay = /предоплат|prepa/i.test(text) ? "prepaid" : /нал|на выгруз|по факту|cash/i.test(text) ? "on_unloading" : /на загруз/i.test(text) ? "on_loading" : undefined;
   return {
     text,
@@ -144,6 +146,11 @@ export function parseAd(text: string, idx: number, batch: string, now = new Date
       paymentTerms: pay,
       contactPhone: phone,
       contactEmail: findEmail(text),
+      cargoLengthM: size.lengthM ?? null,
+      cargoWidthM: size.widthM ?? null,
+      cargoHeightM: size.heightM ?? null,
+      oversize: size.oversize,
+      adrClass: size.adrClass ?? null,
       postedAt: now,
       raw: { text },
     },

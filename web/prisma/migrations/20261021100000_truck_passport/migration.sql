@@ -1,0 +1,17 @@
+-- Truck passport (dimensions, weights, ADR) and cargo size / hazard class on loads. Additive.
+ALTER TABLE "Truck" ADD COLUMN "cargoLengthM" DOUBLE PRECISION,
+ADD COLUMN "cargoWidthM" DOUBLE PRECISION,
+ADD COLUMN "cargoHeightM" DOUBLE PRECISION,
+ADD COLUMN "heightM" DOUBLE PRECISION,
+ADD COLUMN "widthM" DOUBLE PRECISION,
+ADD COLUMN "lengthM" DOUBLE PRECISION,
+ADD COLUMN "grossWeightKg" INTEGER,
+ADD COLUMN "axles" INTEGER,
+ADD COLUMN "axleLoadKg" INTEGER,
+ADD COLUMN "adr" BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE "FreightOffer" ADD COLUMN "cargoLengthM" DOUBLE PRECISION,
+ADD COLUMN "cargoWidthM" DOUBLE PRECISION,
+ADD COLUMN "cargoHeightM" DOUBLE PRECISION,
+ADD COLUMN "oversize" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "adrClass" TEXT;

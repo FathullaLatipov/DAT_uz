@@ -259,11 +259,19 @@ export function normalizeListing(l: ParsedListing, now = new Date()): NormalizeR
     contactEmail: normalizeEmail(l.contactEmail),
     packaging: l.packaging ?? null,
     requirements: l.requirements ?? [],
+    cargoLengthM: sizeM(l.cargoLengthM),
+    cargoWidthM: sizeM(l.cargoWidthM),
+    cargoHeightM: sizeM(l.cargoHeightM),
+    oversize: !!l.oversize,
+    adrClass: /^[0-9]$/.test(l.adrClass ?? "") ? l.adrClass! : null,
     postedAt: parseDate(l.postedAt),
     expiresAt,
   };
   return { offer, issues, quality: qualityLevel(issues) };
 }
+
+/** A cargo dimension in metres, or null when absent or implausible. */
+const sizeM = (v: number | null | undefined) => (typeof v === "number" && v > 0.1 && v <= 30 ? Math.round(v * 100) / 100 : null);
 
 const SERIOUS = new Set(["SUSPICIOUS_RATE", "SUSPICIOUS_WEIGHT", "IMPOSSIBLE_DATES", "INVALID_CURRENCY"]);
 export function qualityLevel(issues: QualityIssue[], opts?: { brokerVerified?: boolean; sourceCount?: number }): QualityLevel {
