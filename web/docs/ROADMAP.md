@@ -48,6 +48,14 @@ Delivered in three PRs: **A** (1.1–1.3, data and fit), **B** (1.4–1.5, routi
 - Admin → Overview shows the routing engine status and cache hit rate.
 - README and `docs/` describe how to rebuild the map extract and what each restriction means.
 
+## Stage 2 — Money and trip
+
+### 2.1 Border crossings (done)
+`domain/borders.ts`: land border graph between the covered countries, the quickest usual corridor between two countries (Dijkstra), typical time per crossing as a low–high range, fees and papers (CMR / TIR / transit declaration; no fee and CMR only inside the customs union). Used for: the **Border crossings** card on the load page (after the route card), the transit time (driving days + typical border time), the fee part of the profit estimate, and the ETA of a taken or started trip. The hour ranges and the fee are planning figures, not live queues, and are meant to be corrected by someone who knows the corridors.
+
+### 2.2 Driver hours and rest (next)
+### 2.3 Diesel price by country (next)
+
 ## Later stages (backlog, in order)
 
 **2. Money and trip** — toll roads, border and customs time (TIR, CMR, permits), driver hours/rest in ETA, live diesel prices.

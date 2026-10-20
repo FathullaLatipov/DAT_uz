@@ -442,6 +442,17 @@ check("a visitor cannot ask for routes", st == 401, f"{st}")
 st, d = shipper.call("GET", f"/api/loads/{OID}/route?truck={TRUCK}")
 check("someone else's truck is not found", st == 404 or (isinstance(d, dict) and d.get("enabled") is False), f"{st} {d}")
 
+print("\n== 22. Border crossings")
+st, d = shipper.call("POST", "/api/loads", {**load, "destCityId": "almaty", "rate": 1500, "contactEmail": ""})
+XB = d.get("id") if isinstance(d, dict) else None
+check("shipper posts a cross-border load", st == 200 and XB, f"{st} {d}")
+st, pg = carrier.page(f"/app/loads/{XB}")
+check("its page lists the border and what to have ready", st == 200 and ">Border crossings<" in pg and "CMR waybill" in pg, f"{st}")
+st, pg = carrier.page(f"/app/loads/{XB}", "ru")
+check("and in Russian", st == 200 and ">Границы<" in pg and "накладная CMR" in pg)
+st, pg = carrier.page(f"/app/loads/{OID}")
+check("a domestic load has no border card", st == 200 and ">Border crossings<" not in pg)
+
 json.dump({"T3": T3, "RTRIP": RTRIP, "TRIP": TRIP}, open(os.environ.get("TEMP", ".") + "/e2e_trips.json", "w"))
 
 ok = sum(1 for _, o, _ in RESULTS if o)

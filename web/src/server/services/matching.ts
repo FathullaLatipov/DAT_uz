@@ -1,6 +1,7 @@
 import { AVG_KM_PER_DAY, GPS_FRESH_MS, estimateRoadKm, roadKmFromPoint } from "../domain/geo";
 import type { I18n } from "../../i18n/create";
 import { englishI18n } from "../../i18n/default";
+import { borderSummary } from "../domain/borders";
 import { checkFit, type CargoSize, type TruckPassport } from "../domain/fit";
 import { computeProfit, estimateTollsUsd, type CostProfile, type ProfitBreakdown } from "./profitability";
 
@@ -210,7 +211,7 @@ export function scoreMatch(truck: MatchTruck, offer: MatchOffer, ctx: MatchConte
   add("date", dateScore, dateDetail);
 
   // ── Profitability & price ───────────────────────────
-  const tolls = estimateTollsUsd(offer.distanceKm, offer.originCountry, offer.destCountry);
+  const tolls = estimateTollsUsd(offer.distanceKm, offer.originCountry, offer.destCountry, borderSummary(offer.originCountry, offer.destCountry).feeUsd);
   const profit = computeProfit({ ...truck, revenueUsd: offer.rateUsd, loadedKm: offer.distanceKm, deadheadKm, tollsUsd: tolls });
   const perKm = offer.distanceKm > 0 ? offer.rateUsd / offer.distanceKm : 0;
   const benchmark = ctx.benchmarks.get(`${offer.originCityId}>${offer.destCityId}`) ?? null;

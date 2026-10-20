@@ -12,6 +12,7 @@ import { brokerReliability } from "@/server/services/broker";
 import { findBackhaul } from "@/server/services/backhaul";
 import { estimateTollsUsd } from "@/server/services/profitability";
 import { legsFor } from "@/server/services/routing";
+import { borderSummary } from "@/server/domain/borders";
 import { distancesFor } from "@/server/domain/route-profile";
 import { estimateTransitDays, freshGps } from "@/server/domain/geo";
 import { senderOf, uniqueContacts } from "@/server/services/contacts";
@@ -119,7 +120,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
               fuelPriceUsd: t.fuelPriceUsd,
               driverCostPerKm: t.driverCostPerKm,
               maintenancePerKm: t.maintenancePerKm,
-              tollsUsd: estimateTollsUsd(dist.loadedKm, offer.originCountry, offer.destCountry),
+              tollsUsd: estimateTollsUsd(dist.loadedKm, offer.originCountry, offer.destCountry, borderSummary(offer.originCountry, offer.destCountry).feeUsd),
               otherPerTripUsd: t.otherPerTripUsd,
             },
           }

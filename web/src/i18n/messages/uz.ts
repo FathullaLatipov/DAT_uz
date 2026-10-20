@@ -1793,6 +1793,24 @@ export const uz: Messages = {
     note: "Yo'nalish ochiq xarita ma'lumotlari (OpenStreetMap) asosida tuzilgan. Ba'zi past ko'priklar va vaqtinchalik taqiqlar bo'lmasligi mumkin: yo'lga chiqishdan oldin tekshiring.",
   },
 
+  bd: {
+    title: "Chegaralar",
+    subtitle: "odatiy yo'nalishda {n} ta",
+    hours: "{n} soat",
+    hoursRange: "{lo}–{hi} soat",
+    wait: "Chegarada odatda: {range}",
+    fee: "yig'imlar va ruxsatnomalar taxminan {fee}",
+    noFee: "ittifoq ichida bojxona nazorati yo'q",
+    docs: "Tayyorlang: {docs}",
+    doc: {
+      CMR: "CMR yuk xati",
+      TIR: "TIR daftarchasi",
+      TRANSIT: "tranzit deklaratsiyasi",
+    },
+    total: "Jami chegaralarda taxminan {range} va {fee} yig'im. Yetkazish muddati va foyda hisobiga kiritilgan.",
+    note: "Odatiy quruqlik yo'nalishi uchun taxminiy qiymatlar, jonli navbat emas: kutish bir necha soatdan bir necha kungacha o'zgaradi. Yo'lga chiqishdan oldin chegara holati va tashuvchiga kerakli ruxsatnomalarni aniqlang.",
+  },
+
   enums: {
     CURTAINSIDER: "Tentli",
     BOX: "Furgon",
