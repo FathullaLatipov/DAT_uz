@@ -9,7 +9,7 @@ import type { LoadFilters } from "@/server/services/filters";
 import { filtersToParams } from "@/server/services/filters";
 import { cn, isStale } from "@/lib/format";
 import { DemoBadge, ScoreBadge } from "../ui/primitives";
-import { Freshness, GradeBadge, RouteLabel, Sources } from "./parts";
+import { Freshness, GradeBadge, RouteLabel } from "./parts";
 import { FavoriteButton } from "./favorite-button";
 import { LoadDetailPanel } from "./load-detail-panel";
 import { useExpandableRow } from "./use-expandable-row";
@@ -48,7 +48,6 @@ export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: L
               <SortableTh label={t("table.rate")} sortKey="rate" current={sort} href={sortHref} align="right" />
               <SortableTh label={t("table.deadhead")} sortKey="deadhead" current={sort} href={sortHref} align="right" />
               <SortableTh label={t("table.estProfit")} sortKey="profit" current={sort} href={sortHref} align="right" />
-              <th className="hidden px-2 py-2.5 min-[1400px]:px-2.5 font-medium 2xl:table-cell">{t("table.source")}</th>
               <th className="w-14 px-1 py-2.5" />
             </tr>
           </thead>
@@ -85,7 +84,7 @@ export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: L
                       <div className="max-w-[200px] min-[1400px]:max-w-[260px]"><RouteLabel origin={o.originCityId} dest={o.destCityId} size="sm" className="max-w-full" /></div>
                       <div className="num mt-0.5 flex items-center gap-1.5 text-xs text-muted">
                         {km(o.distanceKm)}
-                        <GradeBadge grade={r.grade} className="2xl:hidden" />
+                        <GradeBadge grade={r.grade} />{o.isDemo && <DemoBadge />}
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-2 py-2.5 min-[1400px]:px-2.5">
@@ -118,13 +117,6 @@ export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: L
                     <td className={cn("num whitespace-nowrap px-2 py-2.5 min-[1400px]:px-2.5 text-right font-semibold", m && m.profit.profit < 0 ? "text-neg" : "text-pos")}>
                       {m && m.eligible && o.rateUsd > 0 ? usd(m.profit.profit) : <span className="font-normal text-subtle">—</span>}
                     </td>
-                    <td className="hidden max-w-[12rem] px-2 py-2.5 min-[1400px]:px-2.5 2xl:table-cell">
-                      <div className="flex flex-wrap gap-1">
-                        <GradeBadge grade={r.grade} />
-                        <Sources sources={r.sources} />
-                        {o.isDemo && <DemoBadge />}
-                      </div>
-                    </td>
                     <td className="px-2 py-2.5" onClick={stop}>
                       <div className="flex items-center justify-end gap-1">
                         {m?.eligible && (
@@ -144,7 +136,7 @@ export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: L
                   {open && (
                     <tr>
                       {/* max-w-0: the panel takes the width the data columns give it instead of widening the whole table */}
-                      <td colSpan={10} className="max-w-0 p-0" id={`load-detail-${o.id}`}>
+                      <td colSpan={9} className="max-w-0 p-0" id={`load-detail-${o.id}`}>
                         <LoadDetailPanel offerId={o.id} context="board" />
                       </td>
                     </tr>

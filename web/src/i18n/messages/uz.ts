@@ -852,6 +852,8 @@ export const uz: Messages = {
     verifiedOnly: "Faqat tekshirilgan yuklar",
     publishedOnly: "Faqat narxi ko'rsatilganlar",
     excludesNegotiable: "(kelishiladiganlarsiz)",
+    includeStale: "Eskirgan bo'lishi mumkin yuklarni ham ko'rsatish",
+    includeStaleHint: "manba 6+ soat tasdiqlamagan",
   },
 
   board: {

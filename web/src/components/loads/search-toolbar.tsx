@@ -14,7 +14,7 @@ type Opt = { id: string; name: string };
 
 const KEYS = [
   "origin", "radiusKm", "dest", "destRadiusKm", "destCountry", "originCountry", "scope", "loadingFrom", "loadingTo", "cargo", "body", "weightMin", "weightMax", "volumeMin",
-  "rateMin", "ratePerKmMin", "currency", "payment", "source", "verifiedOnly", "minGrade", "freshHours", "hasRate", "minScore", "maxDeadhead", "truckId", "brokerId", "distanceMin", "distanceMax",
+  "rateMin", "ratePerKmMin", "currency", "payment", "source", "verifiedOnly", "minGrade", "freshHours", "hasRate", "stale", "minScore", "maxDeadhead", "truckId", "brokerId", "distanceMin", "distanceMax",
 ];
 
 const SCOPES = [
@@ -84,7 +84,7 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
     v.loadingFrom || v.loadingTo || v.unloadingTo
       ? `${v.loadingFrom || t("toolbar.any")} – ${v.loadingTo || t("toolbar.any")}${v.unloadingTo ? `, ${t("toolbar.unloadByDate", { date: v.unloadingTo })}` : ""}`
       : t("toolbar.anyDate");
-  const requirementsCount = ["cargo", "payment", "verifiedOnly", "minGrade", "freshHours", "hasRate"].filter((k) => v[k]).length;
+  const requirementsCount = ["cargo", "payment", "verifiedOnly", "minGrade", "freshHours", "hasRate", "stale"].filter((k) => v[k]).length;
   const moreCount = ["weightMin", "weightMax", "volumeMin", "rateMin", "ratePerKmMin", "minScore", "maxDeadhead", "distanceMin", "distanceMax", "currency", "source", "brokerId"].filter((k) => v[k]).length;
   const routeCount = ["originCountry", "destCountry", "scope"].filter((k) => v[k]).length;
   // Staged (v) vs. applied (the URL) — surfaced next to Search so a changed-but-unapplied filter
@@ -244,6 +244,10 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={v.hasRate === "1"} onChange={(e) => set("hasRate", e.target.checked ? "1" : "")} className="h-4 w-4 accent-[var(--brand)]" />
                 {t("toolbar.publishedOnly")} <span className="text-xs text-subtle">{t("toolbar.excludesNegotiable")}</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={v.stale === "1"} onChange={(e) => set("stale", e.target.checked ? "1" : "")} className="h-4 w-4 accent-[var(--brand)]" />
+                {t("toolbar.includeStale")} <span className="text-xs text-subtle">{t("toolbar.includeStaleHint")}</span>
               </label>
             </div>
           </Dropdown>
@@ -418,6 +422,10 @@ function FieldGroup({ trucks, sources, brokers, v, set, multi, toggleMulti, near
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={v.hasRate === "1"} onChange={(e) => set("hasRate", e.target.checked ? "1" : "")} className="h-4 w-4 accent-[var(--brand)]" />
         {t("toolbar.publishedOnly")} <span className="text-xs text-subtle">{t("toolbar.excludesNegotiable")}</span>
+      </label>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={v.stale === "1"} onChange={(e) => set("stale", e.target.checked ? "1" : "")} className="h-4 w-4 accent-[var(--brand)]" />
+        {t("toolbar.includeStale")} <span className="text-xs text-subtle">{t("toolbar.includeStaleHint")}</span>
       </label>
     </div>
   );

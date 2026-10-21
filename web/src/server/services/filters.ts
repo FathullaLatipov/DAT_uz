@@ -28,6 +28,8 @@ export const loadFiltersSchema = z.object({
   // Excludes "negotiable" loads (rateUsd <= 0) — distinct from `verifiedOnly`, which is about
   // data-quality verification, not whether a rate was published at all.
   hasRate: z.coerce.boolean().optional(),
+  // Loads no source has confirmed for a few hours are probably gone and are left out; this brings them back.
+  stale: z.coerce.boolean().optional(),
   payment: z.array(z.enum(PAYMENT_TERMS)).optional(),
   brokerId: z.string().optional(),
   source: z.string().optional(),
@@ -57,6 +59,7 @@ export function filtersFromParams(sp: Record<string, string | string[] | undefin
   }
   if (obj.verifiedOnly) obj.verifiedOnly = obj.verifiedOnly === "1" || obj.verifiedOnly === "true";
   if (obj.hasRate) obj.hasRate = obj.hasRate === "1" || obj.hasRate === "true";
+  if (obj.stale) obj.stale = obj.stale === "1" || obj.stale === "true";
   const parsed = loadFiltersSchema.safeParse(obj);
   if (parsed.success) return parsed.data;
   // Drop the offending keys instead of failing the whole page.

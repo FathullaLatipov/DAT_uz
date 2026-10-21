@@ -8,6 +8,7 @@ import { laneBenchmarks, outboundCounts } from "./market";
 import { bestTruckFor, scoreMatch, type MatchContext, type MatchOffer, type MatchResult, type MatchTruck } from "./matching";
 import type { LoadFilters } from "./filters";
 import { demoOfferFilter } from "../domain/demo";
+import { freshOfferFilter } from "../domain/freshness";
 import { gradeAtLeast, gradeOffer, type GradeResult } from "./grade";
 import type { I18n } from "../../i18n/create";
 
@@ -113,12 +114,13 @@ function citiesWithin(cityId: string, radiusKm: number) {
 }
 
 /** The filters `buildWhere` reads (the rest — sort, truck, score, grade, freshness — are applied in memory), as a cache key. */
-const WHERE_FIELDS = ["body", "brokerId", "cargo", "currency", "dest", "destCountry", "destRadiusKm", "distanceMax", "distanceMin", "hasRate", "loadingFrom", "loadingTo", "origin", "originCountry", "payment", "radiusKm", "rateMin", "scope", "source", "unloadingTo", "verifiedOnly", "volumeMin", "weightMax", "weightMin"] as const;
+const WHERE_FIELDS = ["stale", "body", "brokerId", "cargo", "currency", "dest", "destCountry", "destRadiusKm", "distanceMax", "distanceMin", "hasRate", "loadingFrom", "loadingTo", "origin", "originCountry", "payment", "radiusKm", "rateMin", "scope", "source", "unloadingTo", "verifiedOnly", "volumeMin", "weightMax", "weightMin"] as const;
 export const whereKey = (f: LoadFilters) => JSON.stringify(WHERE_FIELDS.map((k) => f[k] ?? null));
 
 export function buildWhere(f: LoadFilters): Prisma.FreightOfferWhereInput {
   // `expiresAt` too, so a load that finished a minute ago never shows while the expiry job is between runs.
   const and: Prisma.FreightOfferWhereInput[] = [{ status: "ACTIVE" }, { expiresAt: { gt: new Date() } }, demoOfferFilter()];
+  if (!f.stale) and.push(freshOfferFilter());
   if (f.origin) and.push({ originCityId: { in: f.radiusKm ? citiesWithin(f.origin, f.radiusKm) : [f.origin] } });
   if (f.originCountry) and.push({ originCountry: f.originCountry });
   if (f.dest) and.push({ destCityId: { in: f.destRadiusKm ? citiesWithin(f.dest, f.destRadiusKm) : [f.dest] } });
@@ -285,7 +287,7 @@ type MatchingOffer = Prisma.FreightOfferGetPayload<{ select: typeof matchingOffe
 // Shared by every org and every request: kept for a few seconds in this process (see server/cache.ts) and dropped
 // by invalidateMarketCache() as soon as a load is posted, taken, closed or synced.
 const activeOffersForMatching = ttlMemo("active-offers", 15_000, (): Promise<MatchingOffer[]> =>
-  db.freightOffer.findMany({ where: { status: "ACTIVE", ...demoOfferFilter() }, select: matchingOfferSelect }),
+  db.freightOffer.findMany({ where: { status: "ACTIVE", AND: [freshOfferFilter()], ...demoOfferFilter() }, select: matchingOfferSelect }),
 );
 
 /** Top recommendations across the fleet: best eligible (truck, load) pairs, one load per truck slot. */

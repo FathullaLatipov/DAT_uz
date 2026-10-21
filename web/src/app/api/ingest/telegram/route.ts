@@ -5,6 +5,7 @@ import { audit } from "@/server/security";
 import { parseAd } from "@/server/ingestion/textparse";
 import { ingestSingleListing } from "@/server/ingestion/pipeline";
 import { invalidateMarketCache } from "@/server/services/market";
+import { closeTelegramListing, isClosureText } from "@/server/ingestion/closure";
 import type { SourceDescriptor } from "@/server/ingestion/types";
 
 /**
@@ -36,6 +37,18 @@ const schema = z.object({
     .optional(),
 });
 
+/**
+ * A load in a group is gone: the poster deleted the ad (`deleted`), edited it (`edited`, with the new text) or someone
+ * replied under it (`reply`, with the reply text; `messageId` is the ad that was replied to). Text is judged here, not in
+ * the listener, so the wording lives in one place.
+ */
+const closeSchema = z.object({
+  groupUsername: z.string().trim().min(2).max(64).regex(/^[A-Za-z0-9_]+$/, "Not a valid public @username"),
+  messageId: z.number().int().positive(),
+  closure: z.enum(["deleted", "reply", "edited"]),
+  text: z.string().max(4000).optional(),
+});
+
 function sourceFor(username: string, name: string, members?: number | null): SourceDescriptor {
   return {
     id: `tg-${username.toLowerCase()}`,
@@ -50,7 +63,18 @@ function sourceFor(username: string, name: string, members?: number | null): Sou
 export const POST = serviceApi(
   "TELEGRAM_INGEST_SECRET",
   async ({ req }) => {
-    const b = schema.parse(await req.json());
+    const body = await req.json();
+    if (body && typeof body === "object" && "closure" in body) {
+      const c = closeSchema.parse(body);
+      if (c.closure !== "deleted" && !isClosureText(c.text ?? "")) return { ok: true, closed: false, reason: "not a closing message" };
+      const r = await closeTelegramListing(db, c.groupUsername, c.messageId);
+      if (r.closed) {
+        invalidateMarketCache();
+        await audit({ action: "telegram.closed", entity: "FreightOffer", entityId: r.offerId, meta: { group: c.groupUsername, how: c.closure, offerExpired: r.offerExpired } });
+      }
+      return { ok: true, ...r };
+    }
+    const b = schema.parse(body);
     const now = new Date();
     const source = sourceFor(b.groupUsername, b.groupName, b.groupMembers);
 
