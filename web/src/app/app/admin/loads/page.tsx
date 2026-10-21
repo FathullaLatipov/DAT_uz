@@ -9,26 +9,34 @@ import { getI18n } from "@/i18n/server";
 import { AdminTabs } from "@/components/admin/admin-tabs";
 import { LoadVisibilityButton } from "@/components/admin/admin-row-actions";
 import { RouteLabel } from "@/components/loads/parts";
-import { Badge, Card, PageHeader } from "@/components/ui/primitives";
+import { Badge, Card, LinkButton, PageHeader } from "@/components/ui/primitives";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
   return { title: t("av.loadsTitle") };
 }
 
-export default async function PostedLoadsPage() {
+const PAGE_SIZE = 50;
+
+export default async function PostedLoadsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const s = await requireSession();
   if (!can(s, "platform:admin")) redirect("/app");
   const { t, label, ago, tonnes, usd } = await getI18n();
-  const [pending, offers] = await Promise.all([
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
+  const where = { listings: { some: { sourceId: PLATFORM_SOURCE.id } } };
+  const [pending, offers, total] = await Promise.all([
     db.verificationRequest.count({ where: { status: "PENDING" } }),
     db.freightOffer.findMany({
-      where: { listings: { some: { sourceId: PLATFORM_SOURCE.id } } },
+      where,
       orderBy: { createdAt: "desc" },
-      take: 100,
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
       include: { broker: { select: { name: true, verified: true } } },
     }),
+    db.freightOffer.count({ where }),
   ]);
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-5">
@@ -62,6 +70,15 @@ export default async function PostedLoadsPage() {
           </tbody>
         </table>
       </Card>
+      {pages > 1 && (
+        <nav className="flex items-center justify-between text-sm" aria-label={t("catalog.pagination")}>
+          <span className="text-muted">{t("catalog.pageOf", { page, pages })}</span>
+          <div className="flex gap-2">
+            {page > 1 && <LinkButton variant="outline" size="sm" href={`/app/admin/loads?page=${page - 1}`}>{t("catalog.previous")}</LinkButton>}
+            {page < pages && <LinkButton variant="outline" size="sm" href={`/app/admin/loads?page=${page + 1}`}>{t("catalog.next")}</LinkButton>}
+          </div>
+        </nav>
+      )}
     </div>
   );
 }
