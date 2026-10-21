@@ -1,9 +1,9 @@
 import type { Prisma } from "@prisma/client";
-import { cache } from "react";
 import { db, parseJson } from "../db";
 import { CITIES, getCity, haversineKm } from "../domain/geo";
 import { brokerScores } from "./broker";
 import { fuelTable } from "./fuel";
+import { boundedMemo, memoize, ttlMemo } from "../cache";
 import { laneBenchmarks, outboundCounts } from "./market";
 import { bestTruckFor, scoreMatch, type MatchContext, type MatchOffer, type MatchResult, type MatchTruck } from "./matching";
 import type { LoadFilters } from "./filters";
@@ -112,6 +112,10 @@ function citiesWithin(cityId: string, radiusKm: number) {
   return CITIES.filter((x) => haversineKm(c, x) <= radiusKm).map((x) => x.id);
 }
 
+/** The filters `buildWhere` reads (the rest — sort, truck, score, grade, freshness — are applied in memory), as a cache key. */
+const WHERE_FIELDS = ["body", "brokerId", "cargo", "currency", "dest", "destCountry", "destRadiusKm", "distanceMax", "distanceMin", "hasRate", "loadingFrom", "loadingTo", "origin", "originCountry", "payment", "radiusKm", "rateMin", "scope", "source", "unloadingTo", "verifiedOnly", "volumeMin", "weightMax", "weightMin"] as const;
+export const whereKey = (f: LoadFilters) => JSON.stringify(WHERE_FIELDS.map((k) => f[k] ?? null));
+
 export function buildWhere(f: LoadFilters): Prisma.FreightOfferWhereInput {
   // `expiresAt` too, so a load that finished a minute ago never shows while the expiry job is between runs.
   const and: Prisma.FreightOfferWhereInput[] = [{ status: "ACTIVE" }, { expiresAt: { gt: new Date() } }, demoOfferFilter()];
@@ -155,10 +159,14 @@ export interface SearchResult {
 
 const lastSeenMs = (r: LoadRow) => Math.max(r.offer.lastSeenAt.getTime(), ...r.offer.listings.map((l) => l.lastSeenAt.getTime()));
 
-export async function searchLoads(orgId: string, userId: string, f: LoadFilters, page = 1, pageSize = 25): Promise<SearchResult> {
+/** `opts.all`: also return the compact list of every match (id, route, rate, score) that the map views draw; the list view does not need it. */
+export async function searchLoads(orgId: string, userId: string, f: LoadFilters, page = 1, pageSize = 25, opts: { all?: boolean } = {}): Promise<SearchResult> {
   const [offers, ctx, allTrucks, favs] = await Promise.all([
     // Newest first: when a search matches more than the cap, the freshest postings are the ones kept.
-    db.freightOffer.findMany({ where: buildWhere(f), include: offerInclude, orderBy: { createdAt: "desc" }, take: 2000 }),
+    // The rows depend on the filters only (not on who asks), so a few recent filter sets are shared for a few seconds.
+    boundedMemo("board-offers", 12, 10_000, whereKey(f), () =>
+      db.freightOffer.findMany({ where: buildWhere(f), include: offerInclude, orderBy: { createdAt: "desc" }, take: 2000 }),
+    ),
     getMatchContext(orgId),
     getMatchTrucks(orgId),
     db.favorite.findMany({ where: { userId }, select: { offerId: true } }),
@@ -167,8 +175,10 @@ export async function searchLoads(orgId: string, userId: string, f: LoadFilters,
   const favSet = new Set(favs.map((x) => x.offerId));
   const codeById = new Map(trucks.map((t) => [t.id, t.code]));
 
+  // Rank every offer on numbers only (no explanation text), then build the full explanation for the page shown.
+  const liteCtx: MatchContext = { ...ctx, lite: true };
   let rows: LoadRow[] = offers.map((o) => {
-    const match = trucks.length ? bestTruckFor(trucks, toMatchOffer(o), ctx) : null;
+    const match = trucks.length ? bestTruckFor(trucks, toMatchOffer(o), liteCtx) : null;
     const srcMap = new Map(o.listings.map((l) => [l.sourceId, l.source.name]));
     return {
       offer: o,
@@ -207,14 +217,19 @@ export async function searchLoads(orgId: string, userId: string, f: LoadFilters,
   rows.sort((a, b) => key[sort](b) - key[sort](a));
 
   const total = rows.length;
-  const all = rows.map((r) => ({
+  const all = !opts.all ? [] : rows.map((r) => ({
     id: r.offer.id,
     o: r.offer.originCityId,
     d: r.offer.destCityId,
     rateUsd: r.offer.rateUsd,
     score: r.match?.eligible ? r.match.score : null,
   }));
-  return { rows: rows.slice((page - 1) * pageSize, page * pageSize), all, total, page, pageSize, truckCount: trucks.length };
+  const truckById = new Map(trucks.map((t) => [t.id, t]));
+  const shown = rows.slice((page - 1) * pageSize, page * pageSize).map((r) => {
+    const truck = r.match && truckById.get(r.match.truckId);
+    return truck ? { ...r, match: scoreMatch(truck, toMatchOffer(r.offer), ctx) } : r;
+  });
+  return { rows: shown, all, total, page, pageSize, truckCount: trucks.length };
 }
 
 export async function getOfferDetail(orgId: string, userId: string, id: string) {
@@ -264,27 +279,32 @@ type MatchingOffer = Prisma.FreightOfferGetPayload<{ select: typeof matchingOffe
  * This does NOT get an `unstable_cache` wrapper: the scalar rows alone still serialize to
  * ~5MB, over Next's hard 2MB-per-entry Data Cache limit — it would silently never hit (spent a
  * round of profiling confirming exactly that, via the "items over 2MB can not be cached" log
- * line). `cache()` (React's per-request memoization — no serialization) at least dedupes the
- * one DB round trip across recommendations+opportunityCounts within a single render; getting
- * this below the 2MB ceiling for real cross-request caching needs filtering the row count down
- * (e.g. by the org's truck locations, the way findBackhaul already scopes by city), which is a
- * further follow-up, not a safe one to rush.
+ * line). Instead the rows are kept in this process for a few seconds (`ttlMemo`, server/cache.ts): that
+ * serves every request and org with one read and has no size limit, and write paths clear it.
  */
-const activeOffersForMatching = cache((): Promise<MatchingOffer[]> =>
+// Shared by every org and every request: kept for a few seconds in this process (see server/cache.ts) and dropped
+// by invalidateMarketCache() as soon as a load is posted, taken, closed or synced.
+const activeOffersForMatching = ttlMemo("active-offers", 15_000, (): Promise<MatchingOffer[]> =>
   db.freightOffer.findMany({ where: { status: "ACTIVE", ...demoOfferFilter() }, select: matchingOfferSelect }),
 );
 
 /** Top recommendations across the fleet: best eligible (truck, load) pairs, one load per truck slot. */
-export async function recommendations(orgId: string, limit = 6, opts?: { truckId?: string; fromCityId?: string }): Promise<Recommendation[]> {
+export function recommendations(orgId: string, limit = 6, opts?: { truckId?: string; fromCityId?: string }): Promise<Recommendation[]> {
+  // The dashboard asks on every visit; the answer only changes when loads, trucks or preferences do (all of which clear the memo).
+  return memoize(`recs:${orgId}:${limit}:${opts?.truckId ?? ""}:${opts?.fromCityId ?? ""}`, 20_000, () => computeRecommendations(orgId, limit, opts));
+}
+
+async function computeRecommendations(orgId: string, limit: number, opts?: { truckId?: string; fromCityId?: string }): Promise<Recommendation[]> {
   const [allOffers, ctx, trucksAll] = await Promise.all([activeOffersForMatching(), getMatchContext(orgId), getMatchTrucks(orgId)]);
   const offers = allOffers.filter(
     (o) => o.rateUsd > 0 && !o.qualityFlags.includes("SUSPICIOUS_RATE") && (!opts?.fromCityId || o.originCityId === opts.fromCityId),
   );
   const trucks = opts?.truckId ? trucksAll.filter((t) => t.id === opts.truckId) : trucksAll;
   const pairs: { offer: MatchingOffer; match: MatchResult; truck: MatchTruck }[] = [];
+  const liteCtx: MatchContext = { ...ctx, lite: true };
   for (const t of trucks)
     for (const o of offers) {
-      const m = scoreMatch(t, toMatchOffer(o), ctx);
+      const m = scoreMatch(t, toMatchOffer(o), liteCtx);
       if (m.eligible && m.score >= 55) pairs.push({ offer: o, match: m, truck: t });
     }
   pairs.sort((a, b) => b.match.score - a.match.score || b.match.profit.profit - a.match.profit.profit);
@@ -306,19 +326,25 @@ export async function recommendations(orgId: string, limit = 6, opts?: { truckId
   const byId = new Map(full.map((o) => [o.id, o]));
   return out.flatMap((p) => {
     const offer = byId.get(p.offer.id);
-    return offer ? [{ offer, match: p.match, truck: p.truck }] : [];
+    // The ranking ran on numbers only; the few winners get their full explanation now.
+    return offer ? [{ offer, match: scoreMatch(p.truck, toMatchOffer(p.offer), ctx), truck: p.truck }] : [];
   });
 }
 
 /** Count of active loads with at least one eligible truck, and of strong matches. */
-export async function opportunityCounts(orgId: string) {
+export function opportunityCounts(orgId: string) {
+  return memoize(`opp:${orgId}`, 20_000, () => computeOpportunityCounts(orgId));
+}
+
+async function computeOpportunityCounts(orgId: string) {
   const [offers, ctx, trucks] = await Promise.all([activeOffersForMatching(), getMatchContext(orgId), getMatchTrucks(orgId)]);
   let matching = 0;
   let strong = 0;
   const dayAgo = Date.now() - 86_400_000;
   const fresh = offers.filter((o) => (o.sourceCreatedAt ?? o.createdAt).getTime() >= dayAgo).length;
+  const liteCtx: MatchContext = { ...ctx, lite: true };
   for (const o of offers) {
-    const m = trucks.length ? bestTruckFor(trucks, toMatchOffer(o), ctx) : null;
+    const m = trucks.length ? bestTruckFor(trucks, toMatchOffer(o), liteCtx) : null;
     if (m?.eligible && m.score >= 55) matching++;
     if (m?.eligible && m.score >= 80) strong++;
   }

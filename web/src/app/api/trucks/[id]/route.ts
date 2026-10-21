@@ -37,6 +37,7 @@ export const DELETE = api<{ id: string }>(
   async ({ session, params, ip }) => {
     const t = await ownTruck(params.id, session.orgId);
     await db.truck.delete({ where: { id: t.id } });
+    invalidateMarketCache();
     await audit({ userId: session.userId, orgId: session.orgId, action: "truck.delete", entity: "Truck", entityId: t.id, meta: { code: t.code }, ip });
     return { ok: true };
   },

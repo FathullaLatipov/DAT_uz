@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/server/db";
 import { api, HttpError } from "@/server/http";
 import { audit } from "@/server/security";
+import { invalidateMarketCache } from "@/server/services/market";
 import { ACCOUNT_TYPES, BODY_TYPES, CARGO_TYPES, PAYMENT_TERMS, ROLE_FOR, TRUCK_TYPES } from "@/server/domain/enums";
 import { getCity } from "@/server/domain/geo";
 import { startSession } from "@/server/auth/session";
@@ -58,6 +59,7 @@ export const POST = api(async ({ req, session, ip }) => {
     await tx.orgPreference.upsert({ where: { orgId }, create: { orgId, ...prefData }, update: prefData });
   });
   if (members <= 1) await startSession({ uid: session.userId, oid: orgId, role, prole: session.platformRole });
+  invalidateMarketCache();
   await audit({ userId: session.userId, orgId, action: "onboarding.complete", meta: { accountType: body.accountType }, ip });
   return { ok: true };
 });

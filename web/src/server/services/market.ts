@@ -1,5 +1,6 @@
 import { unstable_cache, revalidateTag } from "next/cache";
 import { db } from "../db";
+import { clearMemos } from "../cache";
 import { demoOfferFilter } from "../domain/demo";
 import { CITIES, getCity } from "../domain/geo";
 
@@ -90,6 +91,7 @@ async function load() {
 }
 
 export function invalidateMarketCache() {
+  clearMemos();
   revalidateTag(MARKET_TAG);
 }
 

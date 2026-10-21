@@ -3,7 +3,8 @@ import { unstable_cache } from "next/cache";
 import { db } from "../db";
 import { demoOfferFilter } from "../domain/demo";
 import { countryName, getCity } from "../domain/geo";
-import { buildWhere, offerInclude, type OfferWithRels } from "./freight";
+import { boundedMemo } from "../cache";
+import { buildWhere, offerInclude, whereKey, type OfferWithRels } from "./freight";
 import type { LoadFilters } from "./filters";
 
 /**
@@ -149,13 +150,19 @@ const ORDER: Record<PublicSort, Prisma.FreightOfferOrderByWithRelationInput[]> =
   distance: [{ distanceKm: "asc" }],
 };
 
-export async function publicSearch(f: LoadFilters, sort: PublicSort, page: number, pageSize = 24, scope?: string) {
+/** The public catalog list: the same for every visitor, so identical searches share one answer for a few seconds. */
+export function publicSearch(f: LoadFilters, sort: PublicSort, page: number, pageSize = 24, scope?: string) {
+  return boundedMemo("public-search", 40, 15_000, JSON.stringify([whereKey(f), sort, page, pageSize, scope ?? null]), () => computePublicSearch(f, sort, page, pageSize, scope));
+}
+
+async function computePublicSearch(f: LoadFilters, sort: PublicSort, page: number, pageSize: number, scope?: string) {
   const where = buildWhere(f);
   (where.AND as Prisma.FreightOfferWhereInput[]).push(publicWhere());
   if (scope === "transit") (where.AND as Prisma.FreightOfferWhereInput[]).push({ NOT: { originCountry: "UZ" } }, { NOT: { destCountry: "UZ" } });
   const [total, rows] = await Promise.all([
     db.freightOffer.count({ where }),
-    db.freightOffer.findMany({ where, include: offerInclude, orderBy: ORDER[sort], ...(sort === "ratePerKm" ? {} : { skip: (page - 1) * pageSize, take: pageSize }) }),
+    // $/km has no column to sort on: rank the 2,000 best-paying loads in memory instead of reading and joining every active one.
+    db.freightOffer.findMany({ where, include: offerInclude, orderBy: ORDER[sort], ...(sort === "ratePerKm" ? { take: 2000 as number } : { skip: (page - 1) * pageSize, take: pageSize }) }),
   ]);
   let items: OfferWithRels[] = rows;
   if (sort === "ratePerKm") items = rows.sort((a, b) => b.rateUsd / b.distanceKm - a.rateUsd / a.distanceKm).slice((page - 1) * pageSize, page * pageSize);

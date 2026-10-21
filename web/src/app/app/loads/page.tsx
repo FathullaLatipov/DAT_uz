@@ -32,11 +32,14 @@ export default async function LoadsPage({ searchParams }: { searchParams: Promis
   const nl = typeof sp.nl === "string" ? sp.nl : null;
 
   const [res, trucks, sources, brokers] = await Promise.all([
-    searchLoads(s.orgId, s.userId, filters, page, PAGE_SIZE),
+    searchLoads(s.orgId, s.userId, filters, page, PAGE_SIZE, { all: view !== "list" }),
     db.truck.findMany({ where: { orgId: s.orgId }, select: { id: true, code: true, bodyType: true, capacityKg: true }, orderBy: { code: "asc" } }),
     db.freightSource.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true } }),
     db.broker.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
+  // The board shows scores, deadhead and profit only; the explanation text (several kB per row, sent twice because
+  // the table and the card list both receive the rows) is loaded with a row's details when it is opened.
+  const rows = res.rows.map((r) => (r.match ? { ...r, match: { ...r.match, components: [], reasons: [], warnings: [], blockers: [] } } : r));
   const pages = Math.max(1, Math.ceil(res.total / PAGE_SIZE));
   const pageHref = (p: number) => {
     const q = filtersToParams(filters);
@@ -65,9 +68,9 @@ export default async function LoadsPage({ searchParams }: { searchParams: Promis
     ) : (
       <>
         <div className="hidden md:block">
-          <LoadTable key={`${filtersToParams(filters).toString()}-${page}-${filters.sort ?? ""}`} rows={res.rows} filters={filters} view={view} />
+          <LoadTable key={`${filtersToParams(filters).toString()}-${page}-${filters.sort ?? ""}`} rows={rows} filters={filters} view={view} />
         </div>
-        <LoadCardList key={`m-${filtersToParams(filters).toString()}-${page}-${filters.sort ?? ""}`} rows={res.rows} className="grid grid-cols-1 gap-3 md:hidden [&>*]:min-w-0" />
+        <LoadCardList key={`m-${filtersToParams(filters).toString()}-${page}-${filters.sort ?? ""}`} rows={rows} className="grid grid-cols-1 gap-3 md:hidden [&>*]:min-w-0" />
         {pages > 1 && (
           <nav className="mt-4 flex items-center justify-between text-sm" aria-label={t("catalog.pagination")}>
             <span className="text-muted">{t("catalog.pageOf", { page, pages })}</span>
@@ -118,12 +121,12 @@ export default async function LoadsPage({ searchParams }: { searchParams: Promis
               <div className="h-[60dvh] min-h-[360px] overflow-hidden rounded-xl border border-border">
                 <BoardMap items={res.all} className="h-full w-full" />
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">{res.rows.slice(0, 9).map((r) => <LoadCard key={r.offer.id} row={r} compact />)}</div>
+              <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">{rows.slice(0, 9).map((r) => <LoadCard key={r.offer.id} row={r} compact />)}</div>
             </div>
           ) : view === "split" ? (
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
               {res.rows.length ? (
-                <LoadCardList key={`s-${filtersToParams(filters).toString()}-${page}-${filters.sort ?? ""}`} rows={res.rows} className="grid content-start gap-3" />
+                <LoadCardList key={`s-${filtersToParams(filters).toString()}-${page}-${filters.sort ?? ""}`} rows={rows} className="grid content-start gap-3" />
               ) : (
                 <div className="grid content-start gap-3">{results}</div>
               )}

@@ -39,12 +39,15 @@ export async function findBackhaul(orgId: string, truck: MatchTruck, arrivalCity
     getMatchContext(orgId),
   ]);
   const positioned: MatchTruck = { ...truck, currentCityId: arrivalCityId, availableFrom: arrivalAt };
+  // Rank on numbers only; the few options shown get their full explanation below.
+  const liteCtx = { ...ctx, lite: true };
   const scored = offers
-    .map((o) => ({ offer: o, match: scoreMatch(positioned, toMatchOffer(o), ctx) }))
+    .map((o) => ({ offer: o, match: scoreMatch(positioned, toMatchOffer(o), liteCtx) }))
     // Return loads must have a trusted, positive rate — an unpriced or implausibly cheap load isn't a recommendation.
     .filter((x) => x.match.eligible && x.offer.rateUsd > 0 && !x.offer.qualityFlags.includes("SUSPICIOUS_RATE"))
     .sort((a, b) => b.match.score - a.match.score || b.match.profit.profit - a.match.profit.profit);
-  return { truck, arrivalCityId, arrivalAt, options: scored.slice(0, limit), totalFound: scored.length };
+  const options = scored.slice(0, limit).map((x) => ({ offer: x.offer, match: scoreMatch(positioned, toMatchOffer(x.offer), ctx) }));
+  return { truck, arrivalCityId, arrivalAt, options, totalFound: scored.length };
 }
 
 /** Backhaul plans for every truck that is currently on a trip. */

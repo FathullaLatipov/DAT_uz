@@ -52,7 +52,7 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
   const m = selected?.match;
   const t = selected?.truck;
   // Distances for the profit maths from the truck's road route, when the service answers within a moment.
-  const legs = t && m?.eligible ? await legsFor(t, o, { waitMs: 3000 }) : null;
+  const legs = t && m?.eligible ? await legsFor(t, o, { waitMs: 1200 }) : null;
   const borders = borderSummary(o.originCountry, o.destCountry);
   const tt = tripTime({ km: o.distanceKm, drivingMinutes: legs?.loaded?.ok ? legs.loaded.minutes : null, crew: t?.crew ?? 1, borderH: typicalBorderHours(o.originCountry, o.destCountry) });
   const fuel = await fuelTable();

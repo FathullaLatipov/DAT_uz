@@ -82,6 +82,12 @@ export interface MatchContext {
   now?: Date;
   /** Language of the explanation text. English when omitted (tests, background jobs). */
   i18n?: I18n;
+  /**
+   * Numbers only: no explanation text is built (blockers/reasons/warnings come back as empty strings, so the
+   * counts and `eligible` are right but the wording is not). Scoring thousands of pairs for a ranking is several
+   * times cheaper this way; re-score the few rows that are shown without it.
+   */
+  lite?: boolean;
 }
 
 export interface ScoreComponent {
@@ -141,8 +147,11 @@ export function bodyCompatibility(truckBody: string, offerBody: string, cargo: s
   return table[pair] ?? 0;
 }
 
+/** What `lite` scoring uses in place of the real translator: every text helper returns "" at no cost. */
+const NOOP_I18N = { t: () => "", tn: () => "", label: () => "", city: () => "", usd: () => "", perKm: () => "" } as unknown as I18n;
+
 export function scoreMatch(truck: MatchTruck, offer: MatchOffer, ctx: MatchContext): MatchResult {
-  const i = ctx.i18n ?? englishI18n();
+  const i = ctx.lite ? NOOP_I18N : (ctx.i18n ?? englishI18n());
   const { t, tn, label, city, usd } = i;
   const now = ctx.now ?? new Date();
   const blockers: string[] = [];
