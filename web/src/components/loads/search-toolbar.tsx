@@ -201,7 +201,7 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
               <Field label={t("toolbar.unloadBy")} className="col-span-2"><Input type="date" value={v.unloadingTo} onChange={(e) => set("unloadingTo", e.target.value)} /></Field>
             </div>
           </Dropdown>
-          <Field label={t("toolbar.scoreForTruck")} className="w-48">
+          <Field label={t("toolbar.scoreForTruck")} className="w-72">
             <Select value={v.truckId} onChange={(e) => set("truckId", e.target.value)}>
               <option value="">{t("toolbar.bestTruck")}</option>
               {trucks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}

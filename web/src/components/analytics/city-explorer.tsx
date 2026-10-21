@@ -29,8 +29,11 @@ export function CityExplorer({ cities }: { cities: CityStats[] }) {
 
   return (
     <div className="grid lg:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="h-[380px] sm:h-[460px]">
-        <LazyMap points={points} mode="heat" onSelect={setSel} className="h-full w-full" fitPadding={30} />
+      {/* The map fills whatever height the side panel needs (no empty band under it). */}
+      <div className="relative min-h-[380px] sm:min-h-[460px]">
+        <div className="absolute inset-0">
+          <LazyMap points={points} mode="heat" onSelect={setSel} className="h-full w-full" fitPadding={30} />
+        </div>
       </div>
       <div className="border-t border-border lg:border-l lg:border-t-0">
         <div className="max-h-[200px] overflow-y-auto border-b border-border lg:max-h-[220px]">

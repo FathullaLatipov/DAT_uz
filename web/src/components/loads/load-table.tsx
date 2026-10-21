@@ -7,7 +7,7 @@ import { useI18n } from "@/i18n/client";
 import type { LoadRow } from "@/server/services/freight";
 import type { LoadFilters } from "@/server/services/filters";
 import { filtersToParams } from "@/server/services/filters";
-import { cn } from "@/lib/format";
+import { cn, isStale } from "@/lib/format";
 import { DemoBadge, ScoreBadge } from "../ui/primitives";
 import { Freshness, GradeBadge, RouteLabel, Sources } from "./parts";
 import { FavoriteButton } from "./favorite-button";
@@ -39,17 +39,17 @@ export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: L
       <div ref={containerRef} className="max-h-[calc(100dvh-13rem)] overflow-auto">
         <table className="w-full min-w-[960px] text-sm">
           <thead className="sticky top-0 z-10">
-            <tr className="border-b border-border bg-surface-2 text-left text-xs uppercase tracking-wide text-muted backdrop-blur">
+            <tr className="border-b border-border bg-surface-2 text-left text-[11px] uppercase tracking-normal text-muted backdrop-blur min-[1400px]:text-xs min-[1400px]:tracking-wide">
               <th className="w-8 px-2 py-2.5" />
-              <th className="w-14 px-3 py-2.5 font-medium">{t("table.match")}</th>
-              <th className="px-3 py-2.5 font-medium">{t("table.route")}</th>
+              <th className="w-12 px-2 py-2.5 min-[1400px]:px-2.5 font-medium">{t("table.match")}</th>
+              <th className="px-2 py-2.5 min-[1400px]:px-2.5 font-medium">{t("table.route")}</th>
               <SortableTh label={t("table.loading")} sortKey="loading" current={sort} href={sortHref} />
-              <th className="px-3 py-2.5 font-medium">{t("table.cargo")}</th>
+              <th className="px-2 py-2.5 min-[1400px]:px-2.5 font-medium">{t("table.cargo")}</th>
               <SortableTh label={t("table.rate")} sortKey="rate" current={sort} href={sortHref} align="right" />
               <SortableTh label={t("table.deadhead")} sortKey="deadhead" current={sort} href={sortHref} align="right" />
               <SortableTh label={t("table.estProfit")} sortKey="profit" current={sort} href={sortHref} align="right" />
-              <th className="px-3 py-2.5 font-medium">{t("table.source")}</th>
-              <th className="w-20 px-2 py-2.5" />
+              <th className="hidden px-2 py-2.5 min-[1400px]:px-2.5 font-medium 2xl:table-cell">{t("table.source")}</th>
+              <th className="w-14 px-1 py-2.5" />
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -80,20 +80,24 @@ export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: L
                         <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-90 text-brand")} />
                       </button>
                     </td>
-                    <td className="px-3 py-2.5">{m ? <ScoreBadge score={m.score} eligible={m.eligible} size="sm" /> : "—"}</td>
-                    <td className="max-w-[260px] px-3 py-2.5">
-                      <RouteLabel origin={o.originCityId} dest={o.destCityId} size="sm" />
-                      <div className="num mt-0.5 text-xs text-muted">{km(o.distanceKm)}</div>
+                    <td className="px-2 py-2.5 min-[1400px]:px-2.5">{m ? <ScoreBadge score={m.score} eligible={m.eligible} size="sm" /> : "—"}</td>
+                    <td className="px-2 py-2.5 min-[1400px]:px-2.5">
+                      <div className="max-w-[200px] min-[1400px]:max-w-[260px]"><RouteLabel origin={o.originCityId} dest={o.destCityId} size="sm" className="max-w-full" /></div>
+                      <div className="num mt-0.5 flex items-center gap-1.5 text-xs text-muted">
+                        {km(o.distanceKm)}
+                        <GradeBadge grade={r.grade} className="2xl:hidden" />
+                      </div>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2.5">
+                    <td className="whitespace-nowrap px-2 py-2.5 min-[1400px]:px-2.5">
                       <div>{relativeDay(o.loadingDate)}</div>
-                      <Freshness lastSeen={lastSeen} />
+                      {/* A fresh listing's "updated … ago" is only worth the width on roomy screens; a stale one is always flagged. */}
+                      <div className={cn(isStale(lastSeen) ? "max-[1399px]:max-w-[7rem] max-[1399px]:overflow-hidden" : "max-[1399px]:hidden")}><Freshness lastSeen={lastSeen} /></div>
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-2 py-2.5 min-[1400px]:px-2.5">
                       <div className="whitespace-nowrap">{tonnes(o.weightKg)} · {label(o.bodyType)}</div>
                       <div className="text-xs text-muted">{label(o.cargoType)}</div>
                     </td>
-                    <td className="num whitespace-nowrap px-3 py-2.5 text-right">
+                    <td className="num whitespace-nowrap px-2 py-2.5 min-[1400px]:px-2.5 text-right">
                       {o.rateUsd > 0 ? (
                         <>
                           <div className="font-semibold">{usd(o.rateUsd)}</div>
@@ -103,7 +107,7 @@ export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: L
                         <span className="text-muted">{t("table.negotiable")}</span>
                       )}
                     </td>
-                    <td className="num whitespace-nowrap px-3 py-2.5 text-right">
+                    <td className="num whitespace-nowrap px-2 py-2.5 min-[1400px]:px-2.5 text-right">
                       {m ? (
                         <>
                           <div>{km(m.deadheadKm)}</div>
@@ -111,10 +115,10 @@ export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: L
                         </>
                       ) : "—"}
                     </td>
-                    <td className={cn("num whitespace-nowrap px-3 py-2.5 text-right font-semibold", m && m.profit.profit < 0 ? "text-neg" : "text-pos")}>
+                    <td className={cn("num whitespace-nowrap px-2 py-2.5 min-[1400px]:px-2.5 text-right font-semibold", m && m.profit.profit < 0 ? "text-neg" : "text-pos")}>
                       {m && m.eligible && o.rateUsd > 0 ? usd(m.profit.profit) : <span className="font-normal text-subtle">—</span>}
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className="hidden max-w-[12rem] px-2 py-2.5 min-[1400px]:px-2.5 2xl:table-cell">
                       <div className="flex flex-wrap gap-1">
                         <GradeBadge grade={r.grade} />
                         <Sources sources={r.sources} />
@@ -139,7 +143,8 @@ export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: L
                   </tr>
                   {open && (
                     <tr>
-                      <td colSpan={10} className="p-0" id={`load-detail-${o.id}`}>
+                      {/* max-w-0: the panel takes the width the data columns give it instead of widening the whole table */}
+                      <td colSpan={10} className="max-w-0 p-0" id={`load-detail-${o.id}`}>
                         <LoadDetailPanel offerId={o.id} context="board" />
                       </td>
                     </tr>
@@ -157,7 +162,7 @@ export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: L
 function SortableTh({ label: l, sortKey, current, href, align }: { label: string; sortKey: SortKey; current?: string; href: (key: SortKey) => string; align?: "right" }) {
   const active = current === sortKey;
   return (
-    <th className={cn("px-3 py-2.5 font-medium", align === "right" && "text-right")}>
+    <th className={cn("px-2 py-2.5 min-[1400px]:px-2.5 font-medium", align === "right" && "text-right")}>
       <Link href={href(sortKey)} className={cn("group inline-flex items-center gap-1 hover:text-fg", active && "text-fg", align === "right" && "flex-row-reverse")}>
         {l}
         {active ? <ArrowDown className="h-3 w-3" /> : <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-100" />}
