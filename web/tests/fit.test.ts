@@ -106,3 +106,11 @@ test("truckSchema: the cargo space cannot be taller than the vehicle; empty pass
   assert.equal(truckSchema.safeParse({ ...base, cargoHeightM: 4.5, heightM: 4 }).success, false);
   assert.equal(truckSchema.safeParse({ ...base, heightM: 9 }).success, false);
 });
+
+test("the board scope filter accepts 'international' and keeps the older values", async () => {
+  const { filtersFromParams } = await import("../src/server/services/filters");
+  assert.equal(filtersFromParams({ scope: "international" }).scope, "international");
+  assert.equal(filtersFromParams({ scope: "domestic" }).scope, "domestic");
+  assert.equal(filtersFromParams({ scope: "export" }).scope, "export");
+  assert.equal(filtersFromParams({ scope: "nonsense" }).scope, undefined);
+});

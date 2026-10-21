@@ -117,6 +117,7 @@ export function buildWhere(f: LoadFilters): Prisma.FreightOfferWhereInput {
   if (f.dest) and.push({ destCityId: { in: f.destRadiusKm ? citiesWithin(f.dest, f.destRadiusKm) : [f.dest] } });
   if (f.destCountry) and.push({ destCountry: f.destCountry });
   if (f.scope === "domestic") and.push({ originCountry: "UZ", destCountry: "UZ" });
+  else if (f.scope === "international") and.push({ NOT: { AND: [{ originCountry: "UZ" }, { destCountry: "UZ" }] } });
   else if (f.scope === "export") and.push({ originCountry: "UZ", NOT: { destCountry: "UZ" } });
   else if (f.scope === "import") and.push({ NOT: { originCountry: "UZ" }, destCountry: "UZ" });
   else if (f.scope === "transit") and.push({ NOT: { originCountry: "UZ" } }, { NOT: { destCountry: "UZ" } });

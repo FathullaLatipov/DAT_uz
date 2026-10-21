@@ -7,15 +7,16 @@ import { apiCall } from "@/lib/client";
 import { CITIES, COUNTRIES, estimateRoadKm, estimateTransitDays } from "@/server/domain/geo";
 import { BODY_TYPES, CARGO_TYPES, CURRENCIES, PAYMENT_TERMS } from "@/server/domain/enums";
 import { useI18n } from "@/i18n/client";
+import { cn } from "@/lib/format";
 import { Button, Field, Input, Select } from "../ui/primitives";
 
 const tomorrow = () => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
 
-function CitySelect(props: React.ComponentProps<typeof Select>) {
+function CitySelect({ onlyUz, ...props }: React.ComponentProps<typeof Select> & { onlyUz?: boolean }) {
   const { city, country } = useI18n();
   return (
     <Select {...props}>
-      {COUNTRIES.map((c) => (
+      {COUNTRIES.filter((c) => !onlyUz || c.code === "UZ").map((c) => (
         <optgroup key={c.code} label={country(c.code)}>
           {CITIES.filter((x) => x.country === c.code).map((x) => <option key={x.id} value={x.id}>{city(x.id)}</option>)}
         </optgroup>
@@ -28,11 +29,21 @@ export function PostLoadForm({ defaultContact }: { defaultContact: string }) {
   const { t, tn, label, km } = useI18n();
   const router = useRouter();
   const [v, setV] = useState({
-    originCityId: "tashkent", destCityId: "almaty", loadingDate: tomorrow(), unloadingDate: "", cargoType: "GENERAL", weightKg: "20000",
+    haul: "DOMESTIC" as "DOMESTIC" | "INTERNATIONAL", originCityId: "tashkent", destCityId: "samarkand", loadingDate: tomorrow(), unloadingDate: "", cargoType: "GENERAL", weightKg: "20000",
     volumeM3: "", cargoLengthM: "", cargoWidthM: "", cargoHeightM: "", oversize: false, adrClass: "", bodyType: "CURTAINSIDER", rate: "", currency: "USD", paymentTerms: "ON_UNLOADING", contactName: defaultContact, contactPhone: "", contactEmail: "", requirements: "",
   });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const countryOf = (id: string) => CITIES.find((c) => c.id === id)?.country;
+  /** Switching the type of haul keeps the cities that still fit it and replaces the ones that do not. */
+  function chooseHaul(haul: "DOMESTIC" | "INTERNATIONAL") {
+    setV((s) => {
+      if (haul === "DOMESTIC") {
+        return { ...s, haul, originCityId: countryOf(s.originCityId) === "UZ" ? s.originCityId : "tashkent", destCityId: countryOf(s.destCityId) === "UZ" && s.destCityId !== (countryOf(s.originCityId) === "UZ" ? s.originCityId : "tashkent") ? s.destCityId : "samarkand" };
+      }
+      return { ...s, haul, destCityId: countryOf(s.originCityId) === countryOf(s.destCityId) ? "almaty" : s.destCityId };
+    });
+  }
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setV({ ...v, [k]: e.target.value });
   const size = (k: "cargoLengthM" | "cargoWidthM" | "cargoHeightM", label: string) => (
     <Field label={label}><Input type="number" inputMode="decimal" min={0.1} max={30} step="0.05" value={v[k]} onChange={set(k)} /></Field>
@@ -66,9 +77,21 @@ export function PostLoadForm({ defaultContact }: { defaultContact: string }) {
     <form onSubmit={submit} className="space-y-6">
       <section>
         <SectionHeader step={1} icon={<MapPinned className="h-4 w-4" />} title={t("post.stepRoute")} />
+        <div className="mb-4">
+          <div className="text-xs font-medium text-muted">{t("post.haulType")}</div>
+          <div role="radiogroup" aria-label={t("post.haulType")} className="mt-1 inline-flex rounded-lg border border-border bg-surface p-0.5 text-sm">
+            {(["DOMESTIC", "INTERNATIONAL"] as const).map((h) => (
+              <button key={h} type="button" role="radio" aria-checked={v.haul === h} onClick={() => chooseHaul(h)}
+                className={cn("rounded-md px-3 py-1.5 font-medium transition-colors", v.haul === h ? "bg-brand text-white" : "text-muted hover:text-fg")}>
+                {h === "DOMESTIC" ? t("post.haulUz") : t("post.haulIntl")}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-muted">{v.haul === "DOMESTIC" ? t("post.haulUzHint") : t("post.haulIntlHint")}</p>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label={t("post.from")}><CitySelect value={v.originCityId} onChange={set("originCityId")} /></Field>
-          <Field label={t("post.to")}><CitySelect value={v.destCityId} onChange={set("destCityId")} /></Field>
+          <Field label={t("post.from")}><CitySelect onlyUz={v.haul === "DOMESTIC"} value={v.originCityId} onChange={set("originCityId")} /></Field>
+          <Field label={t("post.to")}><CitySelect onlyUz={v.haul === "DOMESTIC"} value={v.destCityId} onChange={set("destCityId")} /></Field>
           <Field label={t("post.loadingDate")}><Input type="date" required value={v.loadingDate} min={new Date().toISOString().slice(0, 10)} onChange={set("loadingDate")} /></Field>
           <Field label={t("post.unloadingDate")}><Input type="date" value={v.unloadingDate} onChange={set("unloadingDate")} /></Field>
         </div>
