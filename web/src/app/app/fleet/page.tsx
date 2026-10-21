@@ -7,7 +7,7 @@ import { can } from "@/server/auth/permissions";
 import { db } from "@/server/db";
 import { getI18n } from "@/i18n/server";
 import { fleetSummary } from "@/server/services/fleet";
-import { Card, DemoBadge, EmptyState, LinkButton, PageHeader, Stat } from "@/components/ui/primitives";
+import { Badge, Card, DemoBadge, EmptyState, LinkButton, PageHeader, Stat } from "@/components/ui/primitives";
 import { StatusBadge } from "@/components/fleet/status-badge";
 import { FleetMap } from "@/components/fleet/fleet-map";
 import { pct } from "@/lib/format";
@@ -77,9 +77,12 @@ export default async function FleetPage() {
                       return (
                         <tr key={t.id} className="relative transition-colors hover:bg-surface-2/70">
                           <td className="px-4 py-3">
-                            <Link href={`/app/fleet/${t.id}`} className="font-semibold after:absolute after:inset-0">{t.code}</Link>
-                            <div className="text-xs text-muted">{(t.capacityKg / 1000).toFixed(0)} {tr("units.tonnes")} · {label(t.bodyType)} · {t.volumeM3} {tr("units.cubicMetres")}{t.adr ? " · ADR" : ""}</div>
-                            {t.cargoLengthM == null && t.cargoHeightM == null && canWrite && <Link href={`/app/fleet/${t.id}`} className="relative z-10 text-xs text-brand hover:underline">{tr("pass.missing")}</Link>}
+                            <div className="flex items-center gap-1.5">
+                              <Link href={`/app/fleet/${t.id}`} className="font-semibold after:absolute after:inset-0">{t.code}</Link>
+                              {t.adr && <Badge tone="warn">ADR</Badge>}
+                            </div>
+                            <div className="text-xs text-muted">{(t.capacityKg / 1000).toFixed(0)} {tr("units.tonnes")} · {label(t.bodyType)} · {t.volumeM3} {tr("units.cubicMetres")}</div>
+                            {t.cargoLengthM == null && t.cargoHeightM == null && canWrite && <div className="text-xs text-warn">{tr("pass.missing")}</div>}
                           </td>
                           <td className="px-3 py-3">{t.driver?.name ?? <span className="text-subtle">{tr("fleet.unassigned")}</span>}</td>
                           <td className="px-3 py-3">{city(t.currentCityId)}</td>

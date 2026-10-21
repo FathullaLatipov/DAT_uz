@@ -12,6 +12,7 @@ import { Card, CardHeader, DemoBadge, Stat } from "@/components/ui/primitives";
 import { StatusBadge } from "@/components/fleet/status-badge";
 import { TruckForm } from "@/components/fleet/truck-form";
 import { passportText } from "@/lib/truck-passport";
+import { PassportSummary } from "@/components/fleet/passport-summary";
 import { TruckPosition } from "@/components/fleet/truck-position";
 import { TripActions } from "@/components/fleet/trip-actions";
 import { TripTrackPanel } from "@/components/fleet/trip-track-panel";
@@ -143,6 +144,8 @@ export default async function TruckPage({ params, searchParams }: { params: Prom
               <TripHistoryTable trips={t.trips} initialOpenId={delivered} />
             )}
           </Card>
+
+          <PassportSummary t={tr} p={t} />
 
           <Card>
             <CardHeader title={tr("fleet.profile")} />
