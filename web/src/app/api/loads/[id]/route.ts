@@ -12,10 +12,12 @@ import { brokerReliability } from "@/server/services/broker";
 import { findBackhaul } from "@/server/services/backhaul";
 import { estimateTollsUsd } from "@/server/services/profitability";
 import { legsFor } from "@/server/services/routing";
+import { fuelTable } from "@/server/services/fuel";
+import { effectiveFuelPrice } from "@/server/domain/fuel";
 import { borderSummary, typicalBorderHours } from "@/server/domain/borders";
 import { tripTime } from "@/server/domain/hos";
 import { distancesFor } from "@/server/domain/route-profile";
-import { estimateTransitDays, freshGps } from "@/server/domain/geo";
+import { estimateTransitDays, freshGps, getCity } from "@/server/domain/geo";
 import { senderOf, uniqueContacts } from "@/server/services/contacts";
 
 const DAY = 86_400_000;
@@ -72,6 +74,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const t = selected?.truck;
     const m = selected?.match;
     // Distances for the profit maths from the truck's road route, when the service answers within a moment.
+    const fuel = await fuelTable();
+    const fuelByCountry = t?.fuelByCountry !== false;
     const legs = t && m?.eligible ? await legsFor(t, offer, { waitMs: 3000 }) : null;
     const dist = distancesFor(legs?.loaded, legs?.empty, { loadedKm: Math.round(offer.distanceKm), deadheadKm: m?.deadheadKm ?? 0 });
     const borders = borderSummary(offer.originCountry, offer.destCountry);
@@ -125,7 +129,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
               deadheadKm: Math.round(dist.deadheadKm),
               routed: dist.routed,
               fuelLPer100km: t.fuelLPer100km,
-              fuelPriceUsd: t.fuelPriceUsd,
+              fuelPriceUsd: fuelByCountry ? effectiveFuelPrice({ truckCountry: getCity(t.currentCityId)?.country, originCountry: offer.originCountry, destCountry: offer.destCountry, deadheadKm: dist.deadheadKm, loadedKm: dist.loadedKm, table: fuel, fallback: t.fuelPriceUsd }) : t.fuelPriceUsd,
+              fuelByCountry,
               driverCostPerKm: t.driverCostPerKm,
               maintenancePerKm: t.maintenancePerKm,
               tollsUsd: estimateTollsUsd(dist.loadedKm, offer.originCountry, offer.destCountry, borders.feeUsd),

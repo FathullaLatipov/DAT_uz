@@ -1,7 +1,8 @@
-import { AVG_KM_PER_DAY, GPS_FRESH_MS, estimateRoadKm, roadKmFromPoint } from "../domain/geo";
+import { AVG_KM_PER_DAY, GPS_FRESH_MS, estimateRoadKm, getCity, roadKmFromPoint } from "../domain/geo";
 import type { I18n } from "../../i18n/create";
 import { englishI18n } from "../../i18n/default";
 import { borderSummary } from "../domain/borders";
+import { effectiveFuelPrice, type FuelTable } from "../domain/fuel";
 import { checkFit, type CargoSize, type TruckPassport } from "../domain/fit";
 import { computeProfit, estimateTollsUsd, type CostProfile, type ProfitBreakdown } from "./profitability";
 
@@ -23,6 +24,8 @@ export interface MatchTruck extends CostProfile, TruckPassport {
   status: string;
   /** Drivers on board: 1, or 2 when the truck runs as a team. */
   crew?: number;
+  /** Price diesel by the countries of the route (the platform table) rather than the truck's own fixed price. */
+  fuelByCountry?: boolean;
   /** Phone GPS fix; used for deadhead only while fresh and the truck is not mid-trip. */
   lat?: number | null;
   lng?: number | null;
@@ -74,6 +77,8 @@ export interface MatchContext {
   benchmarks: Map<string, number>; // "origin>dest" → median $/km
   brokerScore: (brokerId: string | null) => number | null;
   outbound: Map<string, number>; // city → active outbound loads
+  /** Diesel USD/L by country; when absent the truck's own fuel price is used. */
+  fuel?: FuelTable;
   now?: Date;
   /** Language of the explanation text. English when omitted (tests, background jobs). */
   i18n?: I18n;
@@ -214,7 +219,10 @@ export function scoreMatch(truck: MatchTruck, offer: MatchOffer, ctx: MatchConte
 
   // ── Profitability & price ───────────────────────────
   const tolls = estimateTollsUsd(offer.distanceKm, offer.originCountry, offer.destCountry, borderSummary(offer.originCountry, offer.destCountry).feeUsd);
-  const profit = computeProfit({ ...truck, revenueUsd: offer.rateUsd, loadedKm: offer.distanceKm, deadheadKm, tollsUsd: tolls });
+  const fuelPriceUsd = truck.fuelByCountry !== false && ctx.fuel
+    ? effectiveFuelPrice({ truckCountry: getCity(truck.currentCityId)?.country, originCountry: offer.originCountry, destCountry: offer.destCountry, deadheadKm, loadedKm: offer.distanceKm, table: ctx.fuel, fallback: truck.fuelPriceUsd })
+    : truck.fuelPriceUsd;
+  const profit = computeProfit({ ...truck, fuelPriceUsd, revenueUsd: offer.rateUsd, loadedKm: offer.distanceKm, deadheadKm, tollsUsd: tolls });
   const perKm = offer.distanceKm > 0 ? offer.rateUsd / offer.distanceKm : 0;
   const benchmark = ctx.benchmarks.get(`${offer.originCityId}>${offer.destCityId}`) ?? null;
   if (offer.rateUsd <= 0) {

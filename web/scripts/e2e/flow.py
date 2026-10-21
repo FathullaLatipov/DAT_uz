@@ -483,6 +483,33 @@ check("the post form offers the type of haul", st == 200 and "Within Uzbekistan"
 st, pg = carrier.page("/app/loads?scope=international", "ru")
 check("the board switch is in Russian", st == 200 and ">Международные<" in pg and ">По Узбекистану<" in pg, f"{st}")
 
+print("\n== 25. Diesel prices")
+admin = Actor("admin")
+st, d = admin.call("POST", "/api/auth/login", {"email": "admin@karvon.uz", "password": "admin1234"})
+check("the platform admin signs in", st == 200, f"{st} {d}")
+st, d = carrier.call("PATCH", "/api/admin/fuel", {"country": "UZ", "priceUsd": 1.5})
+check("a carrier cannot change diesel prices", st == 403, f"{st}")
+st, d = admin.call("PATCH", "/api/admin/fuel", {"country": "UZ", "priceUsd": 99})
+check("an absurd price is refused", st == 400, f"{st}")
+st, d = admin.call("PATCH", "/api/admin/fuel", {"country": "ZZ", "priceUsd": 1})
+check("an unknown country is refused", st == 400, f"{st}")
+st, cd = carrier.call("GET", f"/api/loads/{OID}?truck={TRUCK}")
+before = (((cd or {}).get("match") or {}).get("calc") or {}).get("fuelPriceUsd")
+st, d = admin.call("PATCH", "/api/admin/fuel", {"country": "UZ", "priceUsd": 1.5})
+check("the admin sets Uzbekistan diesel to 1.50", st == 200 and d.get("priceUsd") == 1.5, f"{st} {d}")
+time.sleep(1)
+st, cd = carrier.call("GET", f"/api/loads/{OID}?truck={TRUCK}")
+calc = ((cd or {}).get("match") or {}).get("calc") or {}
+check("the calculator uses the new price for a domestic load (Tashkent to Samarkand)", calc.get("fuelByCountry") is True and calc.get("fuelPriceUsd") == 1.5, f"{before} -> {calc.get('fuelPriceUsd')}")
+carrier.call("PATCH", f"/api/trucks/{TRUCK}", {"fuelByCountry": False, "fuelPriceUsd": 0.9})
+st, cd = carrier.call("GET", f"/api/loads/{OID}?truck={TRUCK}")
+calc = ((cd or {}).get("match") or {}).get("calc") or {}
+check("a truck set to its own price ignores the table", calc.get("fuelByCountry") is False and calc.get("fuelPriceUsd") == 0.9, f"{calc.get('fuelPriceUsd')}")
+carrier.call("PATCH", f"/api/trucks/{TRUCK}", {"fuelByCountry": True})
+st, pg = admin.page("/app/admin")
+check("the admin page lists the prices", st == 200 and ">Diesel prices<" in pg, f"{st}")
+admin.call("PATCH", "/api/admin/fuel", {"country": "UZ", "priceUsd": 0.95})
+
 json.dump({"T3": T3, "RTRIP": RTRIP, "TRIP": TRIP}, open(os.environ.get("TEMP", ".") + "/e2e_trips.json", "w"))
 
 ok = sum(1 for _, o, _ in RESULTS if o)

@@ -32,6 +32,7 @@ export const truckBase = z.object({
   axleLoadKg: z.number().int().min(1000).max(20000).nullable().optional(),
   adr: z.boolean().optional(),
   crew: z.number().int().min(1).max(2).optional(),
+  fuelByCountry: z.boolean().optional(),
 });
 
 export const truckSchema = truckBase.refine((v) => !(v.cargoHeightM && v.heightM && v.cargoHeightM > v.heightM), { message: "Cargo space cannot be taller than the whole vehicle.", path: ["cargoHeightM"] })

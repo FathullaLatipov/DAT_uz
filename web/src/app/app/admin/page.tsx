@@ -11,6 +11,9 @@ import { Badge, Card, CardHeader, DemoBadge, PageHeader, Stat } from "@/componen
 import { CsvImport, SyncButton } from "@/components/admin/admin-actions";
 import { AdminTabs } from "@/components/admin/admin-tabs";
 import { EmailTest } from "@/components/admin/email-test";
+import { FuelPrices } from "@/components/admin/fuel-prices";
+import { fuelTable } from "@/server/services/fuel";
+import { COUNTRIES } from "@/server/domain/geo";
 import { emailConfigured } from "@/server/services/email";
 import { siteUrl } from "@/server/services/telegram";
 import { getI18n } from "@/i18n/server";
@@ -52,6 +55,9 @@ export default async function AdminPage() {
   for (const f of flagged) for (const code of parseJson<string[]>(f.qualityFlags, [])) if (code !== "EXPIRED") flagCounts.set(code, (flagCounts.get(code) ?? 0) + 1);
   const failed = runs.filter((r) => r.errors > 0 || r.rejected > 0 || r.status === "FAILED");
   const ai = getProvider();
+  const fuelDb = new Map((await db.fuelPrice.findMany()).map((r) => [r.country, r]));
+  const fuelDefaults = await fuelTable();
+  const fuelRows = COUNTRIES.map((c) => ({ country: c.code, priceUsd: fuelDb.get(c.code)?.priceUsd ?? fuelDefaults[c.code] ?? 0.95, updatedAt: fuelDb.get(c.code)?.updatedAt.toISOString() ?? null }));
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-5">
@@ -164,6 +170,10 @@ export default async function AdminPage() {
         <Card>
           <CardHeader title={t("adm.csv")} />
           <div className="px-4 pb-5 sm:px-5"><CsvImport /></div>
+        </Card>
+        <Card>
+          <CardHeader title={t("fuel.title")} subtitle={t("fuel.subtitle")} />
+          <div className="px-4 pb-5 sm:px-5"><FuelPrices rows={fuelRows} /></div>
         </Card>
         <Card>
           <CardHeader title={t("adm.health")} />

@@ -204,6 +204,8 @@ model Truck {
   axleLoadKg       Int?
   adr              Boolean   @default(false) // certified for dangerous goods
   crew             Int       @default(1) // drivers on board: 1, or 2 (team driving)
+  // Price diesel from the countries of the route (platform table) instead of the fixed `fuelPriceUsd`.
+  fuelByCountry    Boolean   @default(true)
   currentCityId    String
   status           String    @default("AVAILABLE") // AVAILABLE | LOADING | IN_TRANSIT | UNLOADING | MAINTENANCE | OFFLINE
   availableFrom    DateTime  @default(now())
@@ -566,4 +568,13 @@ model RouteCache {
   createdAt  DateTime @default(now())
 
   @@index([createdAt])
+}
+
+/// Diesel price per country, USD per litre, set by a platform admin. The profit estimate prices the fuel of a trip
+/// from the countries it passes through.
+model FuelPrice {
+  country   String   @id // ISO code, e.g. "UZ"
+  priceUsd  Float
+  updatedAt DateTime @default(now()) @updatedAt
+  updatedBy String?
 }

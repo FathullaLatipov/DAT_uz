@@ -19,10 +19,12 @@ export interface CalcInput {
   otherPerTripUsd: number;
   /** True when the two distances come from the truck's road route rather than the city table. */
   routed?: boolean;
+  /** True when the diesel price comes from the countries of the route (the platform table) rather than the truck's own price. */
+  fuelByCountry?: boolean;
 }
 
 type Unit = "usd" | "km" | "perHundred" | "perLitre" | "perKmCost";
-const FIELDS: { k: Exclude<keyof CalcInput, "routed">; label: "loadPrice" | "loadedDistance" | "deadhead" | "fuelConsumption" | "fuelPrice" | "driverCost" | "maintenance" | "tolls" | "other"; step: number; unit: Unit }[] = [
+const FIELDS: { k: Exclude<keyof CalcInput, "routed" | "fuelByCountry">; label: "loadPrice" | "loadedDistance" | "deadhead" | "fuelConsumption" | "fuelPrice" | "driverCost" | "maintenance" | "tolls" | "other"; step: number; unit: Unit }[] = [
   { k: "revenueUsd", label: "loadPrice", step: 10, unit: "usd" },
   { k: "loadedKm", label: "loadedDistance", step: 10, unit: "km" },
   { k: "deadheadKm", label: "deadhead", step: 5, unit: "km" },
@@ -119,6 +121,7 @@ export function ProfitCalculator({ initial, compact }: { initial: CalcInput; com
           {t("calc.disclaimer")}
         </p>
         {initial.routed && <p className="mt-1 text-xs leading-snug text-subtle">{t("rt.basis")}</p>}
+        {initial.fuelByCountry && <p className="mt-1 text-xs leading-snug text-subtle">{t("fuel.basis")}</p>}
         {compact && (
           <div className="mt-3 border-t border-border pt-3">
             <button

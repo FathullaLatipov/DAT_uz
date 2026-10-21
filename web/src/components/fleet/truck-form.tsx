@@ -34,6 +34,7 @@ export interface TruckFormValues {
   grossWeightKg: string; axles: string; axleLoadKg: string;
   adr: boolean;
   crew: number;
+  fuelByCountry: boolean;
 }
 
 
@@ -171,7 +172,11 @@ export function TruckForm({ id, initial, canDelete }: { id?: string; initial: Tr
         <p className="mb-3 text-xs text-muted">{t("fleet.costProfileHint")}</p>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           <Field label={t("fleet.fuelCons")}><Input type="number" inputMode="decimal" step="0.5" value={v.fuelLPer100km} onChange={num("fuelLPer100km")} /></Field>
-          <Field label={t("fleet.fuelPrice")}><Input type="number" inputMode="decimal" step="0.01" value={v.fuelPriceUsd} onChange={num("fuelPriceUsd")} /></Field>
+          <label className="col-span-2 flex items-start gap-2 text-sm sm:col-span-3 lg:col-span-5">
+            <input type="checkbox" checked={v.fuelByCountry} onChange={(e) => set("fuelByCountry", e.target.checked)} className="mt-0.5 h-4 w-4" />
+            <span>{t("fuel.byCountry")}<span className="block text-xs text-muted">{t("fuel.byCountryHint")}</span></span>
+          </label>
+          <Field label={t("fleet.fuelPrice")}><Input type="number" inputMode="decimal" step="0.01" disabled={v.fuelByCountry} value={v.fuelPriceUsd} onChange={num("fuelPriceUsd")} /></Field>
           <Field label={t("fleet.driverKm")}><Input type="number" inputMode="decimal" step="0.01" value={v.driverCostPerKm} onChange={num("driverCostPerKm")} /></Field>
           <Field label={t("fleet.maintKm")}><Input type="number" inputMode="decimal" step="0.01" value={v.maintenancePerKm} onChange={num("maintenancePerKm")} /></Field>
           <Field label={t("fleet.otherTrip")}><Input type="number" inputMode="decimal" step="5" value={v.otherPerTripUsd} onChange={num("otherPerTripUsd")} /></Field>
