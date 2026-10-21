@@ -1,6 +1,7 @@
 import { db } from "@/server/db";
 import { api, HttpError } from "@/server/http";
 import { audit } from "@/server/security";
+import { invalidateMarketCache } from "@/server/services/market";
 import { PLAN_FEATURES } from "@/server/auth/permissions";
 import { truckSchema } from "./schema";
 
@@ -15,6 +16,7 @@ export const POST = api(
     const driver = driverName ? await db.driver.create({ data: { orgId: session.orgId, name: driverName } }) : null;
     const t = await db.truck.create({ data: { ...data, orgId: session.orgId, availableFrom: new Date(availableFrom), driverId: driver?.id } });
     await db.truckLocation.create({ data: { truckId: t.id, cityId: t.currentCityId } });
+    invalidateMarketCache();
     await audit({ userId: session.userId, orgId: session.orgId, action: "truck.create", entity: "Truck", entityId: t.id, ip });
     return { ok: true, id: t.id };
   },

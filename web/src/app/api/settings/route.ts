@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/server/db";
 import { api } from "@/server/http";
 import { audit } from "@/server/security";
+import { invalidateMarketCache } from "@/server/services/market";
 import { CARGO_TYPES, PAYMENT_TERMS } from "@/server/domain/enums";
 import { getCity } from "@/server/domain/geo";
 
@@ -28,6 +29,7 @@ export const PATCH = api(
       db.preferredRoute.deleteMany({ where: { orgId: session.orgId, destCityId: { not: null } } }),
       db.preferredRoute.createMany({ data: b.routes.map((r) => ({ ...r, orgId: session.orgId })) }),
     ]);
+    invalidateMarketCache(); // the matcher's per-org results depend on these preferences
     await audit({ userId: session.userId, orgId: session.orgId, action: "settings.preferences", ip });
     return { ok: true };
   },

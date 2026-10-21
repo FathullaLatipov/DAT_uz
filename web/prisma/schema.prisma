@@ -181,6 +181,7 @@ model Driver {
 
   org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   trucks Truck[]
+  @@index([orgId])
 }
 
 model Truck {
@@ -242,6 +243,7 @@ model TruckLocation {
 
   truck Truck @relation(fields: [truckId], references: [id], onDelete: Cascade)
   city  City  @relation(fields: [cityId], references: [id])
+  @@index([truckId])
 }
 
 model Trip {
@@ -277,6 +279,9 @@ model Trip {
   destCity   City          @relation("TripDest", fields: [destCityId], references: [id])
   review     BrokerReview?
   points     TripPoint[]
+  @@index([orgId, status])
+  @@index([truckId, status])
+  @@index([offerId])
 }
 
 /// A GPS fix sent from the truck while a trip is on the road (the track drawn on the map).
@@ -360,6 +365,8 @@ model BrokerReview {
   broker Broker       @relation(fields: [brokerId], references: [id], onDelete: Cascade)
   org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   trip   Trip?        @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  @@index([brokerId])
+  @@index([orgId])
 }
 
 /// One deduplicated freight opportunity. Several source listings may point at it.
@@ -411,6 +418,8 @@ model FreightOffer {
 
   @@index([status, loadingDate])
   @@index([originCityId, destCityId])
+  @@index([brokerId])
+  @@index([status, createdAt])
 }
 
 /// A raw sighting of an offer on one source (a FreightSnapshot).
@@ -436,6 +445,7 @@ model FreightListing {
   source FreightSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@unique([sourceId, externalId])
+  @@index([offerId])
 }
 
 model ExchangeRate {
@@ -459,6 +469,8 @@ model Favorite {
   offer FreightOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
 
   @@unique([userId, offerId])
+  @@index([offerId])
+  @@index([orgId])
 }
 
 model SavedSearch {
@@ -473,6 +485,8 @@ model SavedSearch {
 
   org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@index([orgId])
 }
 
 model Notification {
@@ -486,6 +500,8 @@ model Notification {
   createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
 }
 
 /// Tracks shown/accepted recommendations — feeds the "match quality" KPI.
@@ -501,6 +517,9 @@ model Recommendation {
   org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   truck Truck        @relation(fields: [truckId], references: [id], onDelete: Cascade)
   offer FreightOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  @@index([orgId, createdAt])
+  @@index([offerId])
+  @@index([truckId])
 }
 
 model AIConversation {

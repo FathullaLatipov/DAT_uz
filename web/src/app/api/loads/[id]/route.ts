@@ -76,7 +76,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // Distances for the profit maths from the truck's road route, when the service answers within a moment.
     const fuel = await fuelTable();
     const fuelByCountry = t?.fuelByCountry !== false;
-    const legs = t && m?.eligible ? await legsFor(t, offer, { waitMs: 3000 }) : null;
+    const legs = t && m?.eligible ? await legsFor(t, offer, { waitMs: 1200 }) : null;
     const dist = distancesFor(legs?.loaded, legs?.empty, { loadedKm: Math.round(offer.distanceKm), deadheadKm: m?.deadheadKm ?? 0 });
     const borders = borderSummary(offer.originCountry, offer.destCountry);
     const tt = tripTime({ km: offer.distanceKm, drivingMinutes: legs?.loaded?.ok ? legs.loaded.minutes : null, crew: t?.crew ?? 1, borderH: typicalBorderHours(offer.originCountry, offer.destCountry) });
