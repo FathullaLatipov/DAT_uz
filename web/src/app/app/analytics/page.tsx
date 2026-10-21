@@ -24,14 +24,26 @@ function opportunity(ds: number | null, trend: number | null, t: I18n["t"]) {
   return { label: t("an.oversupplied"), tone: "warn" as const };
 }
 
-export default async function AnalyticsPage({ searchParams }: { searchParams: Promise<{ lane?: string; country?: string }> }) {
+export default async function AnalyticsPage({ searchParams }: { searchParams: Promise<{ lane?: string; country?: string; window?: string }> }) {
   await requireSession();
   const { t, city, perKm, usd } = await getI18n();
   const sp = await searchParams;
   const country = sp.country === "all" ? undefined : (sp.country ?? "UZ");
+  const win = sp.window === "7" ? "7" : "30";
   const [summary, routes, cities] = await Promise.all([marketSummary(), routeTable(), cityStats(country)]);
   const sufficient = routes.filter((r) => r.sufficient);
   const thin = routes.length - sufficient.length;
+  const keepParams = (extra: Record<string, string | undefined>) => {
+    const sp2 = new URLSearchParams();
+    if (sp.country) sp2.set("country", sp.country);
+    if (sp.lane) sp2.set("lane", sp.lane);
+    if (win !== "30") sp2.set("window", win);
+    for (const [k, v] of Object.entries(extra)) {
+      if (v) sp2.set(k, v);
+      else sp2.delete(k);
+    }
+    return `/app/analytics?${sp2.toString()}`;
+  };
   const [lo, ld] = (sp.lane ?? (sufficient[0] ? `${sufficient[0].origin}>${sufficient[0].dest}` : "")).split(">");
   const lane = lo && ld ? await laneStats(lo, ld) : null;
   const carriersFavored = summary.loadsTrendPct != null && summary.loadsTrendPct > 0 && summary.demand !== "LOW";
@@ -61,7 +73,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
           <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">{t("an.heatmap")}</h2>
           <div className="flex gap-1 text-xs">
             {[["UZ", t("an.uzbekistan")], ["all", t("an.allCountries")]].map(([k, l]) => (
-              <Link key={k} href={`/app/analytics?country=${k}${sp.lane ? `&lane=${sp.lane}` : ""}`} className={cn("rounded-md px-2 py-1", (sp.country ?? "UZ") === k ? "bg-surface-2 font-medium" : "text-muted hover:text-fg")}>{l}</Link>
+              <Link key={k} href={keepParams({ country: k })} className={cn("rounded-md px-2 py-1", (sp.country ?? "UZ") === k ? "bg-surface-2 font-medium" : "text-muted hover:text-fg")}>{l}</Link>
             ))}
           </div>
         </div>
@@ -96,13 +108,28 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       )}
 
       <Card className="overflow-hidden">
-        <CardHeader title={t("an.routeIntel")} subtitle={thin ? t("an.routeSubThin", { n: sufficient.length, thin }) : t("an.routeSub", { n: sufficient.length })} />
+        <CardHeader
+          title={t("an.routeIntel")}
+          subtitle={thin ? t("an.routeSubThin", { n: sufficient.length, thin }) : t("an.routeSub", { n: sufficient.length })}
+          action={
+            <div className="flex gap-1 text-xs">
+              {(["7", "30"] as const).map((w) => (
+                <Link key={w} href={keepParams({ window: w === "30" ? undefined : w })} className={cn("rounded-md px-2 py-1", win === w ? "bg-surface-2 font-medium" : "text-muted hover:text-fg")}>
+                  {t(w === "7" ? "an.window7" : "an.window30")}
+                </Link>
+              ))}
+            </div>
+          }
+        />
+        {sufficient.length === 0 ? (
+          <p className="flex items-center gap-2 px-4 pb-5 text-sm text-muted sm:px-5"><Info className="h-4 w-4 shrink-0" />{t("an.empty")}</p>
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-sm">
             <thead>
               <tr className="border-y border-border bg-surface-2/60 text-left text-xs uppercase tracking-wide text-muted">
                 <th className="px-4 py-2.5 font-medium">{t("table.route")}</th>
-                <th className="px-3 py-2.5 text-right font-medium">{t("an.colMedian")}</th>
+                <th className="px-3 py-2.5 text-right font-medium">{t("an.colMedian", { days: win })}</th>
                 <th className="px-3 py-2.5 text-right font-medium">{t("an.colMinMax")}</th>
                 <th className="px-3 py-2.5 text-right font-medium">{t("an.colAvgLoad")}</th>
                 <th className="px-3 py-2.5 text-right font-medium">{t("an.colLoads30")}</th>
@@ -120,11 +147,11 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
                 return (
                   <tr key={key} className={cn("relative transition-colors hover:bg-surface-2/70", sp.lane === key && "bg-brand-soft/40")}>
                     <td className="px-4 py-2.5">
-                      <Link href={`/app/analytics?lane=${encodeURIComponent(key)}${sp.country ? `&country=${sp.country}` : ""}`} scroll={false} className="font-medium after:absolute after:inset-0">
+                      <Link href={keepParams({ lane: key })} scroll={false} className="font-medium after:absolute after:inset-0">
                         {city(r.origin)} → {city(r.dest)}
                       </Link>
                     </td>
-                    <td className="px-3 py-2.5 text-right font-semibold">{perKm(r.median)}</td>
+                    <td className="px-3 py-2.5 text-right font-semibold">{perKm(win === "7" ? r.current : r.median)}</td>
                     <td className="px-3 py-2.5 text-right text-muted">{r.min?.toFixed(2)} – {r.max?.toFixed(2)}</td>
                     <td className="px-3 py-2.5 text-right">{usd(r.avgRateUsd)}</td>
                     <td className="px-3 py-2.5 text-right">{r.samples}</td>
@@ -139,6 +166,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
             </tbody>
           </table>
         </div>
+        )}
       </Card>
     </div>
   );

@@ -30,35 +30,45 @@ function stageOf(status: string, trip: { status: string } | undefined): Stage {
   return status === "BOOKED" ? "closed" : "expired";
 }
 
-export default async function MyLoadsPage() {
+const PAGE_SIZE = 20;
+
+export default async function MyLoadsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const s = await requireSession();
   const { t, ago, dateTime, relativeDay, usd } = await getI18n();
-  const listings = await db.freightListing.findMany({
-    where: { sourceId: PLATFORM_SOURCE.id, externalId: { startsWith: `${s.orgId}-` } },
-    orderBy: { firstSeenAt: "desc" },
-    take: 100,
-    select: {
-      firstSeenAt: true,
-      offer: {
-        select: {
-          id: true, originCityId: true, destCityId: true, loadingDate: true, rateUsd: true, status: true, paymentTerms: true,
-          trips: {
-            where: { status: { not: "CANCELLED" } },
-            orderBy: { createdAt: "desc" },
-            take: 1,
-            select: {
-              id: true, status: true, etaAt: true, startedAt: true, completedAt: true, revenueUsd: true, paymentStatus: true, paidAt: true,
-              truck: { select: { code: true } },
-              org: { select: { name: true, memberships: { orderBy: { createdAt: "asc" }, take: 1, select: { user: { select: { name: true, email: true } } } } } },
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
+  const where = { sourceId: PLATFORM_SOURCE.id, externalId: { startsWith: `${s.orgId}-` } };
+  const [listings, total] = await Promise.all([
+    db.freightListing.findMany({
+      where,
+      distinct: ["offerId"],
+      orderBy: { firstSeenAt: "desc" },
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      select: {
+        firstSeenAt: true,
+        offer: {
+          select: {
+            id: true, originCityId: true, destCityId: true, loadingDate: true, rateUsd: true, status: true, paymentTerms: true,
+            trips: {
+              where: { status: { not: "CANCELLED" } },
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              select: {
+                id: true, status: true, etaAt: true, startedAt: true, completedAt: true, revenueUsd: true, paymentStatus: true, paidAt: true,
+                truck: { select: { code: true } },
+                org: { select: { name: true, memberships: { orderBy: { createdAt: "asc" }, take: 1, select: { user: { select: { name: true, email: true } } } } } },
+              },
             },
           },
         },
       },
-    },
-  });
-  // A load posted twice is one offer; show it once.
-  const seen = new Set<string>();
-  const rows = listings.filter((l) => (seen.has(l.offer.id) ? false : (seen.add(l.offer.id), true)));
+    }),
+    db.freightListing.count({ where }),
+  ]);
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  // `distinct: ["offerId"]` above already collapses a load posted twice into one row.
+  const rows = listings;
   // Where each load on the road is (what the carrier shares: position, progress, ETA; never its costs).
   const tracks = new Map<string, Awaited<ReturnType<typeof loadTrack>>>();
   for (const r of rows.filter((x) => x.offer.trips[0]?.status === "IN_TRANSIT").slice(0, 10)) tracks.set(r.offer.id, await loadTrack(r.offer.trips[0].id, s.orgId));
@@ -133,6 +143,15 @@ export default async function MyLoadsPage() {
             );
           })}
         </ul>
+      )}
+      {pages > 1 && (
+        <nav className="flex items-center justify-between text-sm" aria-label={t("catalog.pagination")}>
+          <span className="text-muted">{t("catalog.pageOf", { page, pages })}</span>
+          <div className="flex gap-2">
+            {page > 1 && <LinkButton variant="outline" size="sm" href={`/app/my-loads?page=${page - 1}`}>{t("catalog.previous")}</LinkButton>}
+            {page < pages && <LinkButton variant="outline" size="sm" href={`/app/my-loads?page=${page + 1}`}>{t("catalog.next")}</LinkButton>}
+          </div>
+        </nav>
       )}
     </div>
   );

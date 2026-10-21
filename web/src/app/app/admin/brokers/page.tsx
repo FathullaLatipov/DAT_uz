@@ -7,7 +7,7 @@ import { db } from "@/server/db";
 import { getI18n } from "@/i18n/server";
 import { AdminTabs } from "@/components/admin/admin-tabs";
 import { BrokerVerifyButton } from "@/components/admin/admin-row-actions";
-import { Badge, Card, DemoBadge, PageHeader } from "@/components/ui/primitives";
+import { Badge, Button, Card, DemoBadge, Input, LinkButton, PageHeader } from "@/components/ui/primitives";
 import { cn } from "@/lib/format";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -15,37 +15,51 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("av.brokersTitle") };
 }
 
-export default async function BrokersAdminPage({ searchParams }: { searchParams: Promise<{ q?: string; unverified?: string }> }) {
+const PAGE_SIZE = 50;
+
+export default async function BrokersAdminPage({ searchParams }: { searchParams: Promise<{ q?: string; unverified?: string; page?: string }> }) {
   const s = await requireSession();
   if (!can(s, "platform:admin")) redirect("/app");
-  const { q = "", unverified } = await searchParams;
+  const { q = "", unverified, page: pageParam } = await searchParams;
   const { t } = await getI18n();
   const query = q.trim();
-  const [pending, brokers] = await Promise.all([
+  const page = Math.max(1, Number(pageParam) || 1);
+  const where = {
+    ...(unverified ? { verified: false } : {}),
+    ...(query ? { OR: [{ name: { contains: query, mode: "insensitive" as const } }, { taxId: { contains: query } }] } : {}),
+  };
+  const [pending, brokers, total] = await Promise.all([
     db.verificationRequest.count({ where: { status: "PENDING" } }),
     db.broker.findMany({
-      where: {
-        ...(unverified ? { verified: false } : {}),
-        ...(query ? { OR: [{ name: { contains: query, mode: "insensitive" } }, { taxId: { contains: query } }] } : {}),
-      },
+      where,
       orderBy: [{ offers: { _count: "desc" } }],
-      take: 100,
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
       include: { _count: { select: { reviews: true } }, offers: { where: { status: "ACTIVE" }, select: { id: true }, take: 500 } },
     }),
+    db.broker.count({ where }),
   ]);
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pageHref = (p: number) => {
+    const sp = new URLSearchParams();
+    if (query) sp.set("q", query);
+    if (unverified) sp.set("unverified", unverified);
+    if (p > 1) sp.set("page", String(p));
+    return `/app/admin/brokers?${sp.toString()}`;
+  };
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-5">
       <PageHeader title={t("av.brokersTitle")} subtitle={t("av.brokersSub")} />
       <AdminTabs active="brokers" pending={pending} />
 
-      <form className="flex flex-wrap items-center gap-3" action="/app/admin/brokers">
-        <input name="q" defaultValue={query} placeholder={t("av.search")} className="h-9 w-72 max-w-full rounded-lg border border-border bg-surface px-3 text-sm outline-none focus:border-brand" />
-        <label className="flex items-center gap-2 text-sm">
+      <form className="flex flex-wrap items-end gap-3" action="/app/admin/brokers">
+        <Input name="q" defaultValue={query} placeholder={t("av.search")} className="w-72 max-w-full" />
+        <label className="flex h-9 items-center gap-2 text-sm">
           <input type="checkbox" name="unverified" value="1" defaultChecked={!!unverified} className="h-4 w-4 accent-[var(--brand)]" /> {t("av.onlyUnverified")}
         </label>
-        <button className="h-9 rounded-lg bg-brand px-4 text-sm font-medium text-brand-fg hover:brightness-110">OK</button>
-        {(query || unverified) && <Link href="/app/admin/brokers" className="text-sm text-muted hover:text-fg">×</Link>}
+        <Button type="submit">OK</Button>
+        {(query || unverified) && <LinkButton variant="ghost" size="sm" href="/app/admin/brokers">×</LinkButton>}
       </form>
 
       <Card className="overflow-x-auto">
@@ -75,6 +89,15 @@ export default async function BrokersAdminPage({ searchParams }: { searchParams:
           </tbody>
         </table>
       </Card>
+      {pages > 1 && (
+        <nav className="flex items-center justify-between text-sm" aria-label={t("catalog.pagination")}>
+          <span className="text-muted">{t("catalog.pageOf", { page, pages })}</span>
+          <div className="flex gap-2">
+            {page > 1 && <LinkButton variant="outline" size="sm" href={pageHref(page - 1)}>{t("catalog.previous")}</LinkButton>}
+            {page < pages && <LinkButton variant="outline" size="sm" href={pageHref(page + 1)}>{t("catalog.next")}</LinkButton>}
+          </div>
+        </nav>
+      )}
     </div>
   );
 }
