@@ -94,6 +94,18 @@ export default async function LoadsPage({ searchParams }: { searchParams: Promis
         </div>
       )}
       <div className="mb-3">
+        <nav className="mb-3 inline-flex rounded-lg border border-border bg-surface p-0.5 text-sm" aria-label={t("toolbar.routeType")}>
+          {([["", t("board.scopeAll")], ["domestic", t("board.scopeUz")], ["international", t("board.scopeIntl")]] as const).map(([k, text]) => {
+            const q = filtersToParams({ ...filters, scope: (k || undefined) as typeof filters.scope });
+            if (view !== "list") q.set("view", view);
+            const on = (filters.scope ?? "") === k;
+            return (
+              <Link key={k} href={`/app/loads?${q.toString()}`} aria-current={on ? "page" : undefined} className={cn("rounded-md px-3 py-1.5 font-medium transition-colors", on ? "bg-brand text-white" : "text-muted hover:text-fg")}>
+                {text}
+              </Link>
+            );
+          })}
+        </nav>
         <SearchToolbar key={filtersToParams(filters).toString()} trucks={trucks.map((x) => ({ id: x.id, name: `${x.code} · ${(x.capacityKg / 1000).toFixed(0)} ${t("units.tonnes")} ${label(x.bodyType).toLowerCase()}` }))} sources={sources} brokers={brokers} />
       </div>
       <div className="flex flex-col items-start gap-3 lg:flex-row lg:gap-5">

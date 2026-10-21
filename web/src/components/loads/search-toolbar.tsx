@@ -20,6 +20,7 @@ const KEYS = [
 const SCOPES = [
   ["", "any"],
   ["domestic", "scopeDomestic"],
+  ["international", "scopeInternational"],
   ["export", "scopeExport"],
   ["import", "scopeImport"],
   ["transit", "scopeTransit"],

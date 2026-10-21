@@ -26,6 +26,8 @@ const schema = z
     contactPhone: z.string().trim().regex(/^\+?[\d\s()-]{7,20}$/, "Enter a valid phone number"),
     contactEmail: z.union([z.literal(""), z.string().trim().email("Enter a valid email address").max(120)]).optional(),
     requirements: z.string().trim().max(300).optional(),
+    // What the poster chose: within Uzbekistan, or across a border. Optional so older clients keep working.
+    haul: z.enum(["DOMESTIC", "INTERNATIONAL"]).optional(),
     cargoLengthM: z.number().min(0.1).max(30).optional().nullable(),
     cargoWidthM: z.number().min(0.1).max(10).optional().nullable(),
     cargoHeightM: z.number().min(0.1).max(10).optional().nullable(),
@@ -37,6 +39,10 @@ const schema = z
 export const POST = api(
   async ({ req, session, ip }) => {
     const b = schema.parse(await req.json());
+    const from = getCity(b.originCityId)?.country;
+    const to = getCity(b.destCityId)?.country;
+    if (b.haul === "DOMESTIC" && (from !== "UZ" || to !== "UZ")) throw new HttpError(400, "Both cities must be in Uzbekistan for a load within Uzbekistan.");
+    if (b.haul === "INTERNATIONAL" && from === to) throw new HttpError(400, "An international load needs cities in different countries.");
     const loading = new Date(b.loadingDate);
     if (Number.isNaN(loading.getTime()) || loading.getTime() < Date.now() - 86_400_000) throw new HttpError(400, "Loading date must be today or later.");
     const externalId = `${session.orgId}-${Date.now().toString(36)}`;

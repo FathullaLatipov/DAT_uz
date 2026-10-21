@@ -12,7 +12,8 @@ export const loadFiltersSchema = z.object({
   // Domestic/export/import within Uzbekistan's borders, or neither side in UZ ("transit") —
   // same classification already used by the public catalog's Direction cards, now also
   // selectable as a board filter.
-  scope: z.enum(["domestic", "export", "import", "transit"]).optional(),
+  // "international" = any load that crosses a border (export, import or transit together).
+  scope: z.enum(["domestic", "international", "export", "import", "transit"]).optional(),
   loadingFrom: z.string().optional(), // YYYY-MM-DD
   loadingTo: z.string().optional(),
   unloadingTo: z.string().optional(),
