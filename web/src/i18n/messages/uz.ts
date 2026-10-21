@@ -1278,6 +1278,11 @@ export const uz: Messages = {
 
   st: {
     subtitle: "{org} · sizning rolingiz: {role}",
+    tabs: { prefs: "Afzalliklar", company: "Kompaniya", notifications: "Bildirishnomalar", appearance: "Ko'rinish", team: "Jamoa va tarif" },
+    appearanceTitle: "Ko'rinish va til",
+    appearanceSub: "Faqat shu qurilmada qo'llanadi.",
+    language: "Til",
+    theme: "Mavzu",
     prefTitle: "Tanlash afzalliklari",
     prefSub: "Ular avtoparkdagi har bir mashina uchun AI saralashini belgilaydi.",
     tgText: "Telegram'da yangi foydali yuklar, AI tavsiyalari, saqlangan qidiruvlar xabarlari va mashinalar holatini tezkor amallar bilan oling.",

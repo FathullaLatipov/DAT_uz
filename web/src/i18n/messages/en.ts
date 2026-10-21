@@ -1292,6 +1292,11 @@ export const en = {
 
   st: {
     subtitle: "{org} · your role: {role}",
+    tabs: { prefs: "Preferences", company: "Company", notifications: "Notifications", appearance: "Appearance", team: "Team & plan" },
+    appearanceTitle: "Appearance & language",
+    appearanceSub: "Applies to this device only.",
+    language: "Language",
+    theme: "Theme",
     prefTitle: "Matching preferences",
     prefSub: "These power the AI ranking for every truck in your fleet.",
     tgText: "Get new high-value loads, AI recommendations, saved-search alerts and truck status in Telegram — with quick actions.",
