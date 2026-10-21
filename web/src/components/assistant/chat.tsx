@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { ArrowUp, ChevronDown, Loader2, RotateCcw, Sparkles } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ArrowUp, ChevronDown, ListChecks, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import { apiCall } from "@/lib/client";
 import { useI18n } from "@/i18n/client";
 import { cn } from "@/lib/format";
@@ -24,8 +24,23 @@ export function Chat({ initial, conversationId: initialConv, provider }: { initi
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const end = useRef<HTMLDivElement>(null);
+  const container = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<string | undefined>(undefined);
 
   useEffect(() => end.current?.scrollIntoView({ behavior: "smooth", block: "end" }), [messages, pending]);
+
+  // The app shell's chrome (topbar, optional demo banner, page padding) varies and isn't a
+  // fixed number of rems, so measure how far down the card actually sits instead of guessing.
+  useLayoutEffect(() => {
+    function measure() {
+      if (!container.current) return;
+      const top = container.current.getBoundingClientRect().top;
+      setHeight(`calc(100dvh - ${top}px - 1rem)`);
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
 
   async function send(text: string) {
     if (!text.trim() || pending) return;
@@ -50,7 +65,7 @@ export function Chat({ initial, conversationId: initialConv, provider }: { initi
   }
 
   return (
-    <div className="flex h-[calc(100dvh-11rem)] min-h-[480px] flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-card lg:h-[calc(100dvh-8.5rem)]">
+    <div ref={container} style={height ? { height } : undefined} className="flex min-h-[480px] flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-card">
       <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
         <div className="flex items-center gap-2 text-sm">
           <Sparkles className="h-4 w-4 text-brand" />
@@ -129,6 +144,12 @@ function AssistantBubble({ m }: { m: ChatMessage }) {
   const d = m.data;
   return (
     <div className="max-w-[92%] animate-fade-up">
+      {d?.provider && (
+        <div className="mb-1 flex items-center gap-1 text-[11px] text-subtle" title={t("as.badgeTitle")}>
+          {d.provider === "anthropic" ? <Sparkles className="h-3 w-3" /> : <ListChecks className="h-3 w-3" />}
+          {d.provider === "anthropic" ? t("as.badgeLlm") : t("as.badgeRules")}
+        </div>
+      )}
       <div className="whitespace-pre-line rounded-2xl rounded-bl-md bg-surface-2 px-3.5 py-2.5 text-sm">{m.content}</div>
       {d?.cards && d.cards.length > 0 && (
         <div className="mt-2 grid gap-2 sm:grid-cols-3">
