@@ -858,6 +858,7 @@ export const ru: Messages = {
     loadRequirements: "Требования к грузу",
     moreFilters: "Ещё фильтры",
     resetAll: "Сбросить всё",
+    unapplied: "Есть неприменённые изменения",
     footnote: "Фильтры меняют всю биржу — нажмите «Найти», чтобы применить",
     loadingFrom: "Погрузка с",
     loadingTo: "Погрузка по",

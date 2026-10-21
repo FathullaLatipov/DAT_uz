@@ -838,6 +838,7 @@ export const en = {
     loadRequirements: "Load requirements",
     moreFilters: "More filters",
     resetAll: "Reset all",
+    unapplied: "Unapplied changes",
     footnote: "Filters update the whole board — hit Search to apply",
     loadingFrom: "Loading from",
     loadingTo: "Loading to",

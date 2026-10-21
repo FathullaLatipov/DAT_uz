@@ -827,6 +827,7 @@ export const uz: Messages = {
     loadRequirements: "Yuk talablari",
     moreFilters: "Yana filtrlar",
     resetAll: "Hammasini tozalash",
+    unapplied: "Qo'llanilmagan o'zgarishlar bor",
     footnote: "Filtrlar butun birjani yangilaydi — qo'llash uchun «Qidirish» tugmasini bosing",
     loadingFrom: "Yuklash (dan)",
     loadingTo: "Yuklash (gacha)",
