@@ -55,7 +55,7 @@ export default async function FleetPage() {
             <Stat label={tr("fleet.profit30")} value={usd(summary.stats30d.profit)} />
           </Card>
 
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+          <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
             {/* Desktop table */}
             <Card className="hidden overflow-hidden md:block">
               <div className="overflow-x-auto">
@@ -81,7 +81,7 @@ export default async function FleetPage() {
                               <Link href={`/app/fleet/${t.id}`} className="font-semibold after:absolute after:inset-0">{t.code}</Link>
                               {t.adr && <Badge tone="warn">ADR</Badge>}
                             </div>
-                            <div className="text-xs text-muted">{(t.capacityKg / 1000).toFixed(0)} {tr("units.tonnes")} · {label(t.bodyType)} · {t.volumeM3} {tr("units.cubicMetres")}</div>
+                            <div className="text-xs text-muted">{(t.capacityKg / 1000).toFixed(0)} {tr("units.tonnes")} · {label(t.bodyType)} · <span className="whitespace-nowrap">{t.volumeM3} {tr("units.cubicMetres")}</span></div>
                             {t.cargoLengthM == null && t.cargoHeightM == null && canWrite && <div className="text-xs text-warn">{tr("pass.missing")}</div>}
                           </td>
                           <td className="px-3 py-3">{t.driver?.name ?? <span className="text-subtle">{tr("fleet.unassigned")}</span>}</td>

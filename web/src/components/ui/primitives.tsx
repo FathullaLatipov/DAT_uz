@@ -116,8 +116,8 @@ export function Trend({ value, suffix = "%", invert }: { value: number | null; s
   const good = invert ? value < 0 : value > 0;
   return (
     <span className={cn("num font-medium", value === 0 ? "text-muted" : good ? "text-pos" : "text-neg")}>
-      {value > 0 ? "▲" : value < 0 ? "▼" : "•"} {Math.abs(value).toFixed(1)}
-      {suffix}
+      {value > 0 ? "▲" : value < 0 ? "▼" : "•"}{" "}
+      {suffix === "%" && Math.abs(value) >= 1000 ? <span title={`${Math.abs(value).toFixed(0)}%`}>&gt;999%</span> : <>{Math.abs(value).toFixed(1)}{suffix}</>}
     </span>
   );
 }

@@ -144,7 +144,7 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
 
   return (
     <div className="animate-fade-up border-t border-border bg-surface-2/40 p-4 sm:p-5" role="region" aria-label={t("panel.detailsAria")}>
-      <div className="grid items-start gap-5 lg:grid-cols-2 xl:grid-cols-3">
+      <div className="grid items-start gap-5 lg:grid-cols-2 xl:grid-cols-[repeat(3,minmax(0,1fr))]">
         {/* Block A — route & trip */}
         <div className="min-w-0 space-y-3">
           <div className="h-44 overflow-hidden rounded-lg border border-border">

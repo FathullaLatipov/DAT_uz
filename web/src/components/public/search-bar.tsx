@@ -35,6 +35,8 @@ export async function SearchBar({ initial, className }: { initial?: Record<strin
           ))}
         </select>
       </label>
+      {/* On a phone the body type and the date share a row, so the form takes less of the first screen. */}
+      <div className="grid grid-cols-2 gap-2 sm:contents">
       <label className="block">
         <span className="sr-only">{t("search.bodyType")}</span>
         <select name="body" defaultValue={initial?.body ?? ""} className={sel}>
@@ -46,6 +48,7 @@ export async function SearchBar({ initial, className }: { initial?: Record<strin
         <span className="sr-only">{t("search.loadingFrom")}</span>
         <input type="date" name="loadingFrom" defaultValue={initial?.loadingFrom ?? ""} className={sel} aria-label={t("search.loadingFrom")} />
       </label>
+      </div>
       <button type="submit" className="flex h-11 items-center justify-center gap-2 rounded-lg bg-brand px-6 text-sm font-medium text-brand-fg transition hover:brightness-110 sm:col-span-2 lg:col-span-1">
         <Search className="h-4 w-4" /> {t("search.find")}
       </button>

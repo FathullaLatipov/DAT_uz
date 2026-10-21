@@ -92,7 +92,7 @@ export function Sources({ sources, demo }: { sources: { id: string; name: string
           <Layers className="h-3 w-3" /> {tn("parts.sources", sources.length)}
         </Badge>
       )}
-      {sources.length === 1 && <Badge>{sources[0].name}</Badge>}
+      {sources.length === 1 && <Badge className="max-w-[9.5rem] truncate" title={sources[0].name}>{sources[0].name}</Badge>}
       {demo && <DemoBadge />}
     </span>
   );
