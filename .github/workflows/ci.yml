@@ -3,10 +3,9 @@ name: CI
 # Runs on every pull request that touches the app, and is reused by the deploy workflow so a
 # merge to master is only deployed if the same checks pass.
 on:
+  # No path filter: the "check" status is required by the master ruleset, so a PR that touches only files outside
+  # web/ (docs, CLAUDE.md) would otherwise wait forever for a status that never comes and could not be merged.
   pull_request:
-    paths:
-      - "web/**"
-      - ".github/workflows/**"
   workflow_call: {}
 
 jobs:
