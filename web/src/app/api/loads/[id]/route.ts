@@ -12,7 +12,8 @@ import { brokerReliability } from "@/server/services/broker";
 import { findBackhaul } from "@/server/services/backhaul";
 import { estimateTollsUsd } from "@/server/services/profitability";
 import { legsFor } from "@/server/services/routing";
-import { borderSummary } from "@/server/domain/borders";
+import { borderSummary, typicalBorderHours } from "@/server/domain/borders";
+import { tripTime } from "@/server/domain/hos";
 import { distancesFor } from "@/server/domain/route-profile";
 import { estimateTransitDays, freshGps } from "@/server/domain/geo";
 import { senderOf, uniqueContacts } from "@/server/services/contacts";
@@ -41,12 +42,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       });
       if (!offer) throw new HttpError(404, "Load not found.");
       const lane = await laneStats(offer.originCityId, offer.destCityId);
+      const borders = borderSummary(offer.originCountry, offer.destCountry);
       return NextResponse.json({
         authenticated: false,
         offer: offerDto(offer),
         broker: offer.broker ? { id: offer.broker.id, name: offer.broker.name, verified: offer.broker.verified, isDemo: offer.broker.isDemo, countryCode: offer.broker.countryCode, taxId: offer.broker.taxId } : null,
         brokerReliability: null,
         lane,
+        borders,
+        tripTime: tripTime({ km: offer.distanceKm, crew: 1, borderH: typicalBorderHours(offer.originCountry, offer.destCountry) }),
         listings: offer.listings.slice(0, 25).map((l) => listingDto(l, false)),
         listingsTotal: offer.listings.length,
         contacts: [],
@@ -70,6 +74,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // Distances for the profit maths from the truck's road route, when the service answers within a moment.
     const legs = t && m?.eligible ? await legsFor(t, offer, { waitMs: 3000 }) : null;
     const dist = distancesFor(legs?.loaded, legs?.empty, { loadedKm: Math.round(offer.distanceKm), deadheadKm: m?.deadheadKm ?? 0 });
+    const borders = borderSummary(offer.originCountry, offer.destCountry);
+    const tt = tripTime({ km: offer.distanceKm, drivingMinutes: legs?.loaded?.ok ? legs.loaded.minutes : null, crew: t?.crew ?? 1, borderH: typicalBorderHours(offer.originCountry, offer.destCountry) });
 
     const [broker, lane, backhaul] = await Promise.all([
       offer.brokerId ? brokerReliability(offer.brokerId, await getI18n()) : null,
@@ -85,6 +91,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       broker: offer.broker ? { id: offer.broker.id, name: offer.broker.name, verified: offer.broker.verified, isDemo: offer.broker.isDemo, countryCode: offer.broker.countryCode, taxId: offer.broker.taxId } : null,
       brokerReliability: broker,
       lane,
+      borders,
+      tripTime: tt,
       // A load reposted hundreds of times has hundreds of listings: show the best 25 and the real total,
       // and one row per distinct contact.
       listings: offer.listings.slice(0, 25).map((l) => listingDto(l, !l.source.isDemo)),
@@ -120,7 +128,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
               fuelPriceUsd: t.fuelPriceUsd,
               driverCostPerKm: t.driverCostPerKm,
               maintenancePerKm: t.maintenancePerKm,
-              tollsUsd: estimateTollsUsd(dist.loadedKm, offer.originCountry, offer.destCountry, borderSummary(offer.originCountry, offer.destCountry).feeUsd),
+              tollsUsd: estimateTollsUsd(dist.loadedKm, offer.originCountry, offer.destCountry, borders.feeUsd),
               otherPerTripUsd: t.otherPerTripUsd,
             },
           }

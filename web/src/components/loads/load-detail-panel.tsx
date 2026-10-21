@@ -24,6 +24,8 @@ import { useI18n } from "@/i18n/client";
 import type { LaneStats } from "@/server/services/market";
 import type { BrokerReliability } from "@/server/services/broker";
 import type { ScoreComponent } from "@/server/services/matching";
+import type { BorderSummary } from "@/server/domain/borders";
+import type { TripTime } from "@/server/domain/hos";
 import type { CalcInput } from "./profit-calculator";
 import { cn } from "@/lib/format";
 import { Badge, Bar, DemoBadge, ScoreBadge, Select, Skeleton, Trend } from "../ui/primitives";
@@ -33,6 +35,7 @@ import type { Sender } from "@/lib/enquiry";
 import type { Contact } from "@/server/services/contacts";
 import { RouteMap } from "./route-map";
 import { RouteCard } from "./route-card";
+import { BorderCard } from "./border-card";
 import { ProfitCalculator } from "./profit-calculator";
 import { AssignPanel } from "./assign-panel";
 
@@ -49,6 +52,8 @@ export interface LoadDetailResponse {
   broker: { id: string; name: string; verified: boolean; isDemo: boolean; countryCode: string | null; taxId: string | null } | null;
   brokerReliability: BrokerReliability | null;
   lane: LaneStats;
+  borders: BorderSummary;
+  tripTime: TripTime;
   listings: { id: string; sourceId: string; sourceName: string; sourceUrl: string | null; lastSeenAt: string; rate: number; currency: string; externalId: string; contactName: string | null; contactPhone: string | null; contactEmail: string | null }[];
   listingsTotal: number;
   contacts: Contact[];
@@ -162,6 +167,20 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
           {(o.requirements.length > 0 || cargoFacts(o, t).length > 0) && (
             <p className="text-xs text-muted"><span className="font-medium text-fg">{t("panel.requirements")}</span> {[...cargoFacts(o, t), ...o.requirements].join(", ")}</p>
           )}
+          {data.tripTime.elapsedH > 0 && (
+            <div className="rounded-lg border border-border bg-surface p-2.5 text-xs">
+              <div className="font-medium text-fg">{t("hos.split")}</div>
+              <div className="mt-0.5 text-muted">
+                {t("hos.splitValue", {
+                  driving: t("bd.hours", { n: Math.round(data.tripTime.drivingH) }),
+                  rest: t("bd.hours", { n: Math.round(data.tripTime.restH) }),
+                  border: t("bd.hours", { n: Math.round(data.tripTime.borderH) }),
+                })}
+              </div>
+              <p className="mt-0.5 text-subtle">{t("hos.note")}</p>
+            </div>
+          )}
+          {data.borders.crossings.length > 0 && <BorderCard summary={data.borders} compact />}
           <p className="text-xs text-subtle">
             {t("panel.listingLine", { listings: tn("panel.listings", data.listingsTotal ?? listings.length), id: listings[0]?.externalId ?? o.id.slice(0, 8), ago: ago(lastSeen) })}
           </p>
