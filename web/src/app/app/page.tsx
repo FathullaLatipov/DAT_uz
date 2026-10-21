@@ -11,7 +11,7 @@ import { marketSummary } from "@/server/services/market";
 import { fleetBackhaul } from "@/server/services/backhaul";
 import { checkSavedSearches } from "@/server/services/alerts";
 import { jobsEnabled } from "@/server/jobs/config";
-import { Card, CardHeader, DemoBadge, EmptyState, LinkButton, Stat, Trend } from "@/components/ui/primitives";
+import { Card, CardHeader, DemoBadge, EmptyState, LinkButton, PageHeader, Stat, Trend } from "@/components/ui/primitives";
 import { RecRow, TopMatch } from "@/components/loads/recommendation";
 import { RouteLabel } from "@/components/loads/parts";
 import { getI18n } from "@/i18n/server";
@@ -75,17 +75,11 @@ export default async function Dashboard() {
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-5">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-            {greeting}
-          </h1>
-          <p className="text-sm text-muted">{t("dash.timeLine", { when: dateTime(new Date()) })}</p>
-        </div>
-        <LinkButton href="/app/loads" variant="outline" size="sm">
-          {t("saved.openBoard")} <ArrowRight className="h-4 w-4" />
-        </LinkButton>
-      </div>
+      <PageHeader
+        title={greeting}
+        subtitle={t("dash.timeLine", { when: dateTime(new Date()) })}
+        actions={<LinkButton href="/app/loads" variant="outline" size="sm">{t("saved.openBoard")} <ArrowRight className="h-4 w-4" /></LinkButton>}
+      />
 
       {/* Snapshot */}
       <div className="grid gap-4 md:grid-cols-3">
@@ -221,31 +215,18 @@ async function BrokerDashboard({ orgId, orgName, userName }: { orgId: string; or
   const greeting = hour < 12 ? t("dash.morning", { name: first }) : hour < 18 ? t("dash.afternoon", { name: first }) : t("dash.evening", { name: first });
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{greeting}</h1>
-          <p className="text-sm text-muted">{t("dash.brokerTimeLine", { when: dateTime(new Date()), org: orgName })}</p>
-        </div>
-        <LinkButton href="/app/post">
-          <PackagePlus className="h-4 w-4" /> {t("nav.postLoad")}
-        </LinkButton>
-      </div>
+    <div className="mx-auto max-w-[1400px] space-y-5">
+      <PageHeader
+        title={greeting}
+        subtitle={t("dash.brokerTimeLine", { when: dateTime(new Date()), org: orgName })}
+        actions={<LinkButton href="/app/post"><PackagePlus className="h-4 w-4" /> {t("nav.postLoad")}</LinkButton>}
+      />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card className="p-4 sm:p-5">
-          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">{t("dash.activeLoads")}</h2>
-          <div className="num mt-2 text-3xl font-semibold tracking-tight">{active}</div>
-        </Card>
-        <Card className="p-4 sm:p-5">
-          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">{t("post.covered")}</h2>
-          <div className="num mt-2 text-3xl font-semibold tracking-tight">{booked}</div>
-        </Card>
-        <Card className="p-4 sm:p-5">
-          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">{t("dash.totalPosted")}</h2>
-          <div className="num mt-2 text-3xl font-semibold tracking-tight">{listings.length}</div>
-        </Card>
-      </div>
+      <Card className="grid grid-cols-3 gap-4 p-4 sm:p-5">
+        <Stat label={t("dash.activeLoads")} value={active} tone="pos" />
+        <Stat label={t("post.covered")} value={booked} tone="brand" />
+        <Stat label={t("dash.totalPosted")} value={listings.length} />
+      </Card>
 
       <Card className="overflow-hidden">
         <CardHeader title={t("dash.recentLoads")} action={<Link href="/app/my-loads" className="text-xs text-brand hover:underline">{t("dash.manage")}</Link>} />
