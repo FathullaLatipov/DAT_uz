@@ -31,20 +31,20 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           # The server's SSH can be slow to answer for a moment: scan with a longer timeout and try a few times,
           # instead of failing the whole deploy on one missed answer (ssh-keyscan exits 1 when it gets nothing).
-          for attempt in 1 2 3 4 5; do
-            if ssh-keyscan -T 20 -H "${{ secrets.KARVON_DEPLOY_HOST }}" > ~/.ssh/scanned_hosts 2>/dev/null && [ -s ~/.ssh/scanned_hosts ]; then
+          for attempt in 1 2 3 4 5 6 7 8; do
+            if ssh-keyscan -T 30 -H "${{ secrets.KARVON_DEPLOY_HOST }}" > ~/.ssh/scanned_hosts 2>/dev/null && [ -s ~/.ssh/scanned_hosts ]; then
               cat ~/.ssh/scanned_hosts >> ~/.ssh/known_hosts
               exit 0
             fi
             echo "ssh-keyscan attempt $attempt got no answer, retrying"
-            sleep 10
+            sleep 15
           done
-          echo "the server did not answer on SSH after 5 attempts"
+          echo "the server did not answer on SSH after 8 attempts"
           exit 1
 
       - name: Pull, sync, build and restart karvon-web only
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "${{ secrets.KARVON_DEPLOY_USER }}@${{ secrets.KARVON_DEPLOY_HOST }}" '
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o ConnectTimeout=60 -o ServerAliveInterval=30 -o ServerAliveCountMax=20 "${{ secrets.KARVON_DEPLOY_USER }}@${{ secrets.KARVON_DEPLOY_HOST }}" '
             set -euo pipefail
             cd /var/www/karvon-src
             git fetch origin master
