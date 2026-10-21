@@ -3,6 +3,7 @@ import { cache } from "react";
 import { db, parseJson } from "../db";
 import { CITIES, getCity, haversineKm } from "../domain/geo";
 import { brokerScores } from "./broker";
+import { fuelTable } from "./fuel";
 import { laneBenchmarks, outboundCounts } from "./market";
 import { bestTruckFor, scoreMatch, type MatchContext, type MatchOffer, type MatchResult, type MatchTruck } from "./matching";
 import type { LoadFilters } from "./filters";
@@ -24,13 +25,14 @@ async function requestI18n(): Promise<I18n | undefined> {
 }
 
 export async function getMatchContext(orgId: string): Promise<MatchContext> {
-  const [pref, routes, benchmarks, brokers, outbound, i18n] = await Promise.all([
+  const [pref, routes, benchmarks, brokers, outbound, i18n, fuel] = await Promise.all([
     db.orgPreference.findUnique({ where: { orgId } }),
     db.preferredRoute.findMany({ where: { orgId } }),
     laneBenchmarks(),
     brokerScores(),
     outboundCounts(),
     requestI18n(),
+    fuelTable(),
   ]);
   return {
     prefs: {
@@ -44,6 +46,7 @@ export async function getMatchContext(orgId: string): Promise<MatchContext> {
     benchmarks,
     brokerScore: (id) => (id ? (brokers.get(id)?.score ?? null) : null),
     outbound,
+    fuel,
     i18n,
   };
 }

@@ -1852,6 +1852,19 @@ export const en = {
     note: "Planned with driver-hours rules: up to 9 h of driving a day with breaks and a night's rest (a team of two drives around the clock).",
   },
 
+  fuel: {
+    basis: "Diesel price is taken from the countries of the route (set by the platform).",
+    title: "Diesel prices",
+    subtitle: "USD per litre by country. The profit estimate prices a trip's fuel from the countries it passes through.",
+    country: "Country",
+    price: "USD / litre",
+    updated: "Updated",
+    save: "Save",
+    saved: "Saved",
+    byCountry: "Use the diesel price of the route's countries",
+    byCountryHint: "The platform's price table is used instead of the fixed price below.",
+  },
+
   enums: {
     CURTAINSIDER: "Curtainsider",
     BOX: "Box / Van",

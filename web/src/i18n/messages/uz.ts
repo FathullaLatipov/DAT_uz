@@ -1838,6 +1838,19 @@ export const uz: Messages = {
     note: "Mehnat va dam olish qoidalari bo'yicha hisoblangan: sutkada 9 soatgacha haydash, tanaffuslar va tungi dam (ikki haydovchi tinimsiz yuradi).",
   },
 
+  fuel: {
+    basis: "Dizel narxi yo'nalish davlatlari bo'yicha olingan (platforma belgilaydi).",
+    title: "Dizel narxlari",
+    subtitle: "Davlatlar bo'yicha litriga dollar. Foyda hisobi reys yoqilg'isini u o'tadigan davlatlar bo'yicha baholaydi.",
+    country: "Davlat",
+    price: "USD / litr",
+    updated: "Yangilangan",
+    save: "Saqlash",
+    saved: "Saqlandi",
+    byCountry: "Dizel narxini yo'nalish davlatlari bo'yicha olish",
+    byCountryHint: "Quyidagi qat'iy narx o'rniga platformaning narxlar jadvali ishlatiladi.",
+  },
+
   enums: {
     CURTAINSIDER: "Tentli",
     BOX: "Furgon",

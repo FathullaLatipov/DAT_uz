@@ -55,7 +55,8 @@ Delivered in three PRs: **A** (1.1–1.3, data and fit), **B** (1.4–1.5, routi
 
 ### 2.2 Driver hours and rest (done)
 `domain/hos.ts`: one driver drives up to 9 h a day with a 45 min break per 4.5 h and a night's rest (planned as a 24 h day); a team of two drives around the clock (18 h of driving per 24 h, plus handover). The truck has a *Drivers on board* setting (1 or 2) in the passport block. Trip time = driving (from the cached road route's duration when there is one, else distance / 61 km/h) + rest + typical border time. Shown on the load page as *Of which: driving · rest and breaks · at borders*; used for the ETA when a load is taken or a trip is started. Not modelled: the two longer driving days a week, loading/unloading hours, national holidays.
-### 2.3 Diesel price by country (next)
+### 2.3 Diesel price by country (done)
+`FuelPrice` table (USD/L per country, admin-edited in Admin → *Diesel prices*, audit-logged) with starting values that are planning estimates. `domain/fuel.ts` prices a trip's fuel: the empty drive at the truck's country, the loaded drive at the average of the origin and destination countries, weighted by km. Used by the match score's profit and by the load calculator (caption says so); a truck can opt out (*Use the diesel price of the route's countries* off) and keep its own fixed price. Not yet: trip tracking's fuel cost still uses the truck's own price; no automatic price feed.
 
 ## Later stages (backlog, in order)
 

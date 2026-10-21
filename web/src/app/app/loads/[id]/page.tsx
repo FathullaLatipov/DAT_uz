@@ -9,7 +9,7 @@ import { brokerReliability } from "@/server/services/broker";
 import { laneStats } from "@/server/services/market";
 import { findBackhaul } from "@/server/services/backhaul";
 import { estimateTollsUsd } from "@/server/services/profitability";
-import { estimateTransitDays, freshGps } from "@/server/domain/geo";
+import { estimateTransitDays, freshGps, getCity } from "@/server/domain/geo";
 import { MIN_SAMPLES } from "@/server/services/market";
 import { getI18n } from "@/i18n/server";
 import type { I18n } from "@/i18n/create";
@@ -21,6 +21,8 @@ import { ProfitCalculator } from "@/components/loads/profit-calculator";
 import { AssignPanel } from "@/components/loads/assign-panel";
 import { RouteMap } from "@/components/loads/route-map";
 import { RouteCard } from "@/components/loads/route-card";
+import { fuelTable } from "@/server/services/fuel";
+import { effectiveFuelPrice } from "@/server/domain/fuel";
 import { BorderCard } from "@/components/loads/border-card";
 import { borderSummary, transitDaysWithBorders, typicalBorderHours } from "@/server/domain/borders";
 import { tripTime } from "@/server/domain/hos";
@@ -53,6 +55,7 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
   const legs = t && m?.eligible ? await legsFor(t, o, { waitMs: 3000 }) : null;
   const borders = borderSummary(o.originCountry, o.destCountry);
   const tt = tripTime({ km: o.distanceKm, drivingMinutes: legs?.loaded?.ok ? legs.loaded.minutes : null, crew: t?.crew ?? 1, borderH: typicalBorderHours(o.originCountry, o.destCountry) });
+  const fuel = await fuelTable();
   const dist = distancesFor(legs?.loaded, legs?.empty, { loadedKm: Math.round(o.distanceKm), deadheadKm: m?.deadheadKm ?? 0 });
   const contacts = uniqueContacts(o.listings);
   const sender = contacts.some((c) => c.email) ? await senderOf(s.userId, s.orgId) : null;
@@ -171,7 +174,8 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
                   deadheadKm: Math.round(dist.deadheadKm),
                   routed: dist.routed,
                   fuelLPer100km: t?.fuelLPer100km ?? 32,
-                  fuelPriceUsd: t?.fuelPriceUsd ?? 0.95,
+                  fuelPriceUsd: !t || t.fuelByCountry !== false ? effectiveFuelPrice({ truckCountry: t ? getCity(t.currentCityId)?.country : undefined, originCountry: o.originCountry, destCountry: o.destCountry, deadheadKm: dist.deadheadKm, loadedKm: dist.loadedKm, table: fuel, fallback: t?.fuelPriceUsd ?? 0.95 }) : t.fuelPriceUsd,
+                  fuelByCountry: !t || t.fuelByCountry !== false,
                   driverCostPerKm: t?.driverCostPerKm ?? 0.22,
                   maintenancePerKm: t?.maintenancePerKm ?? 0.08,
                   tollsUsd: estimateTollsUsd(dist.loadedKm, o.originCountry, o.destCountry, borders.feeUsd),
