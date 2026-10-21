@@ -883,6 +883,8 @@ export const ru: Messages = {
     verifiedOnly: "Только проверенные грузы",
     publishedOnly: "Только с указанной ставкой",
     excludesNegotiable: "(без договорных)",
+    includeStale: "Показывать возможно устаревшие грузы",
+    includeStaleHint: "источник не подтверждал 6+ часов",
   },
 
   board: {

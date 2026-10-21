@@ -70,6 +70,8 @@ from telethon.errors import (
 )
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import closure_tracking as ct  # noqa: E402 - needs HERE on the path first
 # Lets a second (third, ...) instance run from the same folder against a different account:
 #   $env:ENV_FILE = ".env.2"; python listener.py
 load_dotenv(HERE / os.environ.get("ENV_FILE", ".env"))
@@ -124,6 +126,14 @@ MAX_MESSAGES_PER_POLL = int(os.environ.get("MAX_MESSAGES_PER_POLL", "200"))
 # blocking on it (mirrors how joining handled it, just with a much lower bar in practice).
 LONG_FLOOD_WAIT_S = 600
 
+# Noticing that an ad is gone (off by default; set TRACK_CLOSURES=1 in .env to turn it on). For every ad Karvon accepted,
+# the listener remembers its message id for TRACK_HOURS and, at most every RECHECK_MIN minutes per group, asks Telegram
+# whether it was deleted or edited; replies like "взяли" under a tracked ad are noticed on the normal poll. Karvon decides
+# from the text whether it really means "taken" and takes the load off the board.
+TRACK_CLOSURES = os.environ.get("TRACK_CLOSURES", "0") == "1"
+TRACK_HOURS = float(os.environ.get("TRACK_HOURS", "48"))
+RECHECK_MIN = float(os.environ.get("RECHECK_MIN", "20"))
+
 MIN_LEN = 8
 MAX_LEN = 4000
 
@@ -154,8 +164,10 @@ def load_state() -> dict:
         s = json.loads(STATE_FILE.read_text(encoding="utf-8"))
         s.setdefault("cursor", {})
         s.setdefault("unreadable", {})
+        s.setdefault("tracked", {})
+        s.setdefault("checked", {})
         return s
-    return {"cursor": {}, "unreadable": {}}
+    return {"cursor": {}, "unreadable": {}, "tracked": {}, "checked": {}}
 
 
 def save_state(state: dict) -> None:
@@ -184,7 +196,8 @@ class Forwarder:
         if self.session:
             await self.session.close()
 
-    async def send(self, group: GroupRow, message_id: int, text: str, posted_at_iso: str) -> None:
+    async def send(self, group: GroupRow, message_id: int, text: str, posted_at_iso: str) -> bool:
+        """True when Karvon accepted the message as a freight ad (it then has a listing that can later be closed)."""
         payload = {"groupUsername": group.username, "groupName": group.name, "groupMembers": group.members, "messageId": message_id, "text": text, "postedAt": posted_at_iso}
         try:
             assert self.session
@@ -194,14 +207,35 @@ class Forwarder:
                     self.failed += 1
                     body = await resp.text()
                     log.warning("ingest %s -> HTTP %s: %s", group.username, resp.status, body[:200])
-                    return
+                    return False
                 data = await resp.json()
                 if data.get("matched"):
                     self.matched += 1
                     log.info("+ %s #%s -> offer %s (%s)", group.username, message_id, data.get("offerId"), data.get("outcome"))
+                    return True
         except Exception as e:  # noqa: BLE001 - never let a network hiccup kill the poller
             self.failed += 1
             log.warning("ingest %s failed: %s", group.username, e)
+        return False
+
+    async def close(self, group: GroupRow, message_id: int, how: str, text: str | None = None) -> bool:
+        """Tells Karvon an ad is gone (how = deleted | edited | reply). True when it took a load off the board."""
+        payload = {"groupUsername": group.username, "messageId": message_id, "closure": how}
+        if text:
+            payload["text"] = text[:4000]
+        try:
+            assert self.session
+            async with self.session.post(INGEST_ENDPOINT, json=payload) as resp:
+                if resp.status != 200:
+                    log.warning("closure %s #%s -> HTTP %s", group.username, message_id, resp.status)
+                    return False
+                data = await resp.json()
+                if data.get("closed"):
+                    log.info("- %s #%s closed (%s) -> offer %s%s", group.username, message_id, how, data.get("offerId"), " expired" if data.get("offerExpired") else " (still listed elsewhere)")
+                return bool(data.get("closed"))
+        except Exception as e:  # noqa: BLE001 - never let a network hiccup kill the poller
+            log.warning("closure %s #%s failed: %s", group.username, message_id, e)
+            return False
 
 
 async def poll_group(client: TelegramClient, fwd: Forwarder, g: GroupRow, state: dict) -> bool | None:
@@ -256,13 +290,54 @@ async def poll_group(client: TelegramClient, fwd: Forwarder, g: GroupRow, state:
 
     for m in messages:
         text = m.message or ""
+        # Someone answering a tracked ad ("взяли", "занято") — checked before the ad filter: such a reply has no digits.
+        reply_to = getattr(m, "reply_to_msg_id", None)
+        if TRACK_CLOSURES and reply_to and ct.is_tracked(state["tracked"], key, reply_to) and 3 <= len(text) <= 400:
+            if await fwd.close(g, reply_to, "reply", text):
+                ct.untrack(state["tracked"], key, reply_to)
+            continue
         if not looks_like_ad(text):
             continue
-        await fwd.send(g, m.id, text, m.date.isoformat())
+        matched = await fwd.send(g, m.id, text, m.date.isoformat())
+        if TRACK_CLOSURES and matched:
+            edit = getattr(m, "edit_date", None)
+            ct.track(state["tracked"], key, m.id, m.date.timestamp(), edit.timestamp() if edit else 0.0, keep_hours=TRACK_HOURS)
         # A backfill can contain dozens of ad-like messages for one group — a tiny gap keeps
         # this from bursting the Karvon server with 20-30 requests in the same instant.
         await asyncio.sleep(0.15)
+    if TRACK_CLOSURES:
+        await recheck_tracked(client, fwd, g, entity, state, key)
     return None
+
+
+async def recheck_tracked(client: TelegramClient, fwd: Forwarder, g: GroupRow, entity, state: dict, key: str) -> None:
+    """Asks Telegram whether the ads we forwarded from this group are still there and unedited."""
+    ct.prune(state["tracked"], key, keep_hours=TRACK_HOURS)
+    ids = [int(i) for i in state["tracked"].get(key, {})]
+    if not ids or not ct.recheck_due(state["checked"], key, every_min=RECHECK_MIN):
+        return
+    state["checked"][key] = time.time()
+    try:
+        found = await client.get_messages(entity, ids=ids)
+    except FloodWaitError as e:
+        log.info("flood wait while re-checking @%s: %ss — will try again next pass", g.username, e.seconds)
+        return
+    except Exception as e:  # noqa: BLE001 - a failed re-check must never stop the poller
+        log.warning("couldn't re-check @%s: %s: %s", g.username, type(e).__name__, e)
+        return
+    for mid, msg in zip(ids, found):
+        entry = state["tracked"][key].get(str(mid))
+        if not entry:
+            continue
+        verdict, text = ct.classify(mid, msg, entry.get("e", 0.0))
+        if verdict == "deleted":
+            await fwd.close(g, mid, "deleted")
+            ct.untrack(state["tracked"], key, mid)
+        elif verdict == "edited":
+            entry["e"] = msg.edit_date.timestamp()
+            if await fwd.close(g, mid, "edited", text):
+                ct.untrack(state["tracked"], key, mid)
+        await asyncio.sleep(0.15)
 
 
 async def poll_loop(client: TelegramClient, groups: dict[str, GroupRow], state: dict, fwd: Forwarder) -> None:

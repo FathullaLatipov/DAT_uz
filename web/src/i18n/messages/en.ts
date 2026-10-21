@@ -863,6 +863,8 @@ export const en = {
     verifiedOnly: "Verified loads only",
     publishedOnly: "Published rate only",
     excludesNegotiable: "(excludes negotiable)",
+    includeStale: "Include possibly outdated loads",
+    includeStaleHint: "not confirmed by a source for 6+ hours",
   },
 
   board: {

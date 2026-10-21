@@ -185,3 +185,17 @@ it).
 - **`FloodWaitError` in the log, long one (logged as "pausing the whole pass")** — rare for
   reading (common for *joining*, which this script doesn't do). All polling pauses until the
   time in `state.json`'s `flood_wait_until` passes, then resumes on its own.
+
+## Taking taken loads off the board (optional, off by default)
+
+Set `TRACK_CLOSURES=1` in the instance's `.env` and restart it. For every ad Karvon accepts, the listener then remembers
+the message id for `TRACK_HOURS` (default 48) and:
+
+- on the normal poll, notices replies under a remembered ad ("взяли", "занято", "не актуально"…) and tells Karvon;
+- at most every `RECHECK_MIN` minutes (default 20) per group, asks Telegram whether the remembered ads were **deleted**
+  or **edited**, and tells Karvon.
+
+Karvon decides from the text whether it really means "taken" (questions such as "взяли?" and negations such as "ещё не
+взяли" do not count) and, if so, removes that listing; the load leaves the board when no other source still lists it.
+The extra Telegram traffic is one `get_messages` call per group with remembered ads, per `RECHECK_MIN`. Pure helpers are in
+`closure_tracking.py` (`python -m unittest test_closure_tracking`).

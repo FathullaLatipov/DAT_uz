@@ -510,6 +510,58 @@ st, pg = admin.page("/app/admin")
 check("the admin page lists the prices", st == 200 and ">Diesel prices<" in pg, f"{st}")
 admin.call("PATCH", "/api/admin/fuel", {"country": "UZ", "priceUsd": 0.95})
 
+print("\n== 26. A load that is gone from Telegram leaves the board")
+import random
+SECRET = os.environ.get("E2E_INGEST_SECRET")
+if not SECRET:
+    envf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".env")
+    try:
+        for line in open(envf, encoding="utf-8"):
+            if line.startswith("TELEGRAM_INGEST_SECRET="):
+                SECRET = line.split("=", 1)[1].strip().strip('"')
+    except OSError:
+        pass
+def ingest(body, secret=None):
+    o = curl(["-X", "POST", "-H", "content-type: application/json", "-H", f"x-ingest-secret: {secret or SECRET}", "-d", json.dumps(body), BASE + "/api/ingest/telegram"])
+    st, b = split(o)
+    try:
+        return st, json.loads(b)
+    except Exception:
+        return st, b
+if not SECRET:
+    print("   (skipped: no TELEGRAM_INGEST_SECRET available)")
+else:
+    day = (datetime.date.today() + datetime.timedelta(days=1)).strftime("%d.%m")
+    def make_ad(n):
+        mid = random.randint(10**8, 10**9 - 1)
+        text = f"Ташкент - Бухара, {17 + n}т тент, загрузка {day}, {1100 + int(RUN) % 700 + n}$, +99890{random.randint(1000000, 9999999)}"
+        st, d = ingest({"groupUsername": "e2e_test_group", "groupName": "E2E test group", "groupMembers": 10, "messageId": mid, "text": text, "postedAt": datetime.datetime.now(datetime.timezone.utc).isoformat()})
+        return mid, st, d
+    mid, st, d = make_ad(0)
+    check("a Telegram ad is ingested and becomes a load", st == 200 and isinstance(d, dict) and d.get("matched") and d.get("offerId"), f"{st} {d}")
+    TG = d.get("offerId") if isinstance(d, dict) else None
+    status_of = lambda oid: ((carrier.call("GET", f"/api/loads/{oid}")[1] or {}).get("offer") or {}).get("status")
+    check("it is active", status_of(TG) == "ACTIVE", f"{status_of(TG)}")
+    st, d = ingest({"groupUsername": "e2e_test_group", "messageId": mid, "closure": "reply", "text": "Взяли?"})
+    check("a question under the ad does not close it", st == 200 and d.get("closed") is False and status_of(TG) == "ACTIVE", f"{st} {d}")
+    st, d = ingest({"groupUsername": "e2e_test_group", "messageId": mid, "closure": "reply", "text": "ещё не взяли"})
+    check("a negation does not close it either", d.get("closed") is False, f"{d}")
+    st, d = ingest({"groupUsername": "e2e_test_group", "messageId": mid, "closure": "reply", "text": "Взяли, спасибо"})
+    check("a reply 'taken' closes the load", st == 200 and d.get("closed") is True and d.get("offerExpired") is True, f"{st} {d}")
+    check("and the load is no longer active", status_of(TG) == "EXPIRED", f"{status_of(TG)}")
+    mid2, st, d = make_ad(1)
+    TG2 = d.get("offerId")
+    st, d = ingest({"groupUsername": "e2e_test_group", "messageId": mid2, "closure": "deleted"})
+    check("deleting the ad in the group closes the load", d.get("closed") is True and status_of(TG2) == "EXPIRED", f"{d}")
+    mid3, st, d = make_ad(2)
+    TG3 = d.get("offerId")
+    st, d = ingest({"groupUsername": "e2e_test_group", "messageId": mid3, "closure": "edited", "text": "ЗАКРЫТО, груз взят"})
+    check("editing the ad to say it is closed closes the load", d.get("closed") is True and status_of(TG3) == "EXPIRED", f"{d}")
+    st, d = ingest({"groupUsername": "e2e_test_group", "messageId": 999999999, "closure": "deleted"})
+    check("a closure for an ad we never stored changes nothing", st == 200 and d.get("closed") is False, f"{st} {d}")
+    st, d = ingest({"groupUsername": "e2e_test_group", "messageId": mid, "closure": "deleted"}, secret="wrong")
+    check("a wrong secret is refused", st == 401, f"{st}")
+
 json.dump({"T3": T3, "RTRIP": RTRIP, "TRIP": TRIP}, open(os.environ.get("TEMP", ".") + "/e2e_trips.json", "w"))
 
 ok = sum(1 for _, o, _ in RESULTS if o)

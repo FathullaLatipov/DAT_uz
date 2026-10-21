@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { unstable_cache } from "next/cache";
 import { db } from "../db";
 import { demoOfferFilter } from "../domain/demo";
+import { freshOfferFilter } from "../domain/freshness";
 import { countryName, getCity } from "../domain/geo";
 import { boundedMemo } from "../cache";
 import { buildWhere, offerInclude, whereKey, type OfferWithRels } from "./freight";
@@ -13,7 +14,7 @@ import type { LoadFilters } from "./filters";
  */
 
 /** Set HIDE_DEMO=1 once real sources are live to keep demo listings off public pages. */
-export const publicWhere = (): Prisma.FreightOfferWhereInput => ({ status: "ACTIVE", ...demoOfferFilter() });
+export const publicWhere = (): Prisma.FreightOfferWhereInput => ({ status: "ACTIVE", AND: [freshOfferFilter()], ...demoOfferFilter() });
 
 export const routeSlug = (o: string, d: string) => `${o}--${d}`;
 export const parseRouteSlug = (slug: string) => {
