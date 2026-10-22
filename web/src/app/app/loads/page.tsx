@@ -14,6 +14,7 @@ import { LoadTable } from "@/components/loads/load-table";
 import { LoadCard } from "@/components/loads/parts";
 import { LoadCardList } from "@/components/loads/load-card-list";
 import { BoardMap } from "@/components/loads/board-map";
+import { PageLoader } from "@/components/ui/page-loader";
 import { Pagination } from "@/components/ui/pagination";
 import { Card, EmptyState, LinkButton, PageHeader } from "@/components/ui/primitives";
 import { cn } from "@/lib/format";
@@ -71,7 +72,7 @@ export default async function LoadsPage({ searchParams }: { searchParams: Promis
       </div>
       <div className="flex flex-col items-start gap-3 lg:flex-row lg:gap-5">
         <div className="w-full min-w-0 flex-1">
-          <Suspense key={`${resultsKey}|${page}|${view}`} fallback={<BoardSkeleton label={t("pager.loading")} />}>
+          <Suspense key={`${resultsKey}|${page}|${view}`} fallback={<PageLoader label={t("pager.loading")} />}>
             <BoardResults orgId={s.orgId} userId={s.userId} filters={filters} page={page} view={view} />
           </Suspense>
         </div>
@@ -81,27 +82,6 @@ export default async function LoadsPage({ searchParams }: { searchParams: Promis
 }
 
 type Filters = ReturnType<typeof filtersFromParams>;
-
-function BoardSkeleton({ label }: { label: string }) {
-  return (
-    <div role="status" aria-label={label} className="space-y-2">
-      <div className="h-8" />
-      <Card className="overflow-hidden">
-        {Array.from({ length: 10 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-4 border-b border-border px-4 py-3.5 last:border-0">
-            <div className="h-9 w-9 shrink-0 animate-pulse rounded-lg bg-surface-2" />
-            <div className="min-w-0 flex-1 space-y-2">
-              <div className="h-3.5 w-1/3 animate-pulse rounded bg-surface-2" />
-              <div className="h-3 w-1/4 animate-pulse rounded bg-surface-2" />
-            </div>
-            <div className="hidden h-4 w-24 animate-pulse rounded bg-surface-2 md:block" />
-            <div className="hidden h-4 w-16 animate-pulse rounded bg-surface-2 md:block" />
-          </div>
-        ))}
-      </Card>
-    </div>
-  );
-}
 
 async function BoardResults({ orgId, userId, filters, page, view }: { orgId: string; userId: string; filters: Filters; page: number; view: "list" | "map" | "split" }) {
   const { t } = await getI18n();
