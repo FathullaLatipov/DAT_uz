@@ -40,7 +40,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!session) {
       const offer = await db.freightOffer.findUnique({
         where: { id },
-        include: { broker: true, listings: { include: { source: true }, orderBy: { rateUsd: "desc" } } },
+        include: { broker: true, listings: { where: { closedAt: null }, include: { source: true }, orderBy: { rateUsd: "desc" } } },
       });
       if (!offer) throw new HttpError(404, "Load not found.");
       const lane = await laneStats(offer.originCityId, offer.destCityId);

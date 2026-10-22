@@ -11,6 +11,7 @@ import { LanguageSwitcher } from "../language-switcher";
 import { ThemeToggle } from "../theme-toggle";
 import { EmailAlerts } from "./email-alerts";
 import { SignatureForm } from "./signature-form";
+import { PasswordForm } from "./password-form";
 import { VerificationCard, type VerificationState } from "./verification-card";
 import { TelegramConnect } from "./telegram-connect";
 import { PreferencesForm, type Prefs } from "./preferences-form";
@@ -52,6 +53,7 @@ export function SettingsTabs(props: SettingsTabsProps) {
     { key: "company", label: t("st.tabs.company") },
     { key: "notifications", label: t("st.tabs.notifications") },
     { key: "appearance", label: t("st.tabs.appearance") },
+    { key: "security", label: t("st.tabs.security") },
     { key: "team", label: t("st.tabs.team") },
   ];
 
@@ -126,6 +128,13 @@ export function SettingsTabs(props: SettingsTabsProps) {
               </div>
             </div>
           </div>
+        </Card>
+      </TabPanel>
+
+      <TabPanel active={active === "security"} id="security">
+        <Card>
+          <CardHeader title={t("st.tabs.security")} />
+          <div className="px-4 pb-5 sm:px-5"><PasswordForm /></div>
         </Card>
       </TabPanel>
 

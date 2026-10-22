@@ -12,6 +12,7 @@ import { CsvImport, SyncButton } from "@/components/admin/admin-actions";
 import { AdminTabs } from "@/components/admin/admin-tabs";
 import { EmailTest } from "@/components/admin/email-test";
 import { FuelPrices } from "@/components/admin/fuel-prices";
+import { ResetPassword } from "@/components/admin/reset-password";
 import { fuelTable } from "@/server/services/fuel";
 import { COUNTRIES } from "@/server/domain/geo";
 import { emailConfigured } from "@/server/services/email";
@@ -170,6 +171,10 @@ export default async function AdminPage() {
         <Card>
           <CardHeader title={t("adm.csv")} />
           <div className="px-4 pb-5 sm:px-5"><CsvImport /></div>
+        </Card>
+        <Card>
+          <CardHeader title={t("pw.adminReset")} />
+          <div className="px-4 pb-5 sm:px-5"><ResetPassword /></div>
         </Card>
         <Card>
           <CardHeader title={t("fuel.title")} subtitle={t("fuel.subtitle")} />
