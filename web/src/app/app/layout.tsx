@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { RouteProgress } from "@/components/shell/route-progress";
 import { requireSession } from "@/server/auth/session";
 import { db } from "@/server/db";
 import { MobileNav, Sidebar, Topbar } from "@/components/shell/nav";
@@ -18,6 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const isBroker = s.role === "BROKER";
   return (
     <div className="flex min-h-dvh">
+      <Suspense fallback={null}><RouteProgress /></Suspense>
       <Sidebar isAdmin={isAdmin} isBroker={isBroker} hasTrucks={nav.hasTrucks} postsLoads={nav.postsLoads} orgName={s.org.name} plan={s.org.plan} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar userName={s.user.name} unread={unread} chats={chats} search={<NlSearch />} />
