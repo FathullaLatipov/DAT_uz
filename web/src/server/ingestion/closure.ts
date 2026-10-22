@@ -34,21 +34,22 @@ export type ClosureKind = "deleted" | "reply" | "edited";
 export const listingExternalId = (messageId: number) => `${messageId}-1`;
 
 /**
- * Takes a Telegram listing off the board. The listing is removed; if it was the offer's only source the offer is
- * marked EXPIRED, if other sources still list the load it stays up. Returns what happened.
+ * Takes a Telegram listing off the board. The listing is marked closed (and kept); if no other source still lists the load
+ * the offer is marked EXPIRED, otherwise it stays up. Safe to repeat. Returns what happened.
  */
 export async function closeTelegramListing(db: PrismaClient, groupUsername: string, messageId: number): Promise<{ closed: boolean; offerId?: string; offerExpired?: boolean }> {
   const listing = await db.freightListing.findUnique({
     where: { sourceId_externalId: { sourceId: `tg-${groupUsername.toLowerCase()}`, externalId: listingExternalId(messageId) } },
-    select: { id: true, offerId: true },
+    select: { id: true, offerId: true, closedAt: true },
   });
   if (!listing) return { closed: false };
   const left = await db.$transaction(async (tx) => {
-    await tx.freightListing.delete({ where: { id: listing.id } });
-    const remaining = await tx.freightListing.count({ where: { offerId: listing.offerId } });
+    // The listing stays, marked closed: a later ad from this group is then a new load, never merged into this one.
+    if (!listing.closedAt) await tx.freightListing.update({ where: { id: listing.id }, data: { closedAt: new Date() } });
+    const open = await tx.freightListing.count({ where: { offerId: listing.offerId, closedAt: null } });
     // Only an offer that is still on offer is taken down; one already booked or expired stays as it is.
-    if (remaining === 0) await tx.freightOffer.updateMany({ where: { id: listing.offerId, status: "ACTIVE" }, data: { status: "EXPIRED" } });
-    return remaining;
+    if (open === 0) await tx.freightOffer.updateMany({ where: { id: listing.offerId, status: "ACTIVE" }, data: { status: "EXPIRED" } });
+    return open;
   });
   return { closed: true, offerId: listing.offerId, offerExpired: left === 0 };
 }

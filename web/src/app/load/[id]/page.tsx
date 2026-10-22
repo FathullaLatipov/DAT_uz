@@ -31,7 +31,7 @@ import { cn } from "@/lib/format";
 type Params = { params: Promise<{ id: string }> };
 
 async function load(id: string) {
-  return db.freightOffer.findUnique({ where: { id }, include: { broker: true, listings: { include: { source: true }, orderBy: { rateUsd: "desc" } } } });
+  return db.freightOffer.findUnique({ where: { id }, include: { broker: true, listings: { where: { closedAt: null }, include: { source: true }, orderBy: { rateUsd: "desc" } } } });
 }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {

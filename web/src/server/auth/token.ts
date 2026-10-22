@@ -10,6 +10,8 @@ export interface SessionClaims {
   oid: string;
   role: string; // org role
   prole: string; // platform role
+  /** Issued-at, seconds since the epoch (set by `signSession`, read back by `verifySession`). */
+  iat?: number;
 }
 
 function secret() {
@@ -22,7 +24,9 @@ function secret() {
 }
 
 export async function signSession(c: SessionClaims) {
-  return new SignJWT({ ...c })
+  const { iat: _ignored, ...claims } = c;
+  void _ignored;
+  return new SignJWT({ ...claims })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_TTL_S}s`)
@@ -34,7 +38,7 @@ export async function verifySession(token: string | undefined): Promise<SessionC
   try {
     const { payload } = await jwtVerify(token, secret(), { algorithms: ["HS256"] });
     if (typeof payload.uid !== "string" || typeof payload.oid !== "string") return null;
-    return { uid: payload.uid, oid: payload.oid, role: String(payload.role), prole: String(payload.prole) };
+    return { uid: payload.uid, oid: payload.oid, role: String(payload.role), prole: String(payload.prole), iat: typeof payload.iat === "number" ? payload.iat : undefined };
   } catch {
     return null;
   }

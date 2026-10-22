@@ -49,6 +49,8 @@ model User {
   email        String    @unique
   name         String
   passwordHash String
+  // Set when the password is changed or reset: a session signed in before it is no longer valid.
+  passwordChangedAt DateTime?
   platformRole String    @default("USER") // USER | ADMIN
   createdAt    DateTime  @default(now())
   lastLoginAt  DateTime?
@@ -440,6 +442,8 @@ model FreightListing {
   sourceCreatedAt DateTime?
   firstSeenAt     DateTime  @default(now())
   lastSeenAt      DateTime  @default(now())
+  // Set when the source says this load is gone (see ingestion/closure.ts); the row stays so a new ad is not merged into it.
+  closedAt        DateTime?
 
   offer  FreightOffer  @relation(fields: [offerId], references: [id], onDelete: Cascade)
   source FreightSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)

@@ -91,7 +91,7 @@ export const toMatchOffer = (o: {
 // every row of a list query (up to ~2000 for the load board, ~11k pre-fix for the dashboard)
 // were pure waste — confirmed by grepping every consumer of `OfferWithRels` before removing them.
 export const offerInclude = {
-  listings: { select: { sourceId: true, lastSeenAt: true, contactPhone: true, source: { select: { name: true, isDemo: true, kind: true } } } },
+  listings: { where: { closedAt: null }, select: { sourceId: true, lastSeenAt: true, contactPhone: true, source: { select: { name: true, isDemo: true, kind: true } } } },
   broker: { select: { verified: true } },
 } satisfies Prisma.FreightOfferInclude;
 
@@ -241,7 +241,7 @@ export async function getOfferDetail(orgId: string, userId: string, id: string) 
       originCity: true,
       destCity: true,
       broker: true,
-      listings: { include: { source: true }, orderBy: { rateUsd: "desc" } },
+      listings: { where: { closedAt: null }, include: { source: true }, orderBy: { rateUsd: "desc" } },
     },
   });
   if (!offer) return null;
