@@ -29,3 +29,9 @@ export async function notifyUser(
   if (user.telegramChatId) await sendTelegram(user.telegramChatId, { title: m.title, lines: [m.body], button: { text: m.button, url } });
   if (user.emailAlerts) await sendEmail({ to: user.email, subject: m.title, text: m.body, button: { text: m.button, url }, footer: i.t("email.footer") });
 }
+
+/** The same event for every member of a company, each in their own language and on every channel they use. */
+export async function notifyOrg(orgId: string, build: Parameters<typeof notifyUser>[1]) {
+  const members = await db.membership.findMany({ where: { orgId }, select: { user: { select: RECIPIENT_SELECT } } });
+  for (const { user } of members) await notifyUser(user, build);
+}

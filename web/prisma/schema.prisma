@@ -41,6 +41,8 @@ model Organization {
   savedSearches   SavedSearch[]
   trips           Trip[]
   reviews         BrokerReview[]
+  carrierReviewsReceived CarrierReview[] @relation("CarrierReviewsReceived")
+  carrierReviewsGiven    CarrierReview[] @relation("CarrierReviewsGiven")
   recommendations Recommendation[]
 }
 
@@ -280,6 +282,7 @@ model Trip {
   originCity City          @relation("TripOrigin", fields: [originCityId], references: [id])
   destCity   City          @relation("TripDest", fields: [destCityId], references: [id])
   review     BrokerReview?
+  carrierReview CarrierReview?
   points     TripPoint[]
   @@index([orgId, status])
   @@index([truckId, status])
@@ -600,4 +603,23 @@ model FuelPrice {
   priceUsd  Float
   updatedAt DateTime @default(now()) @updatedAt
   updatedBy String?
+}
+
+/// A shipper's review of the carrier that delivered their load: one per trip, written by a company that posted the load.
+/// (The carrier's review of the shipper is `BrokerReview`.)
+model CarrierReview {
+  id           String   @id @default(cuid())
+  tripId       String   @unique
+  carrierOrgId String
+  shipperOrgId String
+  rating       Int // 1..5
+  onTime       Boolean? // arrived when promised
+  comment      String?
+  createdAt    DateTime @default(now())
+
+  trip       Trip         @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  carrierOrg Organization @relation("CarrierReviewsReceived", fields: [carrierOrgId], references: [id], onDelete: Cascade)
+  shipperOrg Organization @relation("CarrierReviewsGiven", fields: [shipperOrgId], references: [id], onDelete: Cascade)
+  @@index([carrierOrgId])
+  @@index([shipperOrgId])
 }

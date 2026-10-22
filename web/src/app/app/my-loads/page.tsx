@@ -9,6 +9,7 @@ import { getI18n } from "@/i18n/server";
 import { CloseLoadButton } from "@/components/loads/close-load-button";
 import { TripTrackPanel } from "@/components/fleet/trip-track-panel";
 import { PaymentBox } from "@/components/fleet/payment-box";
+import { CarrierReviewForm } from "@/components/loads/carrier-review-form";
 import { paymentDueAt } from "@/server/services/payment-rules";
 import { loadTrack } from "@/server/services/tracking-data";
 import { RouteLabel } from "@/components/loads/parts";
@@ -90,6 +91,7 @@ export default async function MyLoadsPage({ searchParams }: { searchParams: Prom
               select: {
                 id: true, status: true, etaAt: true, startedAt: true, completedAt: true, revenueUsd: true, paymentStatus: true, paidAt: true, loadedKm: true,
                 review: { select: { rating: true, comment: true, paidOnTime: true, disputed: true, cancelled: true, createdAt: true } },
+                carrierReview: { select: { rating: true, comment: true, onTime: true } },
                 truck: { select: { code: true } },
                 org: { select: { name: true, memberships: { orderBy: { createdAt: "asc" }, take: 1, select: { user: { select: { name: true, email: true } } } } } },
               },
@@ -216,6 +218,21 @@ export default async function MyLoadsPage({ searchParams }: { searchParams: Prom
                         </div>
                       ) : (
                         <p className="mt-1 text-sm text-muted">{t("ml.reviewNone")}</p>
+                      )}
+                    </div>
+                    <div className="mt-3 border-t border-pos/20 pt-3">
+                      <div className="text-xs font-medium uppercase tracking-wide text-muted">{t("crf.yours")}</div>
+                      {trip.carrierReview ? (
+                        <div className="mt-1.5 space-y-1.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Stars rating={trip.carrierReview.rating} />
+                            {trip.carrierReview.onTime === true && <Badge tone="pos">{t("rv.onTime")}</Badge>}
+                            {trip.carrierReview.onTime === false && <Badge tone="warn">{t("rv.notOnTime")}</Badge>}
+                          </div>
+                          {trip.carrierReview.comment && <p className="whitespace-pre-line text-sm">“{trip.carrierReview.comment}”</p>}
+                        </div>
+                      ) : (
+                        <CarrierReviewForm tripId={trip.id} />
                       )}
                     </div>
                   </div>
