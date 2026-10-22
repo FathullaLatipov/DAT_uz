@@ -1,3 +1,5 @@
+import { chatPeer } from "@/server/services/chat";
+import { ChatButton } from "@/components/chat/chat-button";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -47,6 +49,7 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
   const d = await getOfferDetail(s.orgId, s.userId, id);
   if (!d) notFound();
   const { offer: o, matches, flags } = d;
+  const chat = await chatPeer(s.orgId, o.id);
 
   const selected = matches.find((m) => m.truck.id === truckParam) ?? matches[0];
   const m = selected?.match;
@@ -272,6 +275,12 @@ export default async function LoadDetail({ params, searchParams }: { params: Pro
               <p className="px-5 pb-5 text-sm text-muted">{tr("detail.noTrucks")}</p>
             )}
           </Card>
+
+          {chat && (
+            <Card className="p-4">
+              <ChatButton offerId={o.id} peerName={chat.name} threadId={chat.threadId} />
+            </Card>
+          )}
 
           <Card id="assign" className="scroll-mt-20">
             <CardHeader title={tr("table.takeLoad")} />

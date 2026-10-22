@@ -1,5 +1,5 @@
 export type NavKey =
-  | "dashboard" | "loadBoard" | "aiDispatcher" | "fleet" | "market" | "saved" | "postLoad" | "myLoads" | "myRoutes" | "reviews" | "calculator" | "settings";
+  | "dashboard" | "loadBoard" | "aiDispatcher" | "fleet" | "market" | "saved" | "postLoad" | "myLoads" | "myRoutes" | "reviews" | "messages" | "calculator" | "settings";
 
 /**
  * The cabinet menu for one company. A company with trucks runs routes, so its list of trips is **My routes**
@@ -13,6 +13,6 @@ export function navKeysFor(o: { isBroker: boolean; hasTrucks: boolean; postsLoad
     ...(o.isBroker ? [] : (["fleet"] as NavKey[])),
     "market", "saved", "postLoad",
     ...own,
-    "reviews", "calculator", "settings",
+    "messages", "reviews", "calculator", "settings",
   ];
 }

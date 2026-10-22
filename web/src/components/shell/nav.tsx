@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  BarChart3, Bell, Bookmark, Calculator, ClipboardList, LayoutDashboard, LogOut, Menu, Package, PackagePlus, Route, Settings, ShieldCheck, Sparkles, Star, Truck, X,
+  BarChart3, Bell, Bookmark, Calculator, ClipboardList, LayoutDashboard, LogOut, Menu, MessageSquare, Package, PackagePlus, Route, Settings, ShieldCheck, Sparkles, Star, Truck, X,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/format";
@@ -25,6 +25,7 @@ const ITEMS: Record<NavKey | "admin", { href: string; icon: LucideIcon; exact?: 
   postLoad: { href: "/app/post", icon: PackagePlus },
   myLoads: { href: "/app/my-loads", icon: ClipboardList },
   myRoutes: { href: "/app/my-routes", icon: Route },
+  messages: { href: "/app/chats", icon: MessageSquare },
   reviews: { href: "/app/reviews", icon: Star },
   calculator: { href: "/app/calculator", icon: Calculator },
   settings: { href: "/app/settings", icon: Settings },
@@ -82,7 +83,7 @@ export function Sidebar({ isAdmin, isBroker, hasTrucks, postsLoads, orgName, pla
   );
 }
 
-export function Topbar({ userName, unread, search }: { userName: string; unread: number; search: React.ReactNode }) {
+export function Topbar({ userName, unread, chats, search }: { userName: string; unread: number; chats: number; search: React.ReactNode }) {
   const router = useRouter();
   const { t } = useI18n();
   const [menu, setMenu] = useState(false);
@@ -102,6 +103,10 @@ export function Topbar({ userName, unread, search }: { userName: string; unread:
           <Logo withText={false} />
         </Link>
         <div className="min-w-0 flex-1">{search}</div>
+        <Link href="/app/chats" className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface-2 hover:text-fg sm:h-11 sm:w-11" aria-label={t("nav.messages")}>
+          <MessageSquare className="h-[22px] w-[22px]" strokeWidth={1.9} />
+          {chats > 0 && <span className="num absolute right-1 top-1 min-w-[18px] rounded-full bg-accent px-1 text-center text-[11px] font-semibold leading-[18px] text-white ring-2 ring-bg">{chats > 9 ? "9+" : chats}</span>}
+        </Link>
         <Link href="/app/notifications" className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface-2 hover:text-fg sm:h-11 sm:w-11" aria-label={unread ? t("nav.notificationsUnread", { n: unread }) : t("nav.notifications")}>
           <Bell className="h-[22px] w-[22px]" strokeWidth={1.9} />
           {unread > 0 && <span className="absolute right-2.5 top-2.5 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-bg" />}

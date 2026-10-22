@@ -71,6 +71,7 @@ export const en = {
     myLoads: "My loads",
     myRoutes: "My routes",
     reviews: "Reviews",
+    messages: "Messages",
     // Landing anchors
     how: "How it works",
     features: "Features",
@@ -704,6 +705,10 @@ export const en = {
   },
 
   errors: {
+    chatNoPeer: "This load has no company on Karvon to write to.",
+    chatNotFound: "Conversation not found.",
+    chatEmpty: "Write a message first.",
+    chatTooLong: "A message can be at most {max} characters.",
     signInRequired: "Please sign in to continue.",
     telegramOff: "The Telegram bot isn't set up on this server yet.",
     roleForbidden: "Your role doesn't allow this action.",
@@ -767,6 +772,8 @@ export const en = {
   },
 
   notify: {
+    chatTitle: "New message from {name}",
+    chatOpen: "Open the chat",
     takenTitle: "{carrier} took your load",
     takenBody: "{route}, loading {date}. Truck: {truck}. Contact: {contact}.",
     takenOpen: "Open the load",
@@ -2010,7 +2017,32 @@ export const en = {
     go: "Go to page {page}",
     loading: "Loading loads…",
   },
-  enums: {
+  chat: {
+    title: "Messages",
+    subtitle: "Talk to the other side about a load and settle the details in writing.",
+    empty: "No conversations yet",
+    emptyBody: "Open a load and press “Write to the shipper” — or wait for a carrier to write to you.",
+    pick: "Pick a conversation on the left",
+    write: "Write to {name}",
+    open: "Open chat",
+    placeholder: "Write a message…",
+    send: "Send",
+    sending: "Sending…",
+    hint: "Enter — send, Shift+Enter — new line",
+    you: "You",
+    noMessages: "No messages yet — say hello and agree the details.",
+    showLoad: "Show load details",
+    hideLoad: "Hide load details",
+    loadGone: "This load is no longer open",
+    openLoad: "Open the full page",
+    back: "All conversations",
+    unreadN: "{n} new",
+    today: "Today",
+    ownLoad: "This is your own load",
+    noPeer: "The poster is not on Karvon — use the contacts above",
+    failed: "Could not send: {message}",
+  },
+    enums: {
     CURTAINSIDER: "Curtainsider",
     BOX: "Box / Van",
     REFRIGERATED: "Refrigerated",

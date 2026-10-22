@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { db, parseJson } from "@/server/db";
+import { chatPeer } from "@/server/services/chat";
 import { api, errorResponse, HttpError, localize } from "@/server/http";
 import { getI18n } from "@/i18n/server";
 import { can } from "@/server/auth/permissions";
@@ -59,6 +60,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         viewer: null,
         favorite: null,
         canAssign: false,
+        chat: null,
         truckOptions: null,
         selectedTruckId: null,
         match: null,
@@ -105,6 +107,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       viewer: await senderOf(session.userId, session.orgId),
       favorite: d.favorite,
       canAssign: can(session, "trip:assign") && offer.status === "ACTIVE",
+      chat: await chatPeer(session.orgId, offer.id),
       truckOptions: matches.map((x) => ({ id: x.truck.id, label: `${x.truck.code} — ${x.match.eligible ? `${x.match.score}% · match` : "not eligible"}`, eligible: x.match.eligible })),
       selectedTruckId: t?.id ?? null,
       match: m && t

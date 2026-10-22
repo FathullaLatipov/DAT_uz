@@ -160,13 +160,13 @@ async function BoardResults({ orgId, userId, filters, page, view }: { orgId: str
           <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">{rows.slice(0, 9).map((r) => <LoadCard key={r.offer.id} row={r} compact />)}</div>
         </div>
       ) : view === "split" ? (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
           {res.rows.length ? (
             <LoadCardList key={`s-${filtersToParams(filters).toString()}-${page}-${filters.sort ?? ""}`} rows={rows} className="grid content-start gap-3" />
           ) : (
             <div className="grid content-start gap-3">{results}</div>
           )}
-          <div className={cn("sticky top-20 hidden h-[calc(100dvh-7rem)] overflow-hidden rounded-xl border border-border xl:block")}>
+          <div className={cn("sticky top-20 hidden h-[min(440px,calc(100dvh-7rem))] overflow-hidden rounded-xl border border-border xl:block")}>
             <BoardMap items={res.all} className="h-full w-full" />
           </div>
         </div>
