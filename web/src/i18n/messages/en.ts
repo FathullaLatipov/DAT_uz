@@ -730,6 +730,9 @@ export const en = {
     mailRefused: "The mail server did not accept the message. See the server log.",
     loadScopeDomestic: "Both cities must be in Uzbekistan for a load within Uzbekistan.",
     loadScopeInternational: "An international load needs cities in different countries.",
+    currentPasswordWrong: "Your current password is incorrect.",
+    passwordSame: "Choose a new password different from the current one.",
+    noUserWithEmail: "No user with this e-mail.",
     companyNotFound: "Company not found.",
     loadTakenByCarrier: "This load has been taken by a carrier.",
     loadTimePassed: "This load's time has passed.",
@@ -1310,7 +1313,7 @@ export const en = {
 
   st: {
     subtitle: "{org} · your role: {role}",
-    tabs: { prefs: "Preferences", company: "Company", notifications: "Notifications", appearance: "Appearance", team: "Team & plan" },
+    tabs: { prefs: "Preferences", company: "Company", notifications: "Notifications", appearance: "Appearance", team: "Team & plan", security: "Security" },
     appearanceTitle: "Appearance & language",
     appearanceSub: "Applies to this device only.",
     language: "Language",
@@ -1891,6 +1894,34 @@ export const en = {
     saved: "Saved",
     byCountry: "Use the diesel price of the route's countries",
     byCountryHint: "The platform's price table is used instead of the fixed price below.",
+  },
+
+  pw: {
+    subtitle: "Choose a new password. You stay signed in here; every other device is signed out.",
+    current: "Current password",
+    new: "New password",
+    confirm: "Repeat the new password",
+    hint: "At least {n} characters.",
+    save: "Change password",
+    changed: "Password changed. Other devices were signed out.",
+    problem: {
+      TOO_SHORT: "Use at least {n} characters.",
+      TOO_LONG: "That password is too long.",
+      SAME_AS_OLD: "Choose a new password different from the current one.",
+      MISMATCH: "The two new passwords do not match.",
+    },
+    resetTitle: "Your password was reset",
+    resetBody: "An administrator of Karvon set a temporary password for your account. Sign in with it, then change it in Settings → Security.",
+    resetButton: "Open settings",
+    adminHint: "Gives a person a new temporary password and signs them out everywhere. They are told in the app (and by e-mail where it is set up).",
+    adminEmail: "E-mail of the person",
+    adminReset: "Reset password",
+    adminConfirmTitle: "Reset the password of {email}?",
+    adminConfirmBody: "They will be signed out on every device and need the new temporary password to sign in.",
+    adminDone: "{name} ({email}) now has this temporary password:",
+    adminNote: "Shown once. Give it to the person yourself; they should change it in Settings → Security after signing in.",
+    copy: "Copy",
+    copied: "Copied",
   },
 
   enums: {

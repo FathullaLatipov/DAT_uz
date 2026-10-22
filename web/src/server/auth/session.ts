@@ -27,6 +27,8 @@ export const getSession = cache(async (): Promise<Session | null> => {
     include: { user: true, org: true },
   });
   if (!m) return null;
+  // A password change or reset ends every session signed in before it (compared in whole seconds, the token's precision).
+  if (m.user.passwordChangedAt && claims.iat != null && Math.floor(m.user.passwordChangedAt.getTime() / 1000) > claims.iat) return null;
   return {
     userId: m.userId,
     orgId: m.orgId,
@@ -39,7 +41,9 @@ export const getSession = cache(async (): Promise<Session | null> => {
 
 export async function requireSession(): Promise<Session> {
   const s = await getSession();
-  if (!s) redirect("/login");
+  // A cookie that is signed but no longer good (password changed, membership removed) is cleared on the way to the sign-in
+  // page; without that the middleware would send the still-"signed in" visitor straight back and the browser would loop.
+  if (!s) redirect("/api/auth/expired");
   return s;
 }
 

@@ -722,6 +722,9 @@ export const uz: Messages = {
     mailRefused: "Pochta serveri xatni qabul qilmadi. Server jurnaliga qarang.",
     loadScopeDomestic: "O'zbekiston ichidagi yuk uchun ikkala shahar ham O'zbekistonda bo'lishi kerak.",
     loadScopeInternational: "Xalqaro yuk uchun shaharlar turli davlatlarda bo'lishi kerak.",
+    currentPasswordWrong: "Joriy parol noto'g'ri kiritildi.",
+    passwordSame: "Joriy paroldan farq qiladigan yangi parol tanlang.",
+    noUserWithEmail: "Bunday pochtali foydalanuvchi yo'q.",
     companyNotFound: "Kompaniya topilmadi.",
     loadTakenByCarrier: "Bu yukni tashuvchi olgan.",
     loadTimePassed: "Bu yukning vaqti o'tib ketgan.",
@@ -1296,7 +1299,7 @@ export const uz: Messages = {
 
   st: {
     subtitle: "{org} · sizning rolingiz: {role}",
-    tabs: { prefs: "Afzalliklar", company: "Kompaniya", notifications: "Bildirishnomalar", appearance: "Ko'rinish", team: "Jamoa va tarif" },
+    tabs: { prefs: "Afzalliklar", company: "Kompaniya", notifications: "Bildirishnomalar", appearance: "Ko'rinish", team: "Jamoa va tarif", security: "Xavfsizlik" },
     appearanceTitle: "Ko'rinish va til",
     appearanceSub: "Faqat shu qurilmada qo'llanadi.",
     language: "Til",
@@ -1877,6 +1880,34 @@ export const uz: Messages = {
     saved: "Saqlandi",
     byCountry: "Dizel narxini yo'nalish davlatlari bo'yicha olish",
     byCountryHint: "Quyidagi qat'iy narx o'rniga platformaning narxlar jadvali ishlatiladi.",
+  },
+
+  pw: {
+    subtitle: "Yangi parol tanlang. Bu yerda akkauntda qolasiz, boshqa barcha qurilmalardan chiqarilasiz.",
+    current: "Joriy parol",
+    new: "Yangi parol",
+    confirm: "Yangi parolni takrorlang",
+    hint: "Kamida {n} ta belgi.",
+    save: "Parolni o'zgartirish",
+    changed: "Parol o'zgartirildi. Boshqa qurilmalardan chiqarildi.",
+    problem: {
+      TOO_SHORT: "Kamida {n} ta belgi kiriting.",
+      TOO_LONG: "Parol juda uzun.",
+      SAME_AS_OLD: "Joriy paroldan farq qiladigan yangi parol tanlang.",
+      MISMATCH: "Ikkala yangi parol mos kelmadi.",
+    },
+    resetTitle: "Parolingiz tiklandi",
+    resetBody: "Karvon administratori akkauntingiz uchun vaqtinchalik parol o'rnatdi. U bilan kiring va Sozlamalar → Xavfsizlik bo'limida o'zgartiring.",
+    resetButton: "Sozlamalarni ochish",
+    adminHint: "Odamga yangi vaqtinchalik parol beradi va uni barcha qurilmalardan chiqaradi. U bu haqda ilovada (sozlangan bo'lsa pochta orqali ham) xabar oladi.",
+    adminEmail: "Foydalanuvchi pochtasi",
+    adminReset: "Parolni tiklash",
+    adminConfirmTitle: "{email} uchun parol tiklansinmi?",
+    adminConfirmBody: "U barcha qurilmalardan chiqariladi va faqat yangi vaqtinchalik parol bilan kira oladi.",
+    adminDone: "{name} ({email}) ning vaqtinchalik paroli:",
+    adminNote: "Bir marta ko'rsatiladi. Uni odamga o'zingiz bering; kirgach Sozlamalar → Xavfsizlik bo'limida o'zgartirsin.",
+    copy: "Nusxalash",
+    copied: "Nusxalandi",
   },
 
   enums: {
