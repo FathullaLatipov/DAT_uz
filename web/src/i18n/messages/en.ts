@@ -2002,6 +2002,14 @@ export const en = {
     cancel: "Cancel",
   },
 
+  pager: {
+    showing: "{from}–{to} of {total}",
+    page: "Page {page}",
+    prev: "Previous page",
+    next: "Next page",
+    go: "Go to page {page}",
+    loading: "Loading loads…",
+  },
   enums: {
     CURTAINSIDER: "Curtainsider",
     BOX: "Box / Van",

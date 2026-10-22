@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { BellPlus, Check, Columns2, List, Loader2, Map as MapIcon } from "lucide-react";
 import { apiCall } from "@/lib/client";
 import { useI18n } from "@/i18n/client";
@@ -18,13 +18,14 @@ export function BoardToolbar({ total, view }: { total: number; view: string }) {
   const router = useRouter();
   const path = usePathname();
   const sp = useSearchParams();
+  const [navigating, startNav] = useTransition();
   const [saving, setSaving] = useState<"idle" | "saving" | "saved">("idle");
 
   const push = (k: string, v: string) => {
     const p = new URLSearchParams(sp.toString());
     p.set(k, v);
     p.delete("page");
-    router.push(`${path}?${p.toString()}`);
+    startNav(() => router.push(`${path}?${p.toString()}`));
   };
 
   async function saveSearch() {
@@ -42,7 +43,7 @@ export function BoardToolbar({ total, view }: { total: number; view: string }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="num mr-auto text-sm text-muted">{tn("board.loadsCount", total)}</span>
+      <span className="num mr-auto flex items-center gap-2 text-sm text-muted">{tn("board.loadsCount", total)}{navigating && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}</span>
       <Button variant="outline" size="sm" onClick={saveSearch} disabled={saving !== "idle"} aria-label={t("board.saveAria")}>
         {saving === "saving" ? <Loader2 className="h-4 w-4 animate-spin" /> : saving === "saved" ? <Check className="h-4 w-4 text-pos" /> : <BellPlus className="h-4 w-4" />}
         <span className="hidden sm:inline">{saving === "saved" ? t("board.savedOn") : t("board.saveAlert")}</span>

@@ -1,8 +1,8 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeftRight, Calendar, ChevronDown, Globe2, RotateCcw, Search, SlidersHorizontal, Truck, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { ArrowLeftRight, Calendar, ChevronDown, Globe2, Loader2, RotateCcw, Search, SlidersHorizontal, Truck, X } from "lucide-react";
 import { CITIES, COUNTRIES } from "@/server/domain/geo";
 import { BODY_TYPES, CARGO_TYPES, CURRENCIES, PAYMENT_TERMS } from "@/server/domain/enums";
 import { useI18n } from "@/i18n/client";
@@ -38,6 +38,7 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
   const router = useRouter();
   const path = usePathname();
   const sp = useSearchParams();
+  const [navigating, startNav] = useTransition();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [near, setNear] = useState<NearMeStatus>(null);
   const [v, setV] = useState<Record<string, string>>(() => Object.fromEntries(KEYS.map((k) => [k, sp.get(k) ?? ""])));
@@ -62,7 +63,7 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
     const p = new URLSearchParams();
     for (const k of ["sort", "view"]) if (sp.get(k)) p.set(k, sp.get(k)!);
     for (const [k, val] of Object.entries(vals)) if (val) p.set(k, val);
-    router.push(`${path}?${p.toString()}`);
+    startNav(() => router.push(`${path}?${p.toString()}`));
     setMobileOpen(false);
   }
   const apply = () => go(v);
@@ -76,7 +77,7 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
     setV(Object.fromEntries(KEYS.map((k) => [k, ""])));
     const p = new URLSearchParams();
     if (sp.get("view")) p.set("view", sp.get("view")!);
-    router.push(`${path}?${p.toString()}`);
+    startNav(() => router.push(`${path}?${p.toString()}`));
     setMobileOpen(false);
   }
 
@@ -154,7 +155,7 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
             title={t("toolbar.swap")}
             aria-label={t("toolbar.swap")}
             onClick={() => setV((s) => ({ ...s, origin: s.dest, dest: s.origin, radiusKm: s.destRadiusKm, destRadiusKm: s.radiusKm, originCountry: s.destCountry, destCountry: s.originCountry }))}
-            className="mb-[9px] flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted transition hover:border-brand hover:text-brand"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted transition hover:border-brand hover:text-brand"
           >
             <ArrowLeftRight className="h-4 w-4" />
           </button>
@@ -213,7 +214,7 @@ export function SearchToolbar({ trucks, sources, brokers }: { trucks: Opt[]; sou
                 <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden /> {t("toolbar.unapplied")}
               </span>
             )}
-            <Button onClick={apply} className={cn("h-9", dirty && "ring-2 ring-[var(--ring)]")}><Search className="h-4 w-4" /> {t("toolbar.search")}</Button>
+            <Button onClick={apply} disabled={navigating} className={cn("h-9", dirty && "ring-2 ring-[var(--ring)]")}>{navigating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />} {t("toolbar.search")}</Button>
           </div>
         </div>
 

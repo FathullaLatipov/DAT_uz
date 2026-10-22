@@ -1988,6 +1988,14 @@ export const uz: Messages = {
     cancel: "Bekor qilish",
   },
 
+  pager: {
+    showing: "{from}–{to} / {total}",
+    page: "{page}-sahifa",
+    prev: "Oldingi sahifa",
+    next: "Keyingi sahifa",
+    go: "{page}-sahifaga o'tish",
+    loading: "Yuklar yuklanmoqda…",
+  },
   enums: {
     CURTAINSIDER: "Tentli",
     BOX: "Furgon",

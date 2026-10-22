@@ -124,7 +124,7 @@ export function LoadTable({ rows, filters, view }: { rows: LoadRow[]; filters: L
                             href={`/app/loads/${o.id}?truck=${m.truckId}#assign`}
                             title={t("table.takeLoad")}
                             aria-label={t("table.takeLoad")}
-                            className="hidden h-7 w-7 items-center justify-center rounded-md text-subtle hover:bg-brand-soft hover:text-brand group-hover:inline-flex"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-subtle opacity-0 transition-opacity hover:bg-brand-soft hover:text-brand focus-visible:opacity-100 group-hover:opacity-100"
                           >
                             <Zap className="h-3.5 w-3.5" />
                           </Link>
