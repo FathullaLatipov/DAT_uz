@@ -31,46 +31,48 @@ model Organization {
   address   String?
   taxId     String?
 
-  memberships     Membership[]
-  trucks          Truck[]
-  verificationRequests VerificationRequest[]
-  drivers         Driver[]
-  preference      OrgPreference?
-  preferredRoutes PreferredRoute[]
-  favorites       Favorite[]
-  savedSearches   SavedSearch[]
-  trips           Trip[]
-  reviews         BrokerReview[]
-  carrierReviewsReceived CarrierReview[] @relation("CarrierReviewsReceived")
-  carrierReviewsGiven    CarrierReview[] @relation("CarrierReviewsGiven")
-  recommendations Recommendation[]
+  memberships            Membership[]
+  trucks                 Truck[]
+  verificationRequests   VerificationRequest[]
+  drivers                Driver[]
+  preference             OrgPreference?
+  preferredRoutes        PreferredRoute[]
+  favorites              Favorite[]
+  savedSearches          SavedSearch[]
+  trips                  Trip[]
+  reviews                BrokerReview[]
+  carrierReviewsReceived CarrierReview[]       @relation("CarrierReviewsReceived")
+  carrierReviewsGiven    CarrierReview[]       @relation("CarrierReviewsGiven")
+  recommendations        Recommendation[]
+  chatsAsCarrier         ChatThread[]          @relation("ChatCarrier")
+  chatsAsShipper         ChatThread[]          @relation("ChatShipper")
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  name         String
-  passwordHash String
+  id                String    @id @default(cuid())
+  email             String    @unique
+  name              String
+  passwordHash      String
   // Set when the password is changed or reset: a session signed in before it is no longer valid.
   passwordChangedAt DateTime?
-  platformRole String    @default("USER") // USER | ADMIN
-  createdAt    DateTime  @default(now())
-  lastLoginAt  DateTime?
+  platformRole      String    @default("USER") // USER | ADMIN
+  createdAt         DateTime  @default(now())
+  lastLoginAt       DateTime?
   // Language for text the platform sends without a request (alerts): last used on sign-in.
-  locale       String?
+  locale            String?
   // Telegram alerts: set when the user taps Start on the bot via a one-time link (see services/telegram.ts).
-  telegramChatId   String?   @unique
-  telegramLinkedAt DateTime?
+  telegramChatId    String?   @unique
+  telegramLinkedAt  DateTime?
   // E-mail copies of important notifications (a load was taken, a company was verified…). On by default.
-  emailAlerts  Boolean   @default(true)
+  emailAlerts       Boolean   @default(true)
   // Their role line in the e-mail signature, e.g. "Dispatch department".
-  jobTitle     String?
+  jobTitle          String?
 
-  memberships   Membership[]
-  favorites     Favorite[]
-  savedSearches SavedSearch[]
-  notifications Notification[]
-  conversations AIConversation[]
+  memberships          Membership[]
+  favorites            Favorite[]
+  savedSearches        SavedSearch[]
+  notifications        Notification[]
+  conversations        AIConversation[]
   verificationRequests VerificationRequest[]
 }
 
@@ -133,11 +135,11 @@ model OrgPreference {
 }
 
 model PreferredRoute {
-  id            String  @id @default(cuid())
-  orgId         String
-  originCityId  String
-  destCityId    String?
-  destCountry   String?
+  id           String  @id @default(cuid())
+  orgId        String
+  originCityId String
+  destCityId   String?
+  destCountry  String?
 
   org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   originCity City         @relation("PrefOrigin", fields: [originCityId], references: [id])
@@ -163,14 +165,14 @@ model City {
 
   country Country @relation(fields: [countryCode], references: [code])
 
-  trucksHere      Truck[]          @relation("TruckCity")
-  originOffers    FreightOffer[]   @relation("OfferOrigin")
-  destOffers      FreightOffer[]   @relation("OfferDest")
-  prefOrigins     PreferredRoute[] @relation("PrefOrigin")
-  prefDests       PreferredRoute[] @relation("PrefDest")
-  tripOrigins     Trip[]           @relation("TripOrigin")
-  tripDests       Trip[]           @relation("TripDest")
-  truckLocations  TruckLocation[]
+  trucksHere     Truck[]          @relation("TruckCity")
+  originOffers   FreightOffer[]   @relation("OfferOrigin")
+  destOffers     FreightOffer[]   @relation("OfferDest")
+  prefOrigins    PreferredRoute[] @relation("PrefOrigin")
+  prefDests      PreferredRoute[] @relation("PrefDest")
+  tripOrigins    Trip[]           @relation("TripOrigin")
+  tripDests      Trip[]           @relation("TripDest")
+  truckLocations TruckLocation[]
 }
 
 // ───────────────────────────── Fleet ─────────────────────────────
@@ -185,6 +187,7 @@ model Driver {
 
   org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   trucks Truck[]
+
   @@index([orgId])
 }
 
@@ -229,11 +232,11 @@ model Truck {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  org         Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  currentCity City             @relation("TruckCity", fields: [currentCityId], references: [id])
-  driver      Driver?          @relation(fields: [driverId], references: [id])
-  trips       Trip[]
-  locations   TruckLocation[]
+  org             Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  currentCity     City             @relation("TruckCity", fields: [currentCityId], references: [id])
+  driver          Driver?          @relation(fields: [driverId], references: [id])
+  trips           Trip[]
+  locations       TruckLocation[]
   recommendations Recommendation[]
 
   @@unique([orgId, code])
@@ -247,43 +250,45 @@ model TruckLocation {
 
   truck Truck @relation(fields: [truckId], references: [id], onDelete: Cascade)
   city  City  @relation(fields: [cityId], references: [id])
+
   @@index([truckId])
 }
 
 model Trip {
-  id           String    @id @default(cuid())
-  orgId        String
-  truckId      String
-  offerId      String?
-  originCityId String
-  destCityId   String
-  status       String // PLANNED | IN_TRANSIT | COMPLETED | CANCELLED
-  startedAt    DateTime
-  etaAt        DateTime?
-  completedAt  DateTime?
-  revenueUsd   Float
-  costUsd      Float
-  loadedKm     Float
-  emptyKm      Float
-  isDemo       Boolean   @default(false)
-  createdAt    DateTime  @default(now())
+  id            String    @id @default(cuid())
+  orgId         String
+  truckId       String
+  offerId       String?
+  originCityId  String
+  destCityId    String
+  status        String // PLANNED | IN_TRANSIT | COMPLETED | CANCELLED
+  startedAt     DateTime
+  etaAt         DateTime?
+  completedAt   DateTime?
+  revenueUsd    Float
+  costUsd       Float
+  loadedKm      Float
+  emptyKm       Float
+  isDemo        Boolean   @default(false)
+  createdAt     DateTime  @default(now())
   // Payment for the load, tracked by both sides: UNPAID → SHIPPER_PAID (the shipper says it was sent) → CONFIRMED
   // (the carrier says it arrived); the carrier can raise DISPUTED instead. The due date comes from the load's payment terms.
-  paymentStatus   String    @default("UNPAID") // UNPAID | SHIPPER_PAID | CONFIRMED | DISPUTED
-  shipperPaidAt   DateTime?
-  paidAt          DateTime? // when the carrier confirmed it arrived
-  disputeNote     String?
-  remindedAt      DateTime? // last payment reminder sent to the shipper
-  remindCount     Int       @default(0)
+  paymentStatus String    @default("UNPAID") // UNPAID | SHIPPER_PAID | CONFIRMED | DISPUTED
+  shipperPaidAt DateTime?
+  paidAt        DateTime? // when the carrier confirmed it arrived
+  disputeNote   String?
+  remindedAt    DateTime? // last payment reminder sent to the shipper
+  remindCount   Int       @default(0)
 
-  org        Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  truck      Truck         @relation(fields: [truckId], references: [id], onDelete: Cascade)
-  offer      FreightOffer? @relation(fields: [offerId], references: [id])
-  originCity City          @relation("TripOrigin", fields: [originCityId], references: [id])
-  destCity   City          @relation("TripDest", fields: [destCityId], references: [id])
-  review     BrokerReview?
+  org           Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  truck         Truck          @relation(fields: [truckId], references: [id], onDelete: Cascade)
+  offer         FreightOffer?  @relation(fields: [offerId], references: [id])
+  originCity    City           @relation("TripOrigin", fields: [originCityId], references: [id])
+  destCity      City           @relation("TripDest", fields: [destCityId], references: [id])
+  review        BrokerReview?
   carrierReview CarrierReview?
-  points     TripPoint[]
+  points        TripPoint[]
+
   @@index([orgId, status])
   @@index([truckId, status])
   @@index([offerId])
@@ -322,19 +327,19 @@ model FreightSource {
 }
 
 model IngestionRun {
-  id          String    @id @default(cuid())
-  sourceId    String
-  status      String // RUNNING | SUCCESS | PARTIAL | FAILED
-  startedAt   DateTime  @default(now())
-  finishedAt  DateTime?
-  durationMs  Int?
-  fetched     Int       @default(0)
-  created     Int       @default(0)
-  updated     Int       @default(0)
-  duplicates  Int       @default(0)
-  rejected    Int       @default(0)
-  errors      Int       @default(0)
-  errorLog    String    @default("[]") // JSON {externalId, message}[]
+  id         String    @id @default(cuid())
+  sourceId   String
+  status     String // RUNNING | SUCCESS | PARTIAL | FAILED
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  durationMs Int?
+  fetched    Int       @default(0)
+  created    Int       @default(0)
+  updated    Int       @default(0)
+  duplicates Int       @default(0)
+  rejected   Int       @default(0)
+  errors     Int       @default(0)
+  errorLog   String    @default("[]") // JSON {externalId, message}[]
 
   source FreightSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 }
@@ -370,6 +375,7 @@ model BrokerReview {
   broker Broker       @relation(fields: [brokerId], references: [id], onDelete: Cascade)
   org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   trip   Trip?        @relation(fields: [tripId], references: [id], onDelete: SetNull)
+
   @@index([brokerId])
   @@index([orgId])
 }
@@ -420,6 +426,7 @@ model FreightOffer {
   favorites       Favorite[]
   trips           Trip[]
   recommendations Recommendation[]
+  chats           ChatThread[]
 
   @@index([status, loadingDate])
   @@index([originCityId, destCityId])
@@ -481,17 +488,18 @@ model Favorite {
 }
 
 model SavedSearch {
-  id             String    @id @default(cuid())
-  orgId          String
-  userId         String
-  name           String
-  filters        String // JSON LoadFilters
-  channels       String    @default("[\"WEB\"]") // JSON: WEB | EMAIL | TELEGRAM
-  lastCheckedAt  DateTime  @default(now())
-  createdAt      DateTime  @default(now())
+  id            String   @id @default(cuid())
+  orgId         String
+  userId        String
+  name          String
+  filters       String // JSON LoadFilters
+  channels      String   @default("[\"WEB\"]") // JSON: WEB | EMAIL | TELEGRAM
+  lastCheckedAt DateTime @default(now())
+  createdAt     DateTime @default(now())
 
   org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([orgId])
 }
@@ -507,6 +515,7 @@ model Notification {
   createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId, readAt])
   @@index([userId, createdAt])
 }
@@ -524,17 +533,18 @@ model Recommendation {
   org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   truck Truck        @relation(fields: [truckId], references: [id], onDelete: Cascade)
   offer FreightOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
   @@index([orgId, createdAt])
   @@index([offerId])
   @@index([truckId])
 }
 
 model AIConversation {
-  id        String      @id @default(cuid())
+  id        String   @id @default(cuid())
   userId    String
   orgId     String
-  title     String      @default("New conversation")
-  createdAt DateTime    @default(now())
+  title     String   @default("New conversation")
+  createdAt DateTime @default(now())
 
   user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages AIMessage[]
@@ -620,6 +630,41 @@ model CarrierReview {
   trip       Trip         @relation(fields: [tripId], references: [id], onDelete: Cascade)
   carrierOrg Organization @relation("CarrierReviewsReceived", fields: [carrierOrgId], references: [id], onDelete: Cascade)
   shipperOrg Organization @relation("CarrierReviewsGiven", fields: [shipperOrgId], references: [id], onDelete: Cascade)
+
   @@index([carrierOrgId])
   @@index([shipperOrgId])
+}
+
+/// A conversation between a carrier and the company that posted a load, one per (load, carrier, shipper).
+model ChatThread {
+  id            String    @id @default(cuid())
+  offerId       String
+  carrierOrgId  String
+  shipperOrgId  String
+  createdAt     DateTime  @default(now())
+  lastMessageAt DateTime  @default(now())
+  carrierReadAt DateTime?
+  shipperReadAt DateTime?
+
+  offer      FreightOffer  @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  carrierOrg Organization  @relation("ChatCarrier", fields: [carrierOrgId], references: [id], onDelete: Cascade)
+  shipperOrg Organization  @relation("ChatShipper", fields: [shipperOrgId], references: [id], onDelete: Cascade)
+  messages   ChatMessage[]
+
+  @@unique([offerId, carrierOrgId, shipperOrgId])
+  @@index([carrierOrgId, lastMessageAt])
+  @@index([shipperOrgId, lastMessageAt])
+}
+
+model ChatMessage {
+  id           String   @id @default(cuid())
+  threadId     String
+  senderOrgId  String
+  senderUserId String
+  body         String
+  createdAt    DateTime @default(now())
+
+  thread ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
 }

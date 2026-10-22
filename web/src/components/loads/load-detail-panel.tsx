@@ -38,6 +38,7 @@ import { RouteCard } from "./route-card";
 import { BorderCard } from "./border-card";
 import { ProfitCalculator } from "./profit-calculator";
 import { AssignPanel } from "./assign-panel";
+import { ChatButton } from "../chat/chat-button";
 
 export interface LoadDetailResponse {
   authenticated: boolean;
@@ -60,6 +61,7 @@ export interface LoadDetailResponse {
   viewer: Sender | null;
   favorite: boolean | null;
   canAssign: boolean;
+  chat: { orgId: string; name: string; threadId: string | null } | null;
   truckOptions: { id: string; label: string; eligible: boolean }[] | null;
   selectedTruckId: string | null;
   match: {
@@ -143,8 +145,8 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
       .join("\n");
 
   return (
-    <div className="animate-fade-up border-t border-border bg-surface-2/40 p-4 sm:p-5" role="region" aria-label={t("panel.detailsAria")}>
-      <div className="grid items-start gap-5 lg:grid-cols-2 xl:grid-cols-[repeat(3,minmax(0,1fr))]">
+    <div className="@container animate-fade-up border-t border-border bg-surface-2/40 p-4 sm:p-5" role="region" aria-label={t("panel.detailsAria")}>
+      <div className="grid items-start gap-5 @2xl:grid-cols-2 @5xl:grid-cols-[repeat(3,minmax(0,1fr))]">
         {/* Block A — route & trip */}
         <div className="min-w-0 space-y-3">
           <div className="h-44 overflow-hidden rounded-lg border border-border">
@@ -244,7 +246,7 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
         </div>
 
         {/* Block C — broker, contacts, why this match, take it */}
-        <div className="min-w-0 space-y-3 lg:col-span-2 xl:col-span-1">
+        <div className="min-w-0 space-y-3 @2xl:col-span-2 @5xl:col-span-1">
           <div className="rounded-lg border border-border bg-surface p-3.5">
             {broker ? (
               <>
@@ -297,6 +299,7 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
             </ul>
           )}
 
+          {data.authenticated && data.chat && <ChatButton offerId={o.id} peerName={data.chat.name} threadId={data.chat.threadId} />}
           {data.authenticated && data.canAssign && data.truckOptions && (
             <AssignPanel offerId={o.id} trucks={data.truckOptions} defaultTruckId={data.selectedTruckId ?? undefined} canAssign={data.canAssign} />
           )}
@@ -322,11 +325,11 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
 
       {/* Block D — score breakdown + return loads (authenticated with a truck only) */}
       {data.authenticated && m && (m.components.length > 0 || data.backhaul) && (
-        <div className={cn("mt-5 grid gap-x-8 gap-y-5 border-t border-border pt-4", m.components.length > 0 && data.backhaul && "lg:grid-cols-[3fr_2fr]")}>
+        <div className={cn("mt-5 grid gap-x-8 gap-y-5 border-t border-border pt-4", m.components.length > 0 && data.backhaul && "@3xl:grid-cols-[3fr_2fr]")}>
           {m.components.length > 0 && (
             <div className="min-w-0">
               <div className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted">{t("panel.whyScore")}</div>
-              <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-x-6 gap-y-3 @lg:grid-cols-2 @5xl:grid-cols-3">
                 {m.components.map((c) => (
                   <div key={c.key} title={c.detail}>
                     <div className="mb-1 flex justify-between gap-2 text-xs"><span className="truncate">{msgs.panel.components[c.key] ?? c.label}</span><span className="num font-medium">{c.score}%</span></div>
