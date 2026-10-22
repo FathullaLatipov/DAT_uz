@@ -612,6 +612,23 @@ check("the admin page has the reset card", st == 200 and ">Reset password<" in p
 st, pg = back.page("/app/settings?tab=security")
 check("the settings page has a Security tab", st == 200 and ">Security<" in pg, f"{st}")
 
+print("\n== 28. The shipper sees the delivery and the carrier's review")
+st, pg = shipper.page("/app/my-loads?stage=delivered")
+raw = html.unescape(pg)
+check("My loads has the summary strip", st == 200 and ">Your rating<" in raw and ">Delivered<" in raw and ">Posted<" in raw, f"{st}")
+check("a delivered load shows when it arrived and the review block", "Carrier's review of you" in raw and "Delivered " in raw, f"{st}")
+check("it shows the carrier's review: the comment", "Paid on time, clear loading instructions" in raw)
+check("and the stars (5 of 5)", 'aria-label="5 / 5"' in raw)
+check("the delivered group lists only delivered loads (no other status badge)", ">Waiting for a carrier<" not in raw and ">Taken, not started<" not in raw and ">Expired, nobody took it<" not in raw, "")
+st, pg = shipper.page("/app/my-loads?stage=onroad")
+check("a group with nothing in it says so", st == 200 and "No loads in this group." in html.unescape(pg), f"{st}")
+st, pg = shipper.page("/app/notifications")
+check("the shipper was told about the review (in the language they last used)", st == 200 and bool(re.search(r"E2E Trans \d+ (reviewed you|оставил вам отзыв|sizga sharh qoldirdi): 5/5", html.unescape(pg))), f"{st}")
+st, pg = back.page("/app/my-loads")  # the carrier, signed in again with the temporary password (section 27)
+check("a company that posted nothing sees the hint about other accounts", st == 200 and "appear in that account" in html.unescape(pg), f"{st}")
+for lang in ("ru", "uz"):
+    check(f"the new My loads blocks render in {lang}", shipper.page("/app/my-loads?stage=delivered", lang)[0] == 200)
+
 json.dump({"T3": T3, "RTRIP": RTRIP, "TRIP": TRIP}, open(os.environ.get("TEMP", ".") + "/e2e_trips.json", "w"))
 
 ok = sum(1 for _, o, _ in RESULTS if o)

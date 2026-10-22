@@ -15,7 +15,8 @@ export async function tellLoadOwners(
     | { kind: "taken"; carrier: string; contact: string; truck: { code: string; bodyType: string; capacityKg: number } }
     | { kind: "cancelled"; carrier: string }
     | { kind: "started"; carrier: string; truck: { code: string; bodyType: string; capacityKg: number } }
-    | { kind: "delivered"; carrier: string },
+    | { kind: "delivered"; carrier: string }
+    | { kind: "reviewed"; carrier: string; rating: number; comment?: string | null },
 ) {
   const orgIds = await postingOrgIds(offer.id);
   if (!orgIds.length) return;
@@ -30,9 +31,11 @@ export async function tellLoadOwners(
           ? i.t("notify.takenBody", { route, date, truck: truckText, contact: event.contact })
           : event.kind === "started"
             ? i.t("notify.startedBody", { route, date, truck: truckText })
-            : i.t(event.kind === "delivered" ? "notify.deliveredBody" : "notify.cancelledBody", { route, date });
+            : event.kind === "reviewed"
+              ? i.t("notify.reviewedBody", { route, date, comment: event.comment ? ` — “${event.comment.slice(0, 140)}”` : "" })
+              : i.t(event.kind === "delivered" ? "notify.deliveredBody" : "notify.cancelledBody", { route, date });
       // The shipper's own page for this load: who took it, which truck, where the trip is.
-      return { title: i.t(`notify.${event.kind}Title`, { carrier: event.carrier }), body, link: `/app/my-loads#load-${offer.id}`, button: i.t("notify.takenOpen") };
+      return { title: i.t(`notify.${event.kind}Title`, { carrier: event.carrier, rating: "rating" in event ? event.rating : "" }), body, link: `/app/my-loads#load-${offer.id}`, button: i.t("notify.takenOpen") };
     });
   }
 }

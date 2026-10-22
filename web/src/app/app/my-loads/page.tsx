@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PackagePlus, Phone, Mail, Truck } from "lucide-react";
+import { CheckCircle2, PackagePlus, Phone, Mail, Star, Truck } from "lucide-react";
 import { requireSession } from "@/server/auth/session";
 import { db } from "@/server/db";
 import { PLATFORM_SOURCE } from "@/server/ingestion/pipeline";
+import { brokerKey } from "@/server/ingestion/normalize";
 import { getI18n } from "@/i18n/server";
 import { CloseLoadButton } from "@/components/loads/close-load-button";
 import { TripTrackPanel } from "@/components/fleet/trip-track-panel";
@@ -11,7 +12,8 @@ import { PaymentBox } from "@/components/fleet/payment-box";
 import { paymentDueAt } from "@/server/services/payment-rules";
 import { loadTrack } from "@/server/services/tracking-data";
 import { RouteLabel } from "@/components/loads/parts";
-import { Badge, Card, EmptyState, LinkButton, PageHeader } from "@/components/ui/primitives";
+import { Badge, Card, EmptyState, LinkButton, PageHeader, Stat } from "@/components/ui/primitives";
+import { cn } from "@/lib/format";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
@@ -31,14 +33,45 @@ function stageOf(status: string, trip: { status: string } | undefined): Stage {
 }
 
 const PAGE_SIZE = 20;
+const STAGES = ["active", "onroad", "delivered"] as const;
+type StageFilter = (typeof STAGES)[number];
 
-export default async function MyLoadsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+/** Five stars, `rating` of them filled. */
+function Stars({ rating }: { rating: number }) {
+  return (
+    <span className="inline-flex" role="img" aria-label={`${rating} / 5`}>
+      {[1, 2, 3, 4, 5].map((n) => <Star key={n} className={n <= rating ? "h-4 w-4 fill-warn text-warn" : "h-4 w-4 text-border"} />)}
+    </span>
+  );
+}
+
+/** Average of the carriers' reviews of this company, or null when it has none. */
+async function companyRating(key: string | null): Promise<{ avg: number; n: number } | null> {
+  if (!key) return null;
+  const b = await db.broker.findUnique({ where: { normalizedName: key }, select: { id: true } });
+  if (!b) return null;
+  const [n, agg] = await Promise.all([db.brokerReview.count({ where: { brokerId: b.id } }), db.brokerReview.aggregate({ where: { brokerId: b.id }, _avg: { rating: true } })]);
+  const avg = agg._avg.rating;
+  return n > 0 && avg != null ? { avg, n } : null;
+}
+
+export default async function MyLoadsPage({ searchParams }: { searchParams: Promise<{ page?: string; stage?: string }> }) {
   const s = await requireSession();
-  const { t, ago, dateTime, relativeDay, usd } = await getI18n();
-  const { page: pageParam } = await searchParams;
+  const { t, ago, dateTime, relativeDay, usd, km, num } = await getI18n();
+  const { page: pageParam, stage: stageParam } = await searchParams;
+  const stageFilter = (STAGES as readonly string[]).includes(stageParam ?? "") ? (stageParam as StageFilter) : null;
   const page = Math.max(1, Number(pageParam) || 1);
-  const where = { sourceId: PLATFORM_SOURCE.id, externalId: { startsWith: `${s.orgId}-` } };
-  const [listings, total] = await Promise.all([
+  const ownListing = { sourceId: PLATFORM_SOURCE.id, externalId: { startsWith: `${s.orgId}-` } };
+  // The group the person picked (waiting / on the road / delivered); loads are told apart by the load's own state and its trips.
+  const inStage = {
+    active: { status: "ACTIVE" },
+    onroad: { trips: { some: { status: "IN_TRANSIT" } } },
+    delivered: { trips: { some: { status: "COMPLETED" } } },
+  } as const;
+  const where = { ...ownListing, ...(stageFilter ? { offer: inStage[stageFilter] } : {}) };
+  const ownOffers = { listings: { some: ownListing } };
+  const key = brokerKey(s.org.name);
+  const [listings, total, counts, rating] = await Promise.all([
     db.freightListing.findMany({
       where,
       distinct: ["offerId"],
@@ -55,7 +88,8 @@ export default async function MyLoadsPage({ searchParams }: { searchParams: Prom
               orderBy: { createdAt: "desc" },
               take: 1,
               select: {
-                id: true, status: true, etaAt: true, startedAt: true, completedAt: true, revenueUsd: true, paymentStatus: true, paidAt: true,
+                id: true, status: true, etaAt: true, startedAt: true, completedAt: true, revenueUsd: true, paymentStatus: true, paidAt: true, loadedKm: true,
+                review: { select: { rating: true, comment: true, paidOnTime: true, disputed: true, cancelled: true, createdAt: true } },
                 truck: { select: { code: true } },
                 org: { select: { name: true, memberships: { orderBy: { createdAt: "asc" }, take: 1, select: { user: { select: { name: true, email: true } } } } } },
               },
@@ -65,7 +99,17 @@ export default async function MyLoadsPage({ searchParams }: { searchParams: Prom
       },
     }),
     db.freightListing.count({ where }),
+    // The summary strip counts offers (a load posted twice is one), over everything this company posted.
+    Promise.all([
+      db.freightOffer.count({ where: ownOffers }),
+      db.freightOffer.count({ where: { ...ownOffers, status: "ACTIVE" } }),
+      db.freightOffer.count({ where: { ...ownOffers, trips: { some: { status: "IN_TRANSIT" } } } }),
+      db.freightOffer.count({ where: { ...ownOffers, trips: { some: { status: "COMPLETED" } } } }),
+    ]),
+    // What carriers think of working with this company (reviews are written about the company's broker identity).
+    companyRating(key),
   ]);
+  const [nPosted, nOpen, nRoad, nDelivered] = counts;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   // `distinct: ["offerId"]` above already collapses a load posted twice into one row.
   const rows = listings;
@@ -76,9 +120,38 @@ export default async function MyLoadsPage({ searchParams }: { searchParams: Prom
   return (
     <div className="mx-auto max-w-5xl space-y-5">
       <PageHeader title={t("ml.title")} subtitle={t("ml.subtitle")} actions={<LinkButton href="/app/post"><PackagePlus className="h-4 w-4" /> {t("ml.post")}</LinkButton>} />
+      {nPosted > 0 && (
+        <>
+          <Card className="grid grid-cols-2 gap-4 p-4 sm:grid-cols-5 sm:p-5">
+            <Stat label={t("ml.sumPosted")} value={nPosted} />
+            <Stat label={t("ml.sumOpen")} value={nOpen} />
+            <Stat label={t("ml.sumRoad")} value={nRoad} />
+            <Stat label={t("ml.sumDelivered")} value={nDelivered} />
+            <div>
+              <div className="text-xs text-muted">{t("ml.sumRating")}</div>
+              {rating ? (
+                <div className="mt-1 text-sm">
+                  <Stars rating={Math.round(rating.avg)} />
+                  <div className="num mt-0.5 font-semibold">{t("ml.sumRatingValue", { avg: num(Math.round(rating.avg * 10) / 10), n: rating.n, reviews: rating.n === 1 ? t("ml.review1") : t("ml.reviewN") })}</div>
+                </div>
+              ) : (
+                <div className="mt-1 text-sm text-muted">{t("ml.sumNoRating")}</div>
+              )}
+            </div>
+          </Card>
+          <nav className="flex flex-wrap gap-1.5 text-sm" aria-label={t("ml.title")}>
+            {([[null, t("ml.filterAll"), nPosted], ["active", t("ml.sumOpen"), nOpen], ["onroad", t("ml.sumRoad"), nRoad], ["delivered", t("ml.sumDelivered"), nDelivered]] as const).map(([k, text, n]) => (
+              <Link key={k ?? "all"} href={k ? `/app/my-loads?stage=${k}` : "/app/my-loads"} aria-current={stageFilter === k ? "page" : undefined}
+                className={cn("rounded-full border px-3 py-1 font-medium transition-colors", stageFilter === k ? "border-brand bg-brand text-white" : "border-border bg-surface text-muted hover:text-fg")}>
+                {text} <span className="num opacity-80">{n}</span>
+              </Link>
+            ))}
+          </nav>
+        </>
+      )}
       {rows.length === 0 ? (
         <Card>
-          <EmptyState icon={<PackagePlus className="h-5 w-5" />} title={t("ml.empty")} body={t("dash.firstLoadBody")} actions={<LinkButton href="/app/post">{t("ml.post")}</LinkButton>} />
+          <EmptyState icon={<PackagePlus className="h-5 w-5" />} title={stageFilter ? t("ml.noneInFilter") : t("ml.empty")} body={stageFilter ? undefined : `${t("dash.firstLoadBody")} ${t("ml.emptyHint")}`} actions={stageFilter ? undefined : <LinkButton href="/app/post">{t("ml.post")}</LinkButton>} />
         </Card>
       ) : (
         <ul className="space-y-3">
@@ -119,6 +192,33 @@ export default async function MyLoadsPage({ searchParams }: { searchParams: Prom
                   </div>
                 ) : (
                   stage === "active" && <p className="mt-3 text-xs text-muted"><Phone className="mr-1 inline h-3.5 w-3.5" />{t("ml.noCarrier")}</p>
+                )}
+
+                {stage === "delivered" && trip && (
+                  <div className="mt-3 rounded-lg border border-pos/30 bg-pos-soft/40 p-3 text-sm">
+                    <div className="flex items-center gap-2 font-medium text-pos">
+                      <CheckCircle2 className="h-4 w-4" /> {t("ml.deliveredAt", { when: trip.completedAt ? dateTime(trip.completedAt) : "—" })}
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted">{t("ml.deliveredKm", { km: km(trip.loadedKm) })}</div>
+                    <div className="mt-3 border-t border-pos/20 pt-3">
+                      <div className="text-xs font-medium uppercase tracking-wide text-muted">{t("ml.reviewTitle")}</div>
+                      {trip.review ? (
+                        <div className="mt-1.5 space-y-1.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Stars rating={trip.review.rating} />
+                            {trip.review.paidOnTime === true && <Badge tone="pos">{t("ml.reviewPaid")}</Badge>}
+                            {trip.review.paidOnTime === false && <Badge tone="warn">{t("ml.reviewLate")}</Badge>}
+                            {trip.review.disputed && <Badge tone="warn">{t("ml.reviewDisputed")}</Badge>}
+                            {trip.review.cancelled && <Badge tone="neg">{t("ml.reviewCancelled")}</Badge>}
+                            <span className="text-xs text-subtle">{t("ml.reviewOn", { when: dateTime(trip.review.createdAt) })}</span>
+                          </div>
+                          {trip.review.comment && <p className="whitespace-pre-line text-sm">“{trip.review.comment}”</p>}
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-sm text-muted">{t("ml.reviewNone")}</p>
+                      )}
+                    </div>
+                  </div>
                 )}
 
                 {trip && (
