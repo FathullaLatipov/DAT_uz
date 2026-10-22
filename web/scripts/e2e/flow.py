@@ -669,6 +669,14 @@ check("My loads shows the shipper's own review of the carrier", st == 200 and "Y
 for lang in ("ru", "uz"):
     check(f"My routes and Reviews render in {lang}", back.page("/app/my-routes?tab=history", lang)[0] == 200 and back.page("/app/reviews", lang)[0] == 200 and shipper.page("/app/reviews", lang)[0] == 200)
 
+# 30. Board: 50 per page, numbered pager, one list per device, no layout shift on the action cell
+st, pg = shipper.page("/app/loads?stale=1&page=2")
+rows = pg.count("data-row-id=")
+check("board: 50 loads per page", st == 200 and rows == 50, f"{st} rows={rows}")
+check("board: numbered pager with current page and range", 'aria-current="page"' in pg and "51–100 of" in html.unescape(pg), f"{st}")
+check("board: desktop gets the table only (no duplicated card list)", "<table" in pg and pg.count("data-row-id=") == rows, f"{st}")
+check("board: the quick-take icon no longer toggles display on hover (no layout shift)", "group-hover:inline-flex" not in pg, f"{st}")
+
 json.dump({"T3": T3, "RTRIP": RTRIP, "TRIP": TRIP}, open(os.environ.get("TEMP", ".") + "/e2e_trips.json", "w"))
 
 ok = sum(1 for _, o, _ in RESULTS if o)

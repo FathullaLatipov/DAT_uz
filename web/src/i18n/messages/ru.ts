@@ -2029,6 +2029,14 @@ export const ru: Messages = {
     cancel: "Отмена",
   },
 
+  pager: {
+    showing: "{from}–{to} из {total}",
+    page: "Страница {page}",
+    prev: "Предыдущая страница",
+    next: "Следующая страница",
+    go: "Перейти на страницу {page}",
+    loading: "Загружаем грузы…",
+  },
   enums: {
     CURTAINSIDER: "Тент",
     BOX: "Фургон",
