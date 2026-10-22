@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/server/db";
 import { api, HttpError } from "@/server/http";
 import { audit } from "@/server/security";
+import { tellLoadOwners } from "@/server/services/load-owner";
 
 const schema = z.object({
   rating: z.number().int().min(1).max(5),
@@ -19,7 +20,7 @@ export const POST = api<{ id: string }>(
     const b = schema.parse(await req.json());
     const trip = await db.trip.findUnique({
       where: { id: params.id },
-      include: { offer: { select: { brokerId: true } }, review: true },
+      include: { offer: { select: { id: true, brokerId: true, originCityId: true, destCityId: true, loadingDate: true } }, review: true },
     });
     if (!trip || trip.orgId !== session.orgId) throw new HttpError(404, "Trip not found.");
     if (trip.status !== "COMPLETED") throw new HttpError(400, "Only completed trips can be reviewed.");
@@ -39,6 +40,8 @@ export const POST = api<{ id: string }>(
       },
     });
     await audit({ userId: session.userId, orgId: session.orgId, action: "broker.review", entity: "BrokerReview", entityId: review.id, ip });
+    // The company that posted the load is told what the carrier thought of working with it.
+    await tellLoadOwners(trip.offer, { kind: "reviewed", carrier: session.org.name, rating: b.rating, comment: b.comment }).catch((e) => console.error("[review] notify failed", e));
     return { ok: true, id: review.id };
   },
   { limit: 20 },
