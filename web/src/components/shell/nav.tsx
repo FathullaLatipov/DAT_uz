@@ -4,69 +4,78 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  BarChart3, Bell, Bookmark, Calculator, ClipboardList, LayoutDashboard, LogOut, Menu, Package, PackagePlus, Settings, ShieldCheck, Sparkles, Truck, X,
+  BarChart3, Bell, Bookmark, Calculator, ClipboardList, LayoutDashboard, LogOut, Menu, Package, PackagePlus, Route, Settings, ShieldCheck, Sparkles, Star, Truck, X,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/format";
 import { apiCall } from "@/lib/client";
+import { navKeysFor, type NavKey } from "@/lib/nav-items";
 import { useI18n } from "@/i18n/client";
 import { LanguageSwitcher } from "../language-switcher";
 import { Logo } from "../logo";
 import { ThemeToggle } from "../theme-toggle";
 
-const NAV = [
-  { href: "/app", label: "dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/app/loads", label: "loadBoard", icon: Package },
-  { href: "/app/assistant", label: "aiDispatcher", icon: Sparkles },
-  { href: "/app/fleet", label: "fleet", icon: Truck, carrierOnly: true },
-  { href: "/app/analytics", label: "market", icon: BarChart3 },
-  { href: "/app/saved", label: "saved", icon: Bookmark },
-  { href: "/app/post", label: "postLoad", icon: PackagePlus },
-  { href: "/app/my-loads", label: "myLoads", icon: ClipboardList },
-  { href: "/app/calculator", label: "calculator", icon: Calculator },
-  { href: "/app/settings", label: "settings", icon: Settings },
-] as const;
-const ADMIN_ITEM = { href: "/app/admin", label: "admin", icon: ShieldCheck } as const;
-type NavItem = (typeof NAV)[number] | typeof ADMIN_ITEM;
+const ITEMS: Record<NavKey | "admin", { href: string; icon: LucideIcon; exact?: boolean }> = {
+  dashboard: { href: "/app", icon: LayoutDashboard, exact: true },
+  loadBoard: { href: "/app/loads", icon: Package },
+  aiDispatcher: { href: "/app/assistant", icon: Sparkles },
+  fleet: { href: "/app/fleet", icon: Truck },
+  market: { href: "/app/analytics", icon: BarChart3 },
+  saved: { href: "/app/saved", icon: Bookmark },
+  postLoad: { href: "/app/post", icon: PackagePlus },
+  myLoads: { href: "/app/my-loads", icon: ClipboardList },
+  myRoutes: { href: "/app/my-routes", icon: Route },
+  reviews: { href: "/app/reviews", icon: Star },
+  calculator: { href: "/app/calculator", icon: Calculator },
+  settings: { href: "/app/settings", icon: Settings },
+  admin: { href: "/app/admin", icon: ShieldCheck },
+};
+type NavItem = { key: NavKey | "admin"; href: string; icon: LucideIcon; exact?: boolean };
+const itemFor = (key: NavKey | "admin"): NavItem => ({ key, ...ITEMS[key] });
+/** The menu for one company: its keys in order, plus the admin entry for platform admins. */
+const menuFor = (o: { isAdmin: boolean; isBroker: boolean; hasTrucks: boolean; postsLoads: boolean }): NavItem[] => [
+  ...navKeysFor(o).map(itemFor),
+  ...(o.isAdmin ? [itemFor("admin")] : []),
+];
 // Compact labels for the 4-slot mobile bar.
-const SHORT: Partial<Record<NavItem["label"], "loadsShort" | "aiShort">> = { loadBoard: "loadsShort", aiDispatcher: "aiShort" };
+const SHORT: Partial<Record<NavKey | "admin", "loadsShort" | "aiShort">> = { loadBoard: "loadsShort", aiDispatcher: "aiShort" };
 
 const isActive = (path: string, href: string, exact?: boolean) => (exact ? path === href : path === href || path.startsWith(`${href}/`));
 
-export function Sidebar({ isAdmin, isBroker, orgName, plan }: { isAdmin: boolean; isBroker: boolean; orgName: string; plan: string }) {
+export function Sidebar({ isAdmin, isBroker, hasTrucks, postsLoads, orgName, plan }: { isAdmin: boolean; isBroker: boolean; hasTrucks: boolean; postsLoads: boolean; orgName: string; plan: string }) {
   const path = usePathname();
   const { t } = useI18n();
-  const base: readonly NavItem[] = isBroker ? NAV.filter((n) => !("carrierOnly" in n && n.carrierOnly)) : NAV;
-  const items: readonly NavItem[] = isAdmin ? [...base, ADMIN_ITEM] : base;
+  const items = menuFor({ isAdmin, isBroker, hasTrucks, postsLoads });
   return (
-    <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-border bg-surface lg:flex">
-      <div className="flex h-14 items-center px-5">
+    <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-border bg-surface lg:flex">
+      <div className="flex h-16 items-center px-6">
         <Link href="/app" aria-label={t("nav.dashboard")}>
           <Logo />
         </Link>
       </div>
-      <nav className="flex-1 space-y-0.5 px-3 py-2" aria-label={t("nav.main")}>
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2" aria-label={t("nav.main")}>
         {items.map((n) => {
-          const active = isActive(path, n.href, "exact" in n ? n.exact : false);
+          const active = isActive(path, n.href, n.exact);
           return (
             <Link
               key={n.href}
               href={n.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors",
-                active ? "bg-surface-2 font-medium text-fg" : "text-muted hover:bg-surface-2 hover:text-fg",
+                "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] leading-5 transition-colors",
+                active ? "bg-brand-soft font-semibold text-brand" : "font-medium text-muted hover:bg-surface-2 hover:text-fg",
               )}
             >
-              <n.icon className={cn("h-4 w-4", active ? "text-brand" : "text-subtle group-hover:text-muted")} />
-              {t(`nav.${n.label}`)}
+              <n.icon className={cn("h-[22px] w-[22px] shrink-0", active ? "text-brand" : "text-subtle group-hover:text-fg")} strokeWidth={active ? 2.25 : 1.9} />
+              <span className="min-w-0">{t(`nav.${n.key}`)}</span>
             </Link>
           );
         })}
       </nav>
       <div className="border-t border-border p-3">
-        <div className="rounded-lg bg-surface-2 px-3 py-2.5">
-          <div className="truncate text-sm font-medium">{orgName}</div>
-          <div className="text-xs text-muted">{t("nav.plan", { plan })}</div>
+        <div className="rounded-xl bg-surface-2 px-3.5 py-3">
+          <div className="truncate text-[15px] font-semibold">{orgName}</div>
+          <div className="text-sm text-muted">{t("nav.plan", { plan })}</div>
         </div>
       </div>
     </aside>
@@ -88,29 +97,29 @@ export function Topbar({ userName, unread, search }: { userName: string; unread:
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-bg/85 backdrop-blur supports-[backdrop-filter]:bg-bg/70">
-      <div className="flex h-14 items-center gap-2 px-4 sm:px-6">
+      <div className="flex h-16 items-center gap-1.5 px-4 sm:gap-2 sm:px-6">
         <Link href="/app" className="lg:hidden" aria-label={t("nav.dashboard")}>
           <Logo withText={false} />
         </Link>
         <div className="min-w-0 flex-1">{search}</div>
-        <Link href="/app/notifications" className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg" aria-label={unread ? t("nav.notificationsUnread", { n: unread }) : t("nav.notifications")}>
-          <Bell className="h-4 w-4" />
-          {unread > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent" />}
+        <Link href="/app/notifications" className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface-2 hover:text-fg sm:h-11 sm:w-11" aria-label={unread ? t("nav.notificationsUnread", { n: unread }) : t("nav.notifications")}>
+          <Bell className="h-[22px] w-[22px]" strokeWidth={1.9} />
+          {unread > 0 && <span className="absolute right-2.5 top-2.5 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-bg" />}
         </Link>
         <LanguageSwitcher />
         <ThemeToggle />
         <div className="relative">
-          <button onClick={() => setMenu((m) => !m)} className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-soft text-sm font-semibold text-brand" aria-label={t("nav.accountMenu")} aria-expanded={menu}>
+          <button onClick={() => setMenu((m) => !m)} className="ml-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-brand text-base font-semibold text-brand-fg shadow-card transition hover:brightness-110 sm:ml-1 sm:h-11 sm:w-11" aria-label={t("nav.accountMenu")} aria-expanded={menu}>
             {userName.slice(0, 1).toUpperCase()}
           </button>
           {menu && (
-            <div className="absolute right-0 top-11 w-52 animate-fade-up rounded-xl border border-border bg-surface p-1.5 shadow-pop">
-              <div className="truncate px-2.5 py-2 text-sm font-medium">{userName}</div>
-              <Link href="/app/settings" className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-muted hover:bg-surface-2 hover:text-fg">
-                <Settings className="h-4 w-4" /> {t("nav.settings")}
+            <div className="absolute right-0 top-14 w-56 animate-fade-up rounded-2xl border border-border bg-surface p-2 shadow-pop">
+              <div className="truncate px-3 py-2 text-[15px] font-semibold">{userName}</div>
+              <Link href="/app/settings" className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[15px] text-muted hover:bg-surface-2 hover:text-fg">
+                <Settings className="h-5 w-5" /> {t("nav.settings")}
               </Link>
-              <button onClick={logout} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-muted hover:bg-surface-2 hover:text-fg">
-                <LogOut className="h-4 w-4" /> {t("nav.signOut")}
+              <button onClick={logout} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-[15px] text-muted hover:bg-surface-2 hover:text-fg">
+                <LogOut className="h-5 w-5" /> {t("nav.signOut")}
               </button>
             </div>
           )}
@@ -121,29 +130,29 @@ export function Topbar({ userName, unread, search }: { userName: string; unread:
 }
 
 /** Dedicated mobile navigation: 4 primary destinations + a "More" sheet. */
-export function MobileNav({ isAdmin, isBroker }: { isAdmin: boolean; isBroker: boolean }) {
+export function MobileNav({ isAdmin, isBroker, hasTrucks, postsLoads }: { isAdmin: boolean; isBroker: boolean; hasTrucks: boolean; postsLoads: boolean }) {
   const path = usePathname();
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   useEffect(() => setOpen(false), [path]);
-  const base: readonly NavItem[] = isBroker ? NAV.filter((n) => !("carrierOnly" in n && n.carrierOnly)) : NAV;
-  const primary = base.slice(0, 4);
-  const more: NavItem[] = [...base.slice(4), ...(isAdmin ? [ADMIN_ITEM] : [])];
+  const all = menuFor({ isAdmin, isBroker, hasTrucks, postsLoads });
+  const primary = all.slice(0, 4);
+  const more = all.slice(4);
   return (
     <>
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" aria-label={t("nav.main")}>
         <div className="grid grid-cols-5">
           {primary.map((n) => {
-            const active = isActive(path, n.href, "exact" in n ? n.exact : false);
+            const active = isActive(path, n.href, n.exact);
             return (
-              <Link key={n.href} href={n.href} aria-current={active ? "page" : undefined} className={cn("flex flex-col items-center gap-0.5 py-2 text-xs", active ? "text-brand" : "text-muted")}>
-                <n.icon className="h-5 w-5" />
-                {t(`nav.${SHORT[n.label] ?? n.label}`)}
+              <Link key={n.href} href={n.href} aria-current={active ? "page" : undefined} className={cn("flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium", active ? "text-brand" : "text-muted")}>
+                <n.icon className="h-6 w-6" strokeWidth={active ? 2.25 : 1.9} />
+                {t(`nav.${SHORT[n.key] ?? n.key}`)}
               </Link>
             );
           })}
-          <button onClick={() => setOpen(true)} className="flex flex-col items-center gap-0.5 py-2 text-xs text-muted" aria-expanded={open}>
-            <Menu className="h-5 w-5" /> {t("nav.more")}
+          <button onClick={() => setOpen(true)} className="flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium text-muted" aria-expanded={open}>
+            <Menu className="h-6 w-6" strokeWidth={1.9} /> {t("nav.more")}
           </button>
         </div>
       </nav>
@@ -159,9 +168,9 @@ export function MobileNav({ isAdmin, isBroker }: { isAdmin: boolean; isBroker: b
             </div>
             <div className="grid grid-cols-3 gap-2">
               {more.map((n) => (
-                <Link key={n.href} href={n.href} className="flex flex-col items-center gap-1.5 rounded-xl bg-surface-2 px-2 py-3 text-xs">
-                  <n.icon className="h-5 w-5 text-brand" />
-                  {t(`nav.${n.label}`)}
+                <Link key={n.href} href={n.href} className="flex flex-col items-center gap-2 rounded-2xl bg-surface-2 px-2 py-4 text-center text-[13px] font-medium">
+                  <n.icon className="h-6 w-6 text-brand" />
+                  {t(`nav.${n.key}`)}
                 </Link>
               ))}
             </div>

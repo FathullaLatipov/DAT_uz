@@ -5,18 +5,19 @@ import { hideDemoFreight } from "@/server/domain/demo";
 import { NlSearch } from "@/components/shell/nl-search";
 import { after } from "next/server";
 import { getI18n } from "@/i18n/server";
+import { navFlags } from "@/server/services/nav";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const s = await requireSession();
   const { t, locale } = await getI18n();
   // Notifications are written in the language the person last used the site in (the switcher only sets a cookie).
   after(() => db.user.updateMany({ where: { id: s.userId, OR: [{ locale: null }, { NOT: { locale } }] }, data: { locale } }).catch(() => {}));
-  const unread = await db.notification.count({ where: { userId: s.userId, readAt: null } });
+  const [unread, nav] = await Promise.all([db.notification.count({ where: { userId: s.userId, readAt: null } }), navFlags(s.orgId)]);
   const isAdmin = s.platformRole === "ADMIN";
   const isBroker = s.role === "BROKER";
   return (
     <div className="flex min-h-dvh">
-      <Sidebar isAdmin={isAdmin} isBroker={isBroker} orgName={s.org.name} plan={s.org.plan} />
+      <Sidebar isAdmin={isAdmin} isBroker={isBroker} hasTrucks={nav.hasTrucks} postsLoads={nav.postsLoads} orgName={s.org.name} plan={s.org.plan} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar userName={s.user.name} unread={unread} search={<NlSearch />} />
         {s.org.isDemo && (
@@ -26,7 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         )}
         <main className="flex-1 px-4 pb-24 pt-5 sm:px-6 lg:pb-10">{children}</main>
       </div>
-      <MobileNav isAdmin={isAdmin} isBroker={isBroker} />
+      <MobileNav isAdmin={isAdmin} isBroker={isBroker} hasTrucks={nav.hasTrucks} postsLoads={nav.postsLoads} />
     </div>
   );
 }
