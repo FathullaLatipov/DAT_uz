@@ -139,7 +139,7 @@ export function LoadDetailPanel({ offerId, context }: { offerId: string; context
       t("panel.copyLoading", { when: dateTime(o.loadingDate) }),
       o.unloadingDate ? t("panel.copyUnloading", { when: shortDate(o.unloadingDate) }) : null,
       o.rateUsd > 0 ? t("panel.copyRate", { rate: `${usd(o.rateUsd)}${perKmRate ? ` (${perKm(perKmRate)})` : ""}` }) : t("panel.copyRateNegotiable"),
-      `https://karvon.latipovfathulla.uz${fullPageHref}`,
+      `https://karvonai.uz${fullPageHref}`,
     ]
       .filter(Boolean)
       .join("\n");
