@@ -3,7 +3,7 @@
 Read this first; it saves you from re-deriving the project. Last updated 2026-10-21. Detailed product docs: `web/README.md` (architecture, data model, features), `web/docs/ROADMAP.md` (stage plan and status), `web/docs/DATA_SOURCES.md` (freight sources and what is allowed).
 
 ## What it is
-**Karvon** — freight platform for Uzbekistan and its corridors (KZ, KG, TJ, TM, RU, CN, TR, AZ, GE, BY, AM). Carriers find loads ranked for their truck (fit, deadhead, profit, route); shippers/brokers post loads; both sides run the trip end to end (take → start → track → deliver → pay → review). Production: https://karvon.latipovfathulla.uz (server 187.124.130.233).
+**Karvon** — freight platform for Uzbekistan and its corridors (KZ, KG, TJ, TM, RU, CN, TR, AZ, GE, BY, AM). Carriers find loads ranked for their truck (fit, deadhead, profit, route); shippers/brokers post loads; both sides run the trip end to end (take → start → track → deliver → pay → review). Production: https://karvonai.uz (old name karvon.latipovfathulla.uz still served; server 187.124.130.233).
 
 Code lives in `web/` (the git root is one level up). Next.js 15 App Router + TypeScript + Tailwind v4 + Prisma 6 + PostgreSQL. UI languages EN/RU/UZ (Latin). The owner talks in short Russian messages; **reply in Russian**, keep answers short and concrete, say what you did and what you did not verify.
 
